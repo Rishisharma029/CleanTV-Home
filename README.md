@@ -29,6 +29,7 @@ Most modern Android TVs and Google TVs (Realme, Xiaomi, TCL, Hisense, Chromecast
 * 📦 **Pre-Compiled & Zero Setup**: Includes tested, ready-to-install release APKs (`com.gathin.tvhome`). No need to install Java, Android SDK, or build tools.
 * 🔌 **Zero-Dependency ADB**: The installer auto-detects or downloads standalone Google Android platform-tools directly—anyone can run it.
 * 🛡️ **100% Safe & Reversible**: Does **not** permanently delete any system files. Uses standard Android `pm disable-user --user 0`. If you change your mind, a single click on `restore.bat` restores the stock factory TV launcher in 5 seconds.
+* 🛑 **Integrated Ad-Blocking Suite**: Built-in 1-click system-wide ad-blocking (AdGuard DNS, Control D), dashboard card for Pi-hole/AdGuard Home, and ad-free YouTube integration.
 
 ---
 
@@ -178,6 +179,34 @@ graph LR
 * **Storage Dashboard**: Direct live memory indicator at the top bar reporting free/used space.
 * **HDMI Input Switcher**: Instant switching between HDMI 1, HDMI 2, AV, and Live TV.
 * **Dynamic Accent Glow**: The top shelf smoothly casts ambient glow matching the accent colors of the selected app.
+
+---
+
+## 🛑 Integrated Ad-Blocking Suite
+
+CleanTV Home includes a multi-layered ad-blocking suite designed specifically for Android TV:
+
+```mermaid
+graph LR
+    A["Ad-Blocking Suite"] --> B["System-Wide Private DNS"]
+    A --> C["Dashboard Card (Pi-hole / AdGuard)"]
+    A --> D["Ad-Free 4K Streaming (SmartTube)"]
+    B --> E["Zero RAM / Blocks banner ads & telemetry"]
+    C --> F["Live dock counters & 5-min pause button"]
+    D --> G["No video ads / SponsorBlock"]
+```
+
+### 1. Zero-Overhead System-Wide DNS (AdGuard / Control D)
+* **How to run**: Double-click [**`tools/adblock.bat`**](tools/adblock.bat) or run `./tools/adblock.sh`.
+* **Zero RAM / Zero CPU**: Uses Android's native Linux kernel DNS resolver. Blocks ads and tracking across all installed TV apps without running any background apps.
+
+### 2. CleanTV Ad-Block Dashboard Card
+* Pre-compiled APK in [**`apks/addons/ad-blocking.apk`**](apks/addons/ad-blocking.apk).
+* Connects directly to local [Pi-hole](https://pi-hole.net) or [AdGuard Home](https://adguard.com).
+* Displays live queries blocked and percentage. Pressing **OK** on your remote pauses blocking for 5 minutes when a temporary stream requires it.
+
+### 3. Ad-Free 4K YouTube Client
+* Seamless 1-click install for SmartTube with 4K HDR 60fps playback, SponsorBlock, and zero video advertisements.
 
 ---
 

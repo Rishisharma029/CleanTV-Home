@@ -105,6 +105,18 @@ if [ -f "$PRESET" ]; then
   done < "$PRESET"
 fi
 
+# 6. Ad-Blocking Private DNS
+read -r -p "Enable System-Wide Ad-Blocking DNS (AdGuard DNS)? [Y/n]: " ENABLE_DNS
+ENABLE_DNS="${ENABLE_DNS:-Y}"
+case "$ENABLE_DNS" in
+  [yY]*)
+    echo "Enabling Ad-Blocking Private DNS..."
+    "$ADB" -s "$SERIAL" shell settings put global private_dns_mode hostname
+    "$ADB" -s "$SERIAL" shell settings put global private_dns_specifier dns.adguard-dns.com
+    echo "Ad-Blocking DNS enabled!"
+    ;;
+esac
+
 echo ""
 echo "============================================================"
 echo "                 SETUP COMPLETE!                            "

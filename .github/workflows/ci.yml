@@ -33,7 +33,7 @@ jobs:
       - name: Shellcheck Installer Scripts
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
-            shellcheck -s bash install.sh restore.sh tools/get-adb.sh
+            shellcheck -s bash install.sh restore.sh tools/get-adb.sh tools/adblock.sh
           fi
 
   android-build:

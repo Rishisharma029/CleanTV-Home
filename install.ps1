@@ -127,22 +127,30 @@ if ($Mode -eq 'interactive') {
   Write-Host "  [1] Recommended Full Setup (Install Clean Launcher + Safe Debloat + Auto Backup)" -ForegroundColor White
   Write-Host "  [2] Launcher Only (Install Clean Launcher, Keep All Apps Untouched)" -ForegroundColor White
   Write-Host "  [3] Debloat Only (Disable Ads/Telemetry, Keep Current Launcher)" -ForegroundColor White
-  Write-Host "  [4] Restore Stock (Restore Default Factory Launcher & Re-enable All Apps)" -ForegroundColor White
-  Write-Host "  [5] Backup / Snapshot Only (Export installed packages & settings)" -ForegroundColor White
+  Write-Host "  [4] Ad-Blocking Suite (System-Wide Ad-Blocking DNS, Dashboard Tile & SmartTube)" -ForegroundColor White
+  Write-Host "  [5] Restore Stock (Restore Default Factory Launcher & Re-enable All Apps)" -ForegroundColor White
+  Write-Host "  [6] Backup / Snapshot Only (Export installed packages & settings)" -ForegroundColor White
   Write-Host "  [Q] Exit`n" -ForegroundColor Gray
 
-  $choice = Read-Host "Enter option [1-5 or Q, default: 1]"
+  $choice = Read-Host "Enter option [1-6 or Q, default: 1]"
   if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "1" }
 
   switch ($choice.ToUpper()) {
     "1" { $Mode = "full" }
     "2" { $Mode = "launcher-only" }
     "3" { $Mode = "debloat-only" }
-    "4" { $Mode = "restore" }
-    "5" { $Mode = "backup-only" }
+    "4" { $Mode = "adblock" }
+    "5" { $Mode = "restore" }
+    "6" { $Mode = "backup-only" }
     "Q" { exit 0 }
     default { $Mode = "full" }
   }
+}
+
+# Option: Adblock
+if ($Mode -eq 'adblock') {
+  & powershell -NoProfile -ExecutionPolicy Bypass -File "$repoRoot\tools\adblock.ps1" -TvIp $targetSerial -AdbPath $adbExe
+  exit 0
 }
 
 # Option 4: Restore
@@ -261,6 +269,19 @@ if ($Mode -in @('full', 'debloat-only')) {
       }
     }
     Write-Host "  Safe debloat complete!" -ForegroundColor Green
+  }
+}
+
+# Optional Ad-Blocking step
+if ($Mode -eq 'full') {
+  Write-Host "`nEnable System-Wide Ad-Blocking DNS (dns.adguard-dns.com)?" -ForegroundColor Cyan
+  Write-Host "  • Zero RAM / Zero CPU overhead" -ForegroundColor Gray
+  Write-Host "  • Blocks banner ads, telemetry & tracking across all apps" -ForegroundColor Gray
+  $enableAdblock = Read-Host "Enable Ad-Blocking DNS? [Y/n, default: Y]"
+  if ([string]::IsNullOrWhiteSpace($enableAdblock) -or $enableAdblock.ToUpper() -eq 'Y') {
+    & $adbExe -s $targetSerial shell settings put global private_dns_mode hostname | Out-Null
+    & $adbExe -s $targetSerial shell settings put global private_dns_specifier dns.adguard-dns.com | Out-Null
+    Write-Host "✓ System-wide Ad-Blocking DNS enabled!" -ForegroundColor Green
   }
 }
 

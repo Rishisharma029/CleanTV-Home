@@ -148,7 +148,7 @@
             android:layout_width="wrap_content"
             android:layout_height="6dp"
             android:layout_marginStart="4dp"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="6dp"
             android:orientation="horizontal"
             android:visibility="gone" />
         <TextView
@@ -156,17 +156,18 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="8dp"
             android:textColor="#B3FFFFFF"
-            android:textSize="14sp"
+            android:textSize="13sp"
+            android:letterSpacing="0.04"
             android:fontFamily="@string/font_medium"
             android:visibility="gone" />
 
         <HorizontalScrollView
             android:id="@+id/recommendationScroll"
             android:layout_width="match_parent"
-            android:layout_height="108dp"
-            android:layout_marginTop="8dp"
+            android:layout_height="92dp"
+            android:layout_marginTop="6dp"
             android:fillViewport="false"
             android:scrollbars="none"
             android:visibility="gone"

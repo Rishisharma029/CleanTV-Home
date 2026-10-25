@@ -1840,10 +1840,28 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- top shelf -------------------------------------------------------------------------------
 
+    private float calculateHeroY(float dockTopInRoot) {
+        boolean hasShelf = recommendationScroll != null && recommendationScroll.getVisibility() == View.VISIBLE;
+        float gap = (hasShelf ? 16f : 24f) * density;
+        float y = dockTopInRoot - gap - hero.getHeight();
+
+        float minY = 135f * density;
+        if (clockBlock != null && clockBlock.getHeight() > 0) {
+            Rect clockRect = new Rect();
+            clockBlock.getDrawingRect(clockRect);
+            root.offsetDescendantRectToMyCoords(clockBlock, clockRect);
+            minY = Math.max(minY, clockRect.bottom + 14f * density);
+        }
+        if (y < minY) {
+            y = minY;
+        }
+        return y;
+    }
+
     private void showHero(int position, float dockTopInRoot) {
         String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
         int color = adapter.ambientColorAt(position);
-        float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
+        float y = calculateHeroY(dockTopInRoot);
         boolean changed = !label.contentEquals(heroName.getText());
         if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
         if (DYNAMIC_TOP_SHELF_ENABLED) requestTopShelfForFocus(position);
@@ -1982,6 +2000,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             recommendationHeading.setVisibility(View.GONE);
             recommendationCards.setVisibility(View.GONE);
             recommendationScroll.setVisibility(View.GONE);
+            hero.post(() -> {
+                View focused = findFocusedDockCard();
+                if (focused != null) {
+                    Rect rect = new Rect(0, 0, focused.getWidth(), focused.getHeight());
+                    root.offsetDescendantRectToMyCoords(focused, rect);
+                    hero.setY(calculateHeroY(rect.top));
+                }
+            });
             return;
         }
         activeShelfItems.addAll(items);
@@ -2118,8 +2144,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (focused != null) {
                     Rect rect = new Rect(0, 0, focused.getWidth(), focused.getHeight());
                     root.offsetDescendantRectToMyCoords(focused, rect);
-                    float y = rect.top - 14 * density - 26 * density - hero.getHeight();
-                    hero.setY(y);
+                    hero.setY(calculateHeroY(rect.top));
                 }
             }
         });

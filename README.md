@@ -81,7 +81,7 @@ sequenceDiagram
     Script->>TV: Connect to TV_IP:5555
     TV-->>User: Display 'Allow USB debugging?' on TV screen
     User->>TV: Check 'Always allow' and click OK on Remote
-    Script->>TV: Dump full package & settings backup to backups/
+    Script->>TV: Dump full package and settings backup to backups/
     Script->>TV: Sideload clean-tv-launcher-latest.apk
     Script->>TV: Set CleanTV Home as default Home activity
     Script->>TV: Safely disable stock ad-launcher (pm disable-user)
@@ -137,11 +137,11 @@ If you ever want to revert everything back to the manufacturer's original state:
 * **macOS / Linux**: Run `./restore.sh`
 
 ```mermaid
-flowchart LR
-    A["restore.bat / restore.sh"] --> B["Re-enable stock launcher"]
-    B --> C["Re-enable OEM & Google services"]
+graph LR
+    A["restore.bat or restore.sh"] --> B["Re-enable stock launcher"]
+    B --> C["Re-enable OEM and Google services"]
     C --> D["Set stock launcher as Home"]
-    D --> E["100% Factory State Restored"]
+    D --> E["Factory State Restored"]
 ```
 
 ---

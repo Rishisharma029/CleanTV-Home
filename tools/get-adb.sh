@@ -4,7 +4,7 @@
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if command -v adb >/dev/null 2>&1; then
-  echo "$(command -v adb)"
+  command -v adb
   exit 0
 fi
 

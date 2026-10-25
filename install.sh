@@ -22,7 +22,7 @@ fi
 
 # 2. TV Connection
 if [ -z "$1" ]; then
-  read -p "Enter your TV IP address [default: 192.168.0.159]: " TV_IP
+  read -r -p "Enter your TV IP address [default: 192.168.0.159]: " TV_IP
   TV_IP="${TV_IP:-192.168.0.159}"
 else
   TV_IP="$1"
@@ -40,15 +40,17 @@ echo "Connecting to TV at $SERIAL..."
 TIMEOUT=30
 GRANTED=false
 echo "Checking TV authorization..."
-for i in $(seq 1 $TIMEOUT); do
+for _ in $(seq 1 "$TIMEOUT"); do
   STATE="$("$ADB" -s "$SERIAL" get-state 2>&1 || true)"
   if [ "$STATE" = "device" ]; then
     GRANTED=true
     break
   fi
-  if [[ "$STATE" == *"unauthorized"* ]]; then
-    echo "LOOK AT YOUR TV SCREEN! Check 'Always allow from this computer' and press OK on your TV remote."
-  fi
+  case "$STATE" in
+    *unauthorized*)
+      echo "LOOK AT YOUR TV SCREEN! Check 'Always allow from this computer' and press OK on your TV remote."
+      ;;
+  esac
   sleep 1
 done
 

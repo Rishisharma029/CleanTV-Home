@@ -6,8 +6,10 @@ import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Looper;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.net.Inet4Address;
@@ -17,11 +19,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,11 +33,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Zero-install local HTTP micro-server serving the Mobile Web Remote & Keyboard:
+ * Zero-install local HTTP micro-server serving the Mobile Web Remote & Add-on Package Manager:
  * - Hosted on local TV Wi-Fi IP (default port 8080 / 8888).
- * - Instant phone control with zero apps to install.
+ * - Instant phone & PC control with zero apps to install.
  * - Virtual keyboard text input, D-pad, volume, and TV quick settings.
  * - 1-Tap App Launcher and real-time drag-and-drop dock reordering.
+ * - Built-in CleanTV Add-on Hub: 1-click catalog install and wireless PC/phone APK sideloading.
  */
 public final class WebRemoteServer {
 
@@ -143,17 +147,39 @@ public final class WebRemoteServer {
         return "http://" + getLocalIpAddress(context) + ":" + activePort;
     }
 
+    private static String readHeaderLine(InputStream in) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        int b;
+        while ((b = in.read()) != -1) {
+            if (b == '\n') break;
+            if (b != '\r') baos.write(b);
+        }
+        if (b == -1 && baos.size() == 0) return null;
+        return baos.toString(StandardCharsets.UTF_8);
+    }
+
     private static void handleClient(Socket socket) {
         try (socket;
-             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+             InputStream in = socket.getInputStream();
              OutputStream out = socket.getOutputStream()) {
 
-            String requestLine = reader.readLine();
+            String requestLine = readHeaderLine(in);
             if (requestLine == null || requestLine.isEmpty()) return;
 
             String[] parts = requestLine.split(" ");
             if (parts.length < 2) return;
             String uri = parts[1];
+
+            // Parse headers
+            Map<String, String> headers = new HashMap<>();
+            String headerLine;
+            while ((headerLine = readHeaderLine(in)) != null && !headerLine.isEmpty()) {
+                int colon = headerLine.indexOf(':');
+                if (colon > 0) {
+                    headers.put(headerLine.substring(0, colon).trim().toLowerCase(Locale.US),
+                                headerLine.substring(colon + 1).trim());
+                }
+            }
 
             if (uri.startsWith("/api/key")) {
                 int code = extractQueryParamInt(uri, "code", -1);
@@ -241,6 +267,68 @@ public final class WebRemoteServer {
                     }
                 }
                 sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"pkg\":\"" + (pkg != null ? pkg : "") + "\"}");
+            } else if (uri.startsWith("/api/addons/install")) {
+                String id = extractQueryParam(uri, "id");
+                AddonCatalog.AddonItem item = AddonCatalog.findById(id);
+                boolean started = false;
+                if (item != null) {
+                    Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                    if (act != null) {
+                        AddonCatalog.downloadAndInstall(act, item, null);
+                        started = true;
+                    }
+                }
+                sendJson(out, "{\"status\":\"" + (started ? "ok" : "error") + "\",\"id\":\"" + (id != null ? id : "") + "\"}");
+            } else if (uri.startsWith("/api/addons")) {
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                List<AddonCatalog.AddonItem> list = AddonCatalog.getCatalog();
+                StringBuilder sb = new StringBuilder("[");
+                for (int i = 0; i < list.size(); i++) {
+                    if (i > 0) sb.append(",");
+                    AddonCatalog.AddonItem item = list.get(i);
+                    boolean installed = act != null && AddonCatalog.isInstalled(act, item.pkg);
+                    sb.append("{\"id\":\"").append(escapeJson(item.id))
+                      .append("\",\"name\":\"").append(escapeJson(item.name))
+                      .append("\",\"category\":\"").append(escapeJson(item.category))
+                      .append("\",\"description\":\"").append(escapeJson(item.description))
+                      .append("\",\"pkg\":\"").append(escapeJson(item.pkg))
+                      .append("\",\"installed\":").append(installed)
+                      .append("}");
+                }
+                sb.append("]");
+                sendJson(out, sb.toString());
+            } else if (uri.startsWith("/api/upload")) {
+                // Sideload APK directly from PC / Mobile browser over Wi-Fi
+                String fileName = extractQueryParam(uri, "name");
+                if (fileName == null || fileName.isEmpty() || !fileName.endsWith(".apk")) {
+                    fileName = "sideload_" + System.currentTimeMillis() + ".apk";
+                }
+                String lenHeader = headers.get("content-length");
+                long contentLength = lenHeader != null ? Long.parseLong(lenHeader) : 0;
+
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                if (act != null && contentLength > 0) {
+                    File targetDir = act.getExternalCacheDir() != null ? act.getExternalCacheDir() : act.getCacheDir();
+                    File dest = new File(targetDir, fileName);
+                    try (FileOutputStream fos = new FileOutputStream(dest)) {
+                        byte[] buf = new byte[8192];
+                        long totalRead = 0;
+                        int n;
+                        while (totalRead < contentLength && (n = in.read(buf, 0, (int) Math.min(buf.length, contentLength - totalRead))) != -1) {
+                            fos.write(buf, 0, n);
+                            totalRead += n;
+                        }
+                        fos.flush();
+                    }
+                    // Trigger TV installation on UI thread
+                    Handler h = getMainHandler();
+                    if (h != null) {
+                        h.post(() -> AddonCatalog.installApkFile(act, dest));
+                    }
+                    sendJson(out, "{\"status\":\"ok\",\"file\":\"" + escapeJson(fileName) + "\"}");
+                } else {
+                    sendJson(out, "{\"status\":\"error\",\"message\":\"Missing file content or TV inactive\"}");
+                }
             } else {
                 // Serve HTML5 Remote Web App
                 sendHtml(out, buildRemoteHtml());
@@ -305,6 +393,9 @@ public final class WebRemoteServer {
                     switch (cmd) {
                         case "control_center":
                             main.showControlCenter();
+                            break;
+                        case "addon_hub":
+                            main.showAddonHub();
                             break;
                         case "gamemode":
                             GameModeManager.toggle(main);
@@ -399,40 +490,40 @@ public final class WebRemoteServer {
                 "  <style>\n" +
                 "    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; user-select: none; }\n" +
                 "    body { background: #0b0f19; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 16px 14px 40px; }\n" +
-                "    .header { width: 100%; max-width: 380px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 0 4px; }\n" +
+                "    .header { width: 100%; max-width: 400px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 0 4px; }\n" +
                 "    .title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }\n" +
                 "    .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981; }\n" +
                 "    .subtitle { font-size: 11px; color: #64748b; font-weight: 500; }\n" +
-                "    .tabs { display: flex; width: 100%; max-width: 380px; background: rgba(30, 41, 59, 0.6); border-radius: 14px; padding: 4px; margin-bottom: 14px; gap: 4px; border: 1px solid rgba(255,255,255,0.06); }\n" +
-                "    .tab-btn { flex: 1; background: transparent; border: none; color: #94a3b8; padding: 9px 0; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; gap: 6px; }\n" +
+                "    .tabs { display: flex; width: 100%; max-width: 400px; background: rgba(30, 41, 59, 0.6); border-radius: 14px; padding: 4px; margin-bottom: 14px; gap: 3px; border: 1px solid rgba(255,255,255,0.06); }\n" +
+                "    .tab-btn { flex: 1; background: transparent; border: none; color: #94a3b8; padding: 9px 0; font-size: 11px; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; gap: 4px; }\n" +
                 "    .tab-btn.active { background: #38bdf8; color: #0b0f19; font-weight: 700; box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35); }\n" +
-                "    .tab-content { width: 100%; max-width: 380px; }\n" +
+                "    .tab-content { width: 100%; max-width: 400px; }\n" +
                 "    .card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 14px; margin-bottom: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }\n" +
                 "    .input-box { display: flex; gap: 8px; }\n" +
-                "    input[type=text] { flex: 1; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; color: #fff; padding: 12px 14px; font-size: 15px; outline: none; user-select: text; }\n" +
+                "    input[type=text] { flex: 1; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; color: #fff; padding: 12px 14px; font-size: 14px; outline: none; user-select: text; }\n" +
                 "    input[type=text]:focus { border-color: #38bdf8; }\n" +
-                "    .btn-send { background: #38bdf8; color: #0f172a; border: none; border-radius: 12px; font-weight: 700; padding: 0 18px; cursor: pointer; }\n" +
-                "    .dpad-container { width: 250px; height: 250px; position: relative; margin: 10px auto 14px; background: rgba(15, 23, 42, 0.9); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); box-shadow: inset 0 4px 20px rgba(0,0,0,0.6); }\n" +
+                "    .btn-send { background: #38bdf8; color: #0f172a; border: none; border-radius: 12px; font-weight: 700; padding: 0 16px; cursor: pointer; }\n" +
+                "    .dpad-container { width: 240px; height: 240px; position: relative; margin: 10px auto 14px; background: rgba(15, 23, 42, 0.9); border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); box-shadow: inset 0 4px 20px rgba(0,0,0,0.6); }\n" +
                 "    .dpad-btn { position: absolute; background: transparent; border: none; color: #e2e8f0; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.08s, background 0.1s; }\n" +
                 "    .dpad-btn:active { background: rgba(255,255,255,0.08); transform: scale(0.94); }\n" +
-                "    .btn-up { top: 6px; left: 70px; width: 110px; height: 68px; border-radius: 55px 55px 0 0; }\n" +
-                "    .btn-down { bottom: 6px; left: 70px; width: 110px; height: 68px; border-radius: 0 0 55px 55px; }\n" +
-                "    .btn-left { top: 70px; left: 6px; width: 68px; height: 110px; border-radius: 55px 0 0 55px; }\n" +
-                "    .btn-right { top: 70px; right: 6px; width: 68px; height: 110px; border-radius: 0 55px 55px 0; }\n" +
-                "    .btn-center { top: 76px; left: 76px; width: 98px; height: 98px; border-radius: 50%; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); font-weight: 700; font-size: 15px; color: #38bdf8; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }\n" +
+                "    .btn-up { top: 6px; left: 65px; width: 110px; height: 65px; border-radius: 55px 55px 0 0; }\n" +
+                "    .btn-down { bottom: 6px; left: 65px; width: 110px; height: 65px; border-radius: 0 0 55px 55px; }\n" +
+                "    .btn-left { top: 65px; left: 6px; width: 65px; height: 110px; border-radius: 55px 0 0 55px; }\n" +
+                "    .btn-right { top: 65px; right: 6px; width: 65px; height: 110px; border-radius: 0 55px 55px 0; }\n" +
+                "    .btn-center { top: 72px; left: 72px; width: 96px; height: 96px; border-radius: 50%; background: #1e293b; border: 1px solid rgba(255,255,255,0.15); font-weight: 700; font-size: 15px; color: #38bdf8; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }\n" +
                 "    .btn-center:active { transform: scale(0.92); background: #334155; }\n" +
                 "    .grid-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; margin-bottom: 12px; }\n" +
-                "    .btn-ctrl { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; height: 52px; color: #fff; font-size: 13px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; transition: transform 0.08s, background 0.1s; }\n" +
+                "    .btn-ctrl { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; height: 50px; color: #fff; font-size: 12px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; transition: transform 0.08s, background 0.1s; }\n" +
                 "    .btn-ctrl:active { transform: scale(0.95); background: rgba(255,255,255,0.12); }\n" +
-                "    .icon { font-size: 16px; }\n" +
+                "    .icon { font-size: 15px; }\n" +
                 "    .search-box { width: 100%; margin-bottom: 12px; }\n" +
                 "    .app-card { display: flex; align-items: center; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s ease; }\n" +
                 "    .app-card:active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); transform: scale(0.98); }\n" +
-                "    .app-icon { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #38bdf8, #818cf8); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #0f172a; margin-right: 12px; flex-shrink: 0; }\n" +
+                "    .app-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #38bdf8, #818cf8); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #0f172a; margin-right: 12px; flex-shrink: 0; }\n" +
                 "    .app-details { flex: 1; min-width: 0; }\n" +
-                "    .app-title { font-size: 14px; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n" +
+                "    .app-title { font-size: 13px; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n" +
                 "    .app-pkg { font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n" +
-                "    .btn-launch { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 600; flex-shrink: 0; }\n" +
+                "    .btn-launch { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 5px 12px; font-size: 11px; font-weight: 600; flex-shrink: 0; }\n" +
                 "    .dock-hint { font-size: 12px; color: #94a3b8; text-align: center; margin-bottom: 12px; line-height: 1.4; }\n" +
                 "    .dock-item { display: flex; align-items: center; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; transition: transform 0.15s, background 0.15s; }\n" +
                 "    .dock-item.dragging { opacity: 0.4; border-style: dashed; }\n" +
@@ -440,12 +531,24 @@ public final class WebRemoteServer {
                 "    .drag-handle { font-size: 18px; color: #64748b; padding: 0 10px 0 2px; cursor: grab; }\n" +
                 "    .pos-badge { background: #0f172a; color: #38bdf8; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 3px 6px; margin-right: 10px; border: 1px solid rgba(56,189,248,0.2); }\n" +
                 "    .dock-details { flex: 1; min-width: 0; }\n" +
-                "    .dock-title { font-size: 14px; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n" +
+                "    .dock-title { font-size: 13px; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n" +
                 "    .dock-pkg { font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n" +
                 "    .dock-actions { display: flex; gap: 6px; flex-shrink: 0; }\n" +
                 "    .btn-arrow { width: 32px; height: 32px; border-radius: 8px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; }\n" +
-                "    .btn-arrow:active:not(:disabled) { background: #38bdf8; color: #0b0f19; }\\n" +
+                "    .btn-arrow:active:not(:disabled) { background: #38bdf8; color: #0b0f19; }\n" +
                 "    .btn-arrow:disabled { opacity: 0.25; cursor: default; }\n" +
+                "    .addon-card { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px; margin-bottom: 10px; }\n" +
+                "    .addon-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }\n" +
+                "    .addon-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #38bdf8; background: rgba(56,189,248,0.15); padding: 2px 8px; border-radius: 6px; }\n" +
+                "    .addon-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }\n" +
+                "    .addon-desc { font-size: 12px; color: #94a3b8; line-height: 1.4; margin-bottom: 10px; }\n" +
+                "    .addon-btn { border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity 0.15s; }\n" +
+                "    .addon-btn:active { opacity: 0.8; }\n" +
+                "    .btn-install { background: #38bdf8; color: #0b0f19; }\n" +
+                "    .btn-open { background: #10b981; color: #0b0f19; }\n" +
+                "    .sideload-box { background: rgba(15, 23, 42, 0.8); border: 1px dashed rgba(56, 189, 248, 0.4); border-radius: 14px; padding: 14px; text-align: center; margin-bottom: 14px; }\n" +
+                "    .sideload-title { font-size: 13px; font-weight: 700; color: #38bdf8; margin-bottom: 4px; }\n" +
+                "    .sideload-sub { font-size: 11px; color: #64748b; margin-bottom: 10px; }\n" +
                 "    .empty-state { text-align: center; color: #64748b; font-size: 13px; padding: 24px; }\n" +
                 "    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #10b981; color: #042f2e; font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 9999px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s; opacity: 0; pointer-events: none; z-index: 1000; }\n" +
                 "    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }\n" +
@@ -455,13 +558,14 @@ public final class WebRemoteServer {
                 "  <div class=\"header\">\n" +
                 "    <div>\n" +
                 "      <div class=\"title\"><span class=\"dot\"></span>CleanTV Remote</div>\n" +
-                "      <div class=\"subtitle\">Zero-Install Controller & Dock Editor</div>\n" +
+                "      <div class=\"subtitle\">Zero-Install Controller &amp; Add-on Hub</div>\n" +
                 "    </div>\n" +
                 "  </div>\n" +
                 "  <div class=\"tabs\">\n" +
                 "    <button class=\"tab-btn active\" id=\"tab-remote\" onclick=\"switchTab('remote')\">🎮 Remote</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-apps\" onclick=\"switchTab('apps')\">📱 Apps</button>\n" +
-                "    <button class=\"tab-btn\" id=\"tab-dock\" onclick=\"switchTab('dock')\">🗂️ Reorder Dock</button>\n" +
+                "    <button class=\"tab-btn\" id=\"tab-dock\" onclick=\"switchTab('dock')\">🗂️ Dock</button>\n" +
+                "    <button class=\"tab-btn\" id=\"tab-addons\" onclick=\"switchTab('addons')\">📦 Add-ons</button>\n" +
                 "  </div>\n" +
                 "  <div id=\"pane-remote\" class=\"tab-content\">\n" +
                 "    <div class=\"card\">\n" +
@@ -503,6 +607,16 @@ public final class WebRemoteServer {
                 "    <div class=\"dock-hint\">Drag items or tap 🔼 / 🔽 to reorder TV dock icons in real time.</div>\n" +
                 "    <div id=\"dockList\"></div>\n" +
                 "  </div>\n" +
+                "  <div id=\"pane-addons\" class=\"tab-content\" style=\"display:none;\">\n" +
+                "    <div class=\"sideload-box\">\n" +
+                "      <div class=\"sideload-title\">Wireless APK Sideload (PC/Phone to TV)</div>\n" +
+                "      <div class=\"sideload-sub\">Select an APK to install directly over Wi-Fi without USB drives:</div>\n" +
+                "      <input type=\"file\" id=\"fileApk\" accept=\".apk\" style=\"margin-bottom:8px;font-size:12px;\">\n" +
+                "      <button class=\"addon-btn btn-install\" onclick=\"uploadApk()\">Upload &amp; Install on TV</button>\n" +
+                "    </div>\n" +
+                "    <div style=\"font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;letter-spacing:0.05em;\">1-CLICK TV ADD-ON CATALOG</div>\n" +
+                "    <div id=\"addonsList\"></div>\n" +
+                "  </div>\n" +
                 "  <div id=\"toast\" class=\"toast\"></div>\n" +
                 "  <script>\n" +
                 "    function haptic() { if (navigator.vibrate) navigator.vibrate(22); }\n" +
@@ -512,7 +626,7 @@ public final class WebRemoteServer {
                 "      t.innerText = msg;\n" +
                 "      t.classList.add('show');\n" +
                 "      clearTimeout(toastTimer);\n" +
-                "      toastTimer = setTimeout(() => t.classList.remove('show'), 2000);\n" +
+                "      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);\n" +
                 "    }\n" +
                 "    function sendKey(code) {\n" +
                 "      haptic();\n" +
@@ -541,6 +655,7 @@ public final class WebRemoteServer {
                 "      if (pane) pane.style.display = 'block';\n" +
                 "      if (tab === 'apps') loadApps();\n" +
                 "      if (tab === 'dock') loadDock();\n" +
+                "      if (tab === 'addons') loadAddons();\n" +
                 "    }\n" +
                 "    let allApps = [];\n" +
                 "    function loadApps() {\n" +
@@ -642,6 +757,55 @@ public final class WebRemoteServer {
                 "          this.classList.remove('dragging');\n" +
                 "          items.forEach(i => i.classList.remove('over'));\n" +
                 "        });\n" +
+                "      });\n" +
+                "    }\n" +
+                "    function loadAddons() {\n" +
+                "      fetch('/api/addons').then(r => r.json()).then(data => {\n" +
+                "        const c = document.getElementById('addonsList');\n" +
+                "        if (!data || data.length === 0) {\n" +
+                "          c.innerHTML = '<div class=\"empty-state\">No add-ons available</div>';\n" +
+                "          return;\n" +
+                "        }\n" +
+                "        c.innerHTML = data.map(item => {\n" +
+                "          const btn = item.installed\n" +
+                "            ? `<button class=\"addon-btn btn-open\" onclick=\"launchApp('${encodeURIComponent(item.pkg)}', '${encodeURIComponent(item.name)}')\">Open on TV</button>`\n" +
+                "            : `<button class=\"addon-btn btn-install\" onclick=\"installAddon('${item.id}', '${encodeURIComponent(item.name)}')\">Install on TV</button>`;\n" +
+                "          return `<div class=\"addon-card\">` +\n" +
+                "            `<div class=\"addon-top\"><span class=\"addon-tag\">${item.category}</span><span style=\"font-size:11px;color:${item.installed ? '#10b981' : '#64748b'};font-weight:700;\">${item.installed ? 'Installed' : 'Available'}</span></div>` +\n" +
+                "            `<div class=\"addon-title\">${item.name}</div>` +\n" +
+                "            `<div class=\"addon-desc\">${item.description}</div>` +\n" +
+                "            btn +\n" +
+                "          `</div>`;\n" +
+                "        }).join('');\n" +
+                "      }).catch(()=>{});\n" +
+                "    }\n" +
+                "    function installAddon(id, nameEnc) {\n" +
+                "      haptic();\n" +
+                "      const name = decodeURIComponent(nameEnc);\n" +
+                "      showToast('Downloading ' + name + ' on TV...');\n" +
+                "      fetch('/api/addons/install?id=' + id, { method: 'POST' }).catch(()=>{});\n" +
+                "    }\n" +
+                "    function uploadApk() {\n" +
+                "      const fileInput = document.getElementById('fileApk');\n" +
+                "      if (!fileInput.files || fileInput.files.length === 0) {\n" +
+                "        alert('Please choose an .apk file to upload');\n" +
+                "        return;\n" +
+                "      }\n" +
+                "      const file = fileInput.files[0];\n" +
+                "      haptic();\n" +
+                "      showToast('Uploading ' + file.name + ' to TV...');\n" +
+                "      fetch('/api/upload?name=' + encodeURIComponent(file.name), {\n" +
+                "        method: 'POST',\n" +
+                "        body: file\n" +
+                "      }).then(r => r.json()).then(res => {\n" +
+                "        if (res.status === 'ok') {\n" +
+                "          showToast('Uploaded! Check TV screen to install');\n" +
+                "          fileInput.value = '';\n" +
+                "        } else {\n" +
+                "          alert('Upload failed: ' + (res.message || 'Error'));\n" +
+                "        }\n" +
+                "      }).catch(err => {\n" +
+                "        alert('Upload error: ' + err);\n" +
                 "      });\n" +
                 "    }\n" +
                 "  </script>\n" +

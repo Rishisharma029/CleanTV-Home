@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#D9090D16"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="720dp"
+        android:layout_height="480dp"
+        android:layout_gravity="center"
+        android:background="@drawable/glass_panel"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_package"
+                android:tint="#FF38BDF8" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="CleanTV Add-on Hub"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="1-Click popular TV apps &amp; utilities • Sideload wirelessly"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnCloseAddons"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/glass_panel"
+                android:focusable="true"
+                android:nextFocusDown="@+id/addonScrollView"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="Close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Divider line -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="14dp"
+            android:background="#1AFFFFFF" />
+
+        <!-- Addons List Container inside ScrollView -->
+        <ScrollView
+            android:id="@+id/addonScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fadeScrollbars="false"
+            android:focusable="false">
+
+            <LinearLayout
+                android:id="@+id/addonListContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+
+    </LinearLayout>
+</FrameLayout>

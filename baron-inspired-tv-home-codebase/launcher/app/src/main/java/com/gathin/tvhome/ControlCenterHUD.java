@@ -536,6 +536,15 @@ public final class ControlCenterHUD {
             });
         }
 
+        View cardAddonHub = hudRoot.findViewById(R.id.cardAddonHub);
+        if (cardAddonHub != null) {
+            applyCardFocusEffect(cardAddonHub);
+            cardAddonHub.setOnClickListener(v -> {
+                dismiss();
+                AddonHubDialog.show(activity);
+            });
+        }
+
         View cardWebRemote = hudRoot.findViewById(R.id.cardWebRemote);
         if (cardWebRemote != null) {
             applyCardFocusEffect(cardWebRemote);

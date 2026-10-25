@@ -732,6 +732,67 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- Section: CleanTV Add-on Hub & Package Manager -->
+                <LinearLayout
+                    android:id="@+id/cardAddonHub"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/glass_panel"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+
+                    <FrameLayout
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="#2238BDF8"
+                        android:padding="8dp">
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_package"
+                            android:tint="#FF38BDF8" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Add-on Hub &amp; Packages"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif-medium" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="1-Click apps &amp; wireless sideload"
+                            android:textColor="#99FFFFFF"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="HUB"
+                        android:textColor="#FF38BDF8"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.08" />
+                </LinearLayout>
+
                 <!-- Section: Mobile Web Remote & Setup (Scan QR Code) -->
                 <LinearLayout
                     android:id="@+id/cardWebRemote"

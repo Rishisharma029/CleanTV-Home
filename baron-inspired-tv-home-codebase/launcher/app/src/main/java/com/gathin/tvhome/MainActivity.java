@@ -3441,6 +3441,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (controlCenterHud != null) controlCenterHud.show();
     }
 
+    public void showAddonHub() {
+        AddonHubDialog.show(this);
+    }
+
     public boolean isNetworkConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);

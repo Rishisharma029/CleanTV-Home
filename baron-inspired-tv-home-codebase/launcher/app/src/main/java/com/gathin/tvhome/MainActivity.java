@@ -1868,34 +1868,25 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!heroShown) {
             stopAmbientAnimation();
             hero.animate().cancel();
-            ambient.animate().cancel();
             fillHero(position, label);
             hero.setY(y);
             hero.setTranslationX(0f);
             hero.animate().alpha(1f).setDuration(260).start();
-            if (ambientGlow) {
-                setAmbient(color);
-                ambient.animate().alpha(1f).setDuration(600).start();
-            }
             heroShown = true;
+            if (ambientGlow) transitionAmbient(color);
         } else if (changed) {
-            if (advancedEffects) hero.animate().cancel();
-            hero.animate().alpha(0f).translationX(-12 * density).setDuration(120).withEndAction(() -> {
+            // Animate only the app title smoothly, preserving recommendation cards & vertical stability
+            heroName.animate().cancel();
+            heroName.animate().alpha(0f).translationX(-8 * density).setDuration(90).withEndAction(() -> {
                 fillHero(position, label);
-                hero.setY(y);
-                hero.setTranslationX(12 * density);
-                hero.animate().alpha(1f).translationX(0f).setDuration(200).start();
+                heroName.setTranslationX(8 * density);
+                heroName.animate().alpha(1f).translationX(0f).setDuration(150).start();
             }).start();
-            if (ambientGlow && advancedEffects) {
-                transitionAmbient(color);
-            } else if (ambientGlow && color != ambientColor) {
-                ambient.animate().alpha(0.35f).setDuration(200).withEndAction(() -> {
-                    setAmbient(color);
-                    ambient.animate().alpha(1f).setDuration(500).start();
-                }).start();
-            }
+            hero.setY(y);
+            if (ambientGlow) transitionAmbient(color);
         } else {
             hero.setY(y);
+            if (ambientGlow) transitionAmbient(color);
         }
     }
 
@@ -1930,27 +1921,32 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
 
-        // Unload textures and cancel pending queries immediately when focus shifts to a new app
+        // Focus moved to a different app: cancel pending query and debounce
         if (topShelfRunnable != null) {
             handler.removeCallbacks(topShelfRunnable);
             topShelfRunnable = null;
         }
-        unloadTopShelfTextures();
+        TopShelfManager.cancelPendingQueries();
 
         int request = ++catalogGeneration;
         catalogPackage = pkg;
 
+        // Subtly dim existing shelf to indicate transition without collapsing height
+        if (recommendationScroll != null && recommendationScroll.getVisibility() == View.VISIBLE && animations && !reducedMotion) {
+            recommendationScroll.animate().alpha(0.45f).setDuration(120).start();
+        }
+
         topShelfRunnable = () -> {
             if (isFinishing() || request != catalogGeneration || !pkg.equals(catalogPackage)) return;
             TopShelfManager.loadShelf(this, pkg, label, request, (packageName, reqId, items) -> {
-                if (isFinishing() || reqId != catalogGeneration || !packageName.equals(catalogPackage)) {
+                if (isFinishing() || reqId != catalogGeneration || !packageName.equals(catalogPackage) || (position >= 0 && position != lastFocused)) {
                     TopShelfManager.recycleItems(items);
                     return;
                 }
                 showTopShelfResult(position, packageName, reqId, items);
             });
         };
-        handler.postDelayed(topShelfRunnable, 220);
+        handler.postDelayed(topShelfRunnable, 160);
     }
 
     private void requestTopShelfForInputs() {
@@ -1962,12 +1958,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             handler.removeCallbacks(topShelfRunnable);
             topShelfRunnable = null;
         }
-        unloadTopShelfTextures();
+        TopShelfManager.cancelPendingQueries();
 
         int request = ++catalogGeneration;
         catalogPackage = "inputs";
+
+        if (recommendationScroll != null && recommendationScroll.getVisibility() == View.VISIBLE && animations && !reducedMotion) {
+            recommendationScroll.animate().alpha(0.45f).setDuration(120).start();
+        }
+
         TopShelfManager.loadShelf(this, "inputs", "HDMI Inputs", request, (packageName, reqId, items) -> {
-            if (isFinishing() || reqId != catalogGeneration) {
+            if (isFinishing() || reqId != catalogGeneration || !"inputs".equals(catalogPackage)) {
                 TopShelfManager.recycleItems(items);
                 return;
             }
@@ -2102,6 +2103,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(cardW, cardH);
             if (i > 0) lp.leftMargin = (int) (12 * density);
             recommendationCards.addView(card, lp);
+        }
+
+        if (animations && !reducedMotion) {
+            recommendationScroll.setAlpha(0.2f);
+            recommendationScroll.animate().alpha(1f).setDuration(180).start();
+        } else {
+            recommendationScroll.setAlpha(1f);
         }
 
         hero.post(() -> {
@@ -2368,15 +2376,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             ambient.setAlpha(1f);
             return;
         }
-        if (color == ambientColor && ambient.getBackground() != null) {
-            ambient.animate().alpha(1f).setDuration(300).start();
-            return;
-        }
-        // The same dip-and-swap as the dock's top shelf.
-        ambient.animate().alpha(0.35f).setDuration(ambient.getAlpha() > 0.35f ? 200 : 0).withEndAction(() -> {
-            setAmbient(color);
-            ambient.animate().alpha(1f).setDuration(500).start();
-        }).start();
+        transitionAmbient(color);
     }
 
     private void hideHero() {

@@ -229,6 +229,11 @@ public final class TopShelfManager {
             out.add(new ShelfItem("Daily Mix", "Personalized playlist", null, null, pkg));
             out.add(new ShelfItem("Top Hits", "Trending tracks", null, null, pkg));
             out.add(new ShelfItem("Library", "Saved albums & artists", null, null, pkg));
+        } else if (lower.contains("tv") || lower.contains("input") || (appLabel != null && appLabel.toLowerCase().contains("tv"))) {
+            out.add(new ShelfItem("Live Channels", "Broadcast TV & Cable", null, null, pkg));
+            out.add(new ShelfItem("TV Guide", "Schedule & upcoming programs", null, null, pkg));
+            out.add(new ShelfItem("Connected Inputs", "HDMI 1 · HDMI 2", null, "input:inputs", pkg));
+            out.add(new ShelfItem("Picture Settings", "Display mode & calibration", null, null, pkg));
         } else {
             // General clean quick launcher
             out.add(new ShelfItem("Resume " + appLabel, "Open and continue", null, null, pkg));

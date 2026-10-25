@@ -157,18 +157,22 @@
 
         <HorizontalScrollView
             android:id="@+id/recommendationScroll"
-            android:layout_width="760dp"
-            android:layout_height="100dp"
+            android:layout_width="match_parent"
+            android:layout_height="108dp"
             android:layout_marginTop="8dp"
             android:fillViewport="false"
             android:scrollbars="none"
             android:visibility="gone"
             android:focusable="false"
-            android:descendantFocusability="blocksDescendants">
+            android:clipToPadding="false"
+            android:clipChildren="false"
+            android:descendantFocusability="afterDescendants">
             <LinearLayout
                 android:id="@+id/recommendationCards"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:clipChildren="false"
                 android:orientation="horizontal" />
         </HorizontalScrollView>
     </LinearLayout>

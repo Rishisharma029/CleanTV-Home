@@ -25,6 +25,7 @@ import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.Shader;
+import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -147,7 +148,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private LinearLayout recommendationCards;
     private HorizontalScrollView recommendationScroll;
     // Disabled at the user's request; keeping the Watchmode key private allows re-enabling later if desired.
-    private static final boolean CATALOG_FEED_ENABLED = false;
+    private static final boolean DYNAMIC_TOP_SHELF_ENABLED = true;
     private String catalogPackage;
     private int catalogGeneration;
     /** Cinematic top shelf (config.xml, cinematic_home): the focused dock app's artwork behind a larger shelf. */
@@ -1759,7 +1760,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
         boolean changed = !label.contentEquals(heroName.getText());
         if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
-        if (CATALOG_FEED_ENABLED) requestCatalogForFocus(position);
+        if (DYNAMIC_TOP_SHELF_ENABLED) requestTopShelfForFocus(position);
 
         if (!animations || reducedMotion) {
             // Snap the shelf instead of sliding and fading it: each of those frames repaints the
@@ -1812,69 +1813,146 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    private void requestCatalogForFocus(int position) {
+    private void requestTopShelfForFocus(int position) {
         String pkg = adapter.packageAt(position);
-        if (pkg == null || pkg.equals(catalogPackage)) return;
-        catalogPackage = pkg;
+        if (pkg == null) return;
+        String label = adapter.labelAt(position);
         int request = ++catalogGeneration;
-        recommendationCards.removeAllViews();
-        recommendationCards.setVisibility(View.GONE);
-        recommendationScroll.setVisibility(View.GONE);
-        recommendationHeading.setText("Loading India catalog…");
-        recommendationHeading.setVisibility(View.VISIBLE);
+        catalogPackage = pkg;
+
         handler.postDelayed(() -> {
             if (isFinishing() || request != catalogGeneration || !pkg.equals(catalogPackage)) return;
-            Thread worker = new Thread(() -> {
-                WatchmodeCatalog.Result result = WatchmodeCatalog.fetch(this, pkg);
-                ArrayList<Bitmap> images = new ArrayList<>();
-                for (WatchmodeCatalog.Item item : result.items) images.add(WatchmodeCatalog.loadImage(item.image));
-                handler.post(() -> {
-                    if (isFinishing() || request != catalogGeneration || !pkg.equals(catalogPackage)) return;
-                    showCatalogResult(position, pkg, request, result, images);
-                });
-            }, "watchmode-catalog");
-            worker.setDaemon(true);
-            worker.start();
-        }, 450);
+            TopShelfManager.loadShelf(this, pkg, label, request, (packageName, reqId, items) -> {
+                if (isFinishing() || reqId != catalogGeneration || !packageName.equals(catalogPackage)) return;
+                showTopShelfResult(position, packageName, reqId, items);
+            });
+        }, 220);
     }
 
-    private void showCatalogResult(int position, String pkg, int request, WatchmodeCatalog.Result result, List<Bitmap> images) {
+    private void showTopShelfResult(int position, String pkg, int request, List<TopShelfManager.ShelfItem> items) {
         recommendationCards.removeAllViews();
-        if (result.items.isEmpty()) {
-            recommendationHeading.setText(result.message == null ? "No titles available" : result.message);
+        if (items == null || items.isEmpty()) {
+            recommendationHeading.setVisibility(View.GONE);
             recommendationCards.setVisibility(View.GONE);
             recommendationScroll.setVisibility(View.GONE);
-        } else {
-            recommendationHeading.setText("Latest on " + adapter.labelAt(position) + " · India · Watchmode");
-            recommendationCards.setVisibility(View.VISIBLE);
-            recommendationScroll.setVisibility(View.VISIBLE);
-
-            for (int i = 0; i < result.items.size(); i++) {
-                WatchmodeCatalog.Item item = result.items.get(i);
-                LinearLayout card = new LinearLayout(this);
-                card.setOrientation(LinearLayout.VERTICAL);
-                card.setFocusable(false);
-                card.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                ImageView art = new ImageView(this);
-                art.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                art.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                        new int[]{0xFF27303A, 0xFF15191F}));
-                if (i < images.size() && images.get(i) != null) art.setImageBitmap(images.get(i));
-                card.addView(art, new LinearLayout.LayoutParams((int) (142 * density), (int) (66 * density)));
-                TextView title = new TextView(this);
-                title.setText(item.title);
-                title.setTextColor(0xEFFFFFFF);
-                title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-                title.setMaxLines(2);
-                title.setEllipsize(TextUtils.TruncateAt.END);
-                title.setPadding((int) (2 * density), (int) (5 * density), (int) (4 * density), 0);
-                card.addView(title, new LinearLayout.LayoutParams((int) (142 * density), (int) (28 * density)));
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                        (int) (150 * density), ViewGroup.LayoutParams.MATCH_PARENT);
-                if (i > 0) lp.leftMargin = (int) (10 * density);
-                recommendationCards.addView(card, lp);
-            }
+            return;
         }
+
+        String label = adapter.labelAt(position);
+        recommendationHeading.setText(label != null ? "Continue Watching & Previews · " + label : "Watch Next");
+        recommendationHeading.setVisibility(View.VISIBLE);
+        recommendationCards.setVisibility(View.VISIBLE);
+        recommendationScroll.setVisibility(View.VISIBLE);
+
+        int ambientColor = adapter.ambientColorAt(position);
+
+        for (int i = 0; i < items.size(); i++) {
+            TopShelfManager.ShelfItem item = items.get(i);
+            FrameLayout card = new FrameLayout(this);
+            card.setFocusable(true);
+            card.setFocusableInTouchMode(true);
+            card.setClipToOutline(true);
+
+            int cardW = (int) (156 * density);
+            int cardH = (int) (88 * density);
+
+            GradientDrawable normalBg = new GradientDrawable();
+            normalBg.setShape(GradientDrawable.RECTANGLE);
+            normalBg.setCornerRadius(10 * density);
+            normalBg.setColor(0x28FFFFFF);
+            normalBg.setStroke((int) (1 * density), 0x22FFFFFF);
+
+            GradientDrawable focusedBg = new GradientDrawable();
+            focusedBg.setShape(GradientDrawable.RECTANGLE);
+            focusedBg.setCornerRadius(10 * density);
+            focusedBg.setColor(0x4DFFFFFF);
+            focusedBg.setStroke((int) (2 * density), 0xFFFFFFFF);
+
+            card.setBackground(normalBg);
+
+            ImageView art = new ImageView(this);
+            art.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            if (item.posterBitmap != null) {
+                art.setImageBitmap(item.posterBitmap);
+            } else {
+                int topColor = (ambientColor & 0x00FFFFFF) | 0x44000000;
+                art.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                        new int[]{topColor, 0xDD15191F}));
+            }
+            card.addView(art, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+            View scrim = new View(this);
+            scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{0x00000000, 0xEE0D1117}));
+            FrameLayout.LayoutParams scrimLp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, (int) (42 * density));
+            scrimLp.gravity = Gravity.BOTTOM;
+            card.addView(scrim, scrimLp);
+
+            LinearLayout textLayout = new LinearLayout(this);
+            textLayout.setOrientation(LinearLayout.VERTICAL);
+            textLayout.setPadding((int) (8 * density), 0, (int) (8 * density), (int) (6 * density));
+
+            TextView titleView = new TextView(this);
+            titleView.setText(item.title);
+            titleView.setTextColor(0xFFFFFFFF);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            titleView.setMaxLines(1);
+            titleView.setEllipsize(TextUtils.TruncateAt.END);
+            textLayout.addView(titleView);
+
+            if (item.subtitle != null && !item.subtitle.isEmpty()) {
+                TextView subView = new TextView(this);
+                subView.setText(item.subtitle);
+                subView.setTextColor(0xA6FFFFFF);
+                subView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+                subView.setMaxLines(1);
+                subView.setEllipsize(TextUtils.TruncateAt.END);
+                textLayout.addView(subView);
+            }
+
+            FrameLayout.LayoutParams textLp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+            textLp.gravity = Gravity.BOTTOM;
+            card.addView(textLayout, textLp);
+
+            card.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) {
+                    v.setBackground(focusedBg);
+                    v.animate().scaleX(1.08f).scaleY(1.08f).translationZ(10 * density).setDuration(160).start();
+                    v.playSoundEffect(SoundEffectConstants.CLICK);
+                } else {
+                    v.setBackground(normalBg);
+                    v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(160).start();
+                }
+            });
+
+            card.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+                if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_BACK) {
+                    focusTile(lastFocused);
+                    return true;
+                }
+                return false;
+            });
+
+            card.setOnClickListener(v -> {
+                if (item.intentUri != null && !item.intentUri.isEmpty()) {
+                    try {
+                        Intent intent = Intent.parseUri(item.intentUri, Intent.URI_INTENT_SCHEME);
+                        startActivity(intent);
+                        return;
+                    } catch (Throwable ignored) {}
+                }
+                launchApp(pkg);
+            });
+
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(cardW, cardH);
+            if (i > 0) lp.leftMargin = (int) (12 * density);
+            recommendationCards.addView(card, lp);
+        }
+
         hero.post(() -> {
             if (request == catalogGeneration && position == lastFocused) {
                 View focused = findFocusedDockCard();
@@ -1885,6 +1963,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
             }
         });
+    }
+
+    private void launchApp(String pkg) {
+        if (pkg == null) return;
+        Intent intent = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+        if (intent == null) intent = getPackageManager().getLaunchIntentForPackage(pkg);
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        }
     }
 
     private View findFocusedDockCard() {
@@ -2379,7 +2467,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     rtlAppGrid, keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
+            if (position < COLUMNS) {
+                if (recommendationCards != null && recommendationCards.getVisibility() == View.VISIBLE && recommendationCards.getChildCount() > 0) {
+                    View firstCard = recommendationCards.getChildAt(0);
+                    if (firstCard != null) {
+                        firstCard.requestFocus();
+                        grid.playSoundEffect(SoundEffectConstants.NAVIGATION_UP);
+                        return true;
+                    }
+                }
+                return false;
+            }          // dock row: let focus move to the top bar
             target = position - COLUMNS;
         } else {
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;

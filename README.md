@@ -167,13 +167,15 @@ graph LR
 | 2:13 PM  |  SUNDAY 25 OCTOBER              [Inputs] [Storage] [Wi-Fi] [Settings]       |
 |                                                                                        |
 | YouTube                                                                                |
-| Last opened 51 minutes ago                                                             |
-| ......                                                                                 |
+| [ Continue: Tech Review ]  [ Watch Next: Science 4K ]  [ Curated: Lo-Fi Chill ]        |
 |                                                                                        |
 | [ YouTube ] [ JioHotstar ] [ Prime Video ] [ Netflix ] [ Play Store ] [ YT Music ] [Zee]|
 +----------------------------------------------------------------------------------------+
 ```
 
+* **Apple TV-Style Dynamic Top Shelf**: When focusing any dock app (YouTube, Netflix, Prime Video, Hotstar, Zee, etc.), the top shelf dynamically expands into interactive 16:9 glance cards showing **Watch Next / Continue Playing** recommendations without advertisements.
+  * **Interactive Remote Navigation**: Press **D-pad UP** from the dock to enter the Top Shelf cards. Use **D-pad LEFT/RIGHT** to browse cards. Press **OK** to launch the content directly, or press **D-pad DOWN / BACK** to return focus to the dock app tile.
+  * **Native TvContract Integration**: Queries Android's native `content://android.media.tv/watch_next_program` and `preview_program` channels securely in-memory with curated zero-ad fallbacks.
 * **Custom Dock Sizing**: Supports 4 to 7 dock apps that fit cleanly at 720p, 1080p, and 4K UHD resolutions.
 * **In-Place Tile Reordering**: Hold **OK / Select** on your remote over any dock tile to move it up, down, first, or last without opening setting menus.
 * **Storage Dashboard**: Direct live memory indicator at the top bar reporting free/used space.

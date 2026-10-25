@@ -1,0 +1,6 @@
+# Google TV / Chromecast with Google TV Ad & Telemetry Bloatware
+# Safe to disable to remove sponsored promo carousels and tracking
+com.google.android.tvrecommendations  # Google TV sponsored banners, promotional rows & ads
+com.google.android.feedback           # System crash & usage analytics telemetry
+com.google.android.play.games         # Play Games TV background daemon
+com.google.android.syncadapters.calendar # Unused TV calendar background sync

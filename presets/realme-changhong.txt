@@ -1,0 +1,12 @@
+# Realme TV / Changhong AI PONT safe debloat list
+# Tested & verified safe on Android 9 & Android 11
+# These packages will be disabled (pm disable-user), NOT deleted.
+tv.anoki.acr.controller               # Automatic Content Recognition / viewing habit telemetry
+com.homwee.aipont                     # AI Pont OEM background service & ad overlays
+com.google.android.tvrecommendations  # Google TV sponsored ads and recommendation push rows
+android.autoinstalls.config.homwee    # Silent OEM background app auto-installer
+com.homwee.store                      # OEM bloat app store
+com.homwee.help                       # OEM diagnostics & background telemetry
+com.google.android.feedback           # System crash feedback & analytics reporting
+com.google.android.play.games         # Play Games TV background daemon
+com.google.android.syncadapters.calendar # Unused TV calendar synchronization

@@ -1,0 +1,19 @@
+# Platform Tools & Binaries
+bin/platform-tools/
+bin/*.zip
+
+# User TV Backups & Snapshots
+backups/
+*-backup-*/
+
+# Logs & temp files
+*.log
+*.tmp
+*.bak
+
+# Build artifacts & IDE
+.idea/
+.vscode/
+.gradle/
+build/
+local.properties

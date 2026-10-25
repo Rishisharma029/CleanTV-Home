@@ -190,6 +190,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** config show_inputs_pill: false keeps the Inputs pill hidden even when the TV has inputs. */
     private boolean showInputsPill = true;
     private TextView btnWifi;
+    private TextView btnAudio;
+    private final AudioOutputManager.AudioOutputListener audioListener = (mode, name) -> runOnUiThread(this::updateAudioButton);
     /** The network pill's icon as last set, so a refresh that changes nothing does not lay the top bar out again. */
     private int wifiIcon;
     /** The pills have been filled in once; later resumes refresh them after the first frame. */
@@ -336,6 +338,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         @Override
         public void onInputAdded(String inputId) {
             updateInputsButton();
+        updateAudioButton();
         }
 
         @Override
@@ -729,6 +732,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
 
         btnInputs = findViewById(R.id.btnInputs);
+        btnAudio = findViewById(R.id.btnAudio);
+        if (btnAudio != null) {
+            btnAudio.setOnClickListener(v -> cycleAudioOutput());
+            btnAudio.setOnLongClickListener(v -> {
+                showControlCenter();
+                return true;
+            });
+            updateAudioButton();
+            AudioOutputManager.registerListener(audioListener);
+        }
         btnStorage = findViewById(R.id.btnStorage);
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
@@ -1268,6 +1281,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        AudioOutputManager.unregisterListener(audioListener);
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -1836,6 +1850,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!glassShown || card.getWidth() != glassCardW || glass.getWidth() != w || glass.getHeight() != h) {
             onTileFocused(pos, card);
         }
+    }
+
+    private void updateAudioButton() {
+        if (btnAudio == null) return;
+        int mode = AudioOutputManager.getCurrentMode(this);
+        int iconRes = AudioOutputManager.getModeIconRes(mode);
+        btnAudio.setCompoundDrawablesRelativeWithIntrinsicBounds(iconRes, 0, 0, 0);
+        switch (mode) {
+            case AudioOutputManager.MODE_SOUNDBAR:
+                btnAudio.setText("Soundbar");
+                break;
+            case AudioOutputManager.MODE_BLUETOOTH:
+                btnAudio.setText("Bluetooth");
+                break;
+            case AudioOutputManager.MODE_TV_SPEAKERS:
+            default:
+                btnAudio.setText("TV Audio");
+                break;
+        }
+    }
+
+    private void cycleAudioOutput() {
+        AudioOutputManager.cycleNextMode(this);
+        updateAudioButton();
     }
 
     // ---- top shelf -------------------------------------------------------------------------------

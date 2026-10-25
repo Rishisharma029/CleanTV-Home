@@ -402,6 +402,14 @@
                     android:drawableStart="@drawable/ic_input"
                     android:nextFocusDown="@+id/grid" />
                 <TextView
+                    android:id="@+id/btnAudio"
+                    style="@style/TopButton"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:text="TV Audio"
+                    android:drawableStart="@drawable/ic_speaker"
+                    android:nextFocusDown="@+id/grid" />
+                <TextView
                     android:id="@+id/btnStorage"
                     style="@style/TopButtonIcon"
                     android:contentDescription="@string/storage"

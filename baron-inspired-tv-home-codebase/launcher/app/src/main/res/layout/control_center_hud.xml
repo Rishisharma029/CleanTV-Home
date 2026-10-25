@@ -281,6 +281,192 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- Section: Audio Output Quick-Switch -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="AUDIO OUTPUT QUICK-SWITCH"
+                    android:textColor="#88FFFFFF"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.08" />
+
+                <LinearLayout
+                    android:id="@+id/ccAudioOutputContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- TV Speakers Pill -->
+                    <LinearLayout
+                        android:id="@+id/btnAudioTvSpeakers"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:background="@drawable/glass_panel"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp">
+
+                        <ImageView
+                            android:id="@+id/iconAudioTvSpeakers"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_speaker"
+                            android:tint="#FFA78BFA" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="TV Speakers"
+                                android:textColor="#FFFFFFFF"
+                                android:textSize="13sp"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <TextView
+                                android:id="@+id/subAudioTvSpeakers"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Internal Built-In Audio"
+                                android:textColor="#88FFFFFF"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/badgeAudioTvSpeakers"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="● ACTIVE"
+                            android:textColor="#FF34D399"
+                            android:textSize="9sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.08" />
+                    </LinearLayout>
+
+                    <!-- Soundbar (eARC/Optical) Pill -->
+                    <LinearLayout
+                        android:id="@+id/btnAudioSoundbar"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/glass_panel"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp">
+
+                        <ImageView
+                            android:id="@+id/iconAudioSoundbar"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_soundbar"
+                            android:tint="#FF38BDF8" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Soundbar"
+                                android:textColor="#FFFFFFFF"
+                                android:textSize="13sp"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <TextView
+                                android:id="@+id/subAudioSoundbar"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="eARC / Optical Output"
+                                android:textColor="#88FFFFFF"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/badgeAudioSoundbar"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textColor="#FF34D399"
+                            android:textSize="9sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.08" />
+                    </LinearLayout>
+
+                    <!-- Bluetooth Headphones Pill -->
+                    <LinearLayout
+                        android:id="@+id/btnAudioBluetooth"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/glass_panel"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp">
+
+                        <ImageView
+                            android:id="@+id/iconAudioBluetooth"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_headphones"
+                            android:tint="#FFF472B6" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Bluetooth Headphones"
+                                android:textColor="#FFFFFFFF"
+                                android:textSize="13sp"
+                                android:fontFamily="sans-serif-medium" />
+
+                            <TextView
+                                android:id="@+id/subAudioBluetooth"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Wireless Audio"
+                                android:textColor="#88FFFFFF"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/badgeAudioBluetooth"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textColor="#FF34D399"
+                            android:textSize="9sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.08" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <!-- Section: Live Inputs Quick Switch -->
                 <TextView
                     android:layout_width="wrap_content"

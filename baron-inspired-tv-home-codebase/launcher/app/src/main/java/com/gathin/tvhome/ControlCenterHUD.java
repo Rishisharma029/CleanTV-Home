@@ -72,6 +72,7 @@ public final class ControlCenterHUD {
 
         setupHeader();
         setupQuickToggles();
+        setupAudioOutputSwitch();
         setupInputsDeck();
         setupMemoryBooster();
         setupSettingsShortcuts();
@@ -170,6 +171,70 @@ public final class ControlCenterHUD {
         if (clock != null) {
             SimpleDateFormat sdf = new SimpleDateFormat("h:mm a · EEE, MMM d", Locale.getDefault());
             clock.setText(sdf.format(new Date()));
+        }
+    }
+
+    private void setupAudioOutputSwitch() {
+        View btnTvSpeakers = hudRoot.findViewById(R.id.btnAudioTvSpeakers);
+        View btnSoundbar = hudRoot.findViewById(R.id.btnAudioSoundbar);
+        View btnBluetooth = hudRoot.findViewById(R.id.btnAudioBluetooth);
+
+        if (btnTvSpeakers != null) {
+            applyCardFocusEffect(btnTvSpeakers);
+            btnTvSpeakers.setOnClickListener(v -> {
+                AudioOutputManager.setAudioOutputMode(activity, AudioOutputManager.MODE_TV_SPEAKERS);
+                updateAudioOutputBadges();
+            });
+        }
+
+        if (btnSoundbar != null) {
+            applyCardFocusEffect(btnSoundbar);
+            btnSoundbar.setOnClickListener(v -> {
+                AudioOutputManager.setAudioOutputMode(activity, AudioOutputManager.MODE_SOUNDBAR);
+                updateAudioOutputBadges();
+            });
+        }
+
+        if (btnBluetooth != null) {
+            applyCardFocusEffect(btnBluetooth);
+            btnBluetooth.setOnClickListener(v -> {
+                AudioOutputManager.setAudioOutputMode(activity, AudioOutputManager.MODE_BLUETOOTH);
+                updateAudioOutputBadges();
+            });
+        }
+
+        updateAudioOutputBadges();
+    }
+
+    private void updateAudioOutputBadges() {
+        if (hudRoot == null) return;
+        int currentMode = AudioOutputManager.getCurrentMode(activity);
+
+        TextView badgeTv = hudRoot.findViewById(R.id.badgeAudioTvSpeakers);
+        TextView subTv = hudRoot.findViewById(R.id.subAudioTvSpeakers);
+        if (badgeTv != null) {
+            badgeTv.setText(currentMode == AudioOutputManager.MODE_TV_SPEAKERS ? "● ACTIVE" : "");
+        }
+        if (subTv != null) {
+            subTv.setText(AudioOutputManager.getModeSubtitle(activity, AudioOutputManager.MODE_TV_SPEAKERS));
+        }
+
+        TextView badgeSoundbar = hudRoot.findViewById(R.id.badgeAudioSoundbar);
+        TextView subSoundbar = hudRoot.findViewById(R.id.subAudioSoundbar);
+        if (badgeSoundbar != null) {
+            badgeSoundbar.setText(currentMode == AudioOutputManager.MODE_SOUNDBAR ? "● ACTIVE" : "");
+        }
+        if (subSoundbar != null) {
+            subSoundbar.setText(AudioOutputManager.getModeSubtitle(activity, AudioOutputManager.MODE_SOUNDBAR));
+        }
+
+        TextView badgeBt = hudRoot.findViewById(R.id.badgeAudioBluetooth);
+        TextView subBt = hudRoot.findViewById(R.id.subAudioBluetooth);
+        if (badgeBt != null) {
+            badgeBt.setText(currentMode == AudioOutputManager.MODE_BLUETOOTH ? "● ACTIVE" : "");
+        }
+        if (subBt != null) {
+            subBt.setText(AudioOutputManager.getModeSubtitle(activity, AudioOutputManager.MODE_BLUETOOTH));
         }
     }
 

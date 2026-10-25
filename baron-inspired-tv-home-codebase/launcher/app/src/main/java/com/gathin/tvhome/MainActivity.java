@@ -745,6 +745,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             AudioOutputManager.registerListener(audioListener);
         }
         btnStorage = findViewById(R.id.btnStorage);
+        View btnControlCenter = findViewById(R.id.btnControlCenter);
+        if (btnControlCenter != null) {
+            btnControlCenter.setOnClickListener(v -> showControlCenter());
+        }
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
         btnInputs.setOnLongClickListener(v -> {
@@ -962,6 +966,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (intent != null && intent.getBooleanExtra("control_center", false)) {
+            showControlCenter();
+            return;
+        }
         if (openLauncherSettingsIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;

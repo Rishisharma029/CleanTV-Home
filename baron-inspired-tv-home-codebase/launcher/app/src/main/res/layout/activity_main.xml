@@ -442,6 +442,13 @@
                     android:nextFocusDown="@+id/grid" />
 
                 <TextView
+                    android:id="@+id/btnControlCenter"
+                    style="@style/TopButton"
+                    android:text="HUD"
+                    android:drawableStart="@drawable/ic_control_center"
+                    android:nextFocusDown="@+id/grid" />
+
+                <TextView
                     android:id="@+id/btnSettings"
                     style="@style/TopButton"
                     android:text="@string/settings"

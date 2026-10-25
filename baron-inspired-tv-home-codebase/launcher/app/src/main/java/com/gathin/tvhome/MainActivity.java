@@ -153,6 +153,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private int catalogGeneration;
     private final List<TopShelfManager.ShelfItem> activeShelfItems = new ArrayList<>();
     private Runnable topShelfRunnable;
+    private ControlCenterHUD controlCenterHud;
+    private long settingsDownTimestamp = 0;
+    private boolean settingsLongPressTriggered = false;
     /** Cinematic top shelf (config.xml, cinematic_home): the focused dock app's artwork behind a larger shelf. */
     private boolean cinematic;
     /** config.xml ambient_glow, overridable by a theme. Off: the glow view is gone and no fade or colour animator
@@ -435,6 +438,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
+        controlCenterHud = new ControlCenterHUD(this, root);
         // root fills the window with an opaque colour (Config keeps background_color opaque), so the window's own
         // black under it is a second full-screen fill on every frame for nothing. The starting window still uses
         // the theme's background, so launch looks the same.
@@ -728,6 +732,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnStorage = findViewById(R.id.btnStorage);
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
+        btnInputs.setOnLongClickListener(v -> {
+            showControlCenter();
+            return true;
+        });
         btnInputs.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) requestTopShelfForInputs();
         });
@@ -753,6 +761,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (launcherSettingsButton) startActivityForResult(
                     new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST);
             else open(systemIntent(Settings.ACTION_SETTINGS));
+        });
+        btnSettings.setOnLongClickListener(v -> {
+            showControlCenter();
+            return true;
         });
         btnReorder = findViewById(R.id.btnReorder);
         btnReorder.setOnClickListener(v -> toggleReorder());
@@ -1197,6 +1209,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         stopStats();
         if (diya != null) diya.stop();
         cancelPendingFocusScroll();
+        if (controlCenterHud != null && controlCenterHud.isShowing()) {
+            controlCenterHud.dismissImmediate();
+        }
         if (topShelfRunnable != null) {
             handler.removeCallbacks(topShelfRunnable);
             topShelfRunnable = null;
@@ -1271,15 +1286,40 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * nothing even on Home.
      */
     private boolean handleSettingsKey(KeyEvent event) {
+        boolean match = false;
         for (int code : settingsKeycodes) {
-            if (event.getKeyCode() != code) continue;
-            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+            if (event.getKeyCode() == code) {
+                match = true;
+                break;
+            }
+        }
+        if (!match && event.getKeyCode() != KeyEvent.KEYCODE_TV_INPUT) return false;
+
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                settingsDownTimestamp = SystemClock.uptimeMillis();
+                settingsLongPressTriggered = false;
+            } else if (!settingsLongPressTriggered && (SystemClock.uptimeMillis() - settingsDownTimestamp >= 400 || event.isLongPress())) {
+                settingsLongPressTriggered = true;
+                showControlCenter();
+                return true;
+            }
+        } else if (event.getAction() == KeyEvent.ACTION_UP) {
+            if (settingsLongPressTriggered) {
+                settingsLongPressTriggered = false;
+                return true;
+            }
+            if (event.getKeyCode() == KeyEvent.KEYCODE_TV_INPUT) {
+                showInputs();
+                return true;
+            }
+            if (!event.isCanceled()) {
                 open(settingsKeyPanel ? new Intent(this, QuickSettingsActivity.class)
                         : systemIntent(Settings.ACTION_SETTINGS));
             }
             return true;
         }
-        return false;
+        return true;
     }
 
     // ---- reorder ---------------------------------------------------------------------------------
@@ -1296,6 +1336,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (controlCenterHud != null && controlCenterHud.isShowing()) {
+            if (controlCenterHud.dispatchKeyEvent(event)) return true;
+        }
         if (handleSettingsKey(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
@@ -1664,6 +1707,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public void onBackPressed() {
+        if (controlCenterHud != null && controlCenterHud.isShowing()) {
+            controlCenterHud.dismiss();
+            return;
+        }
         // Home screen: Back goes nowhere.
     }
 
@@ -3256,7 +3303,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      *  with that scheme and no MIME type. A player guarded by a permission this build does not declare
      *  throws SecurityException, which used to take Home down with it (YaOS before the manifest asked
      *  for ACCESS_TV_SOURCE). */
-    private void openInput(String inputId) {
+    public void showControlCenter() {
+        if (controlCenterHud != null) controlCenterHud.show();
+    }
+
+    public boolean isNetworkConnected() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm == null) return false;
+            android.net.NetworkInfo active = cm.getActiveNetworkInfo();
+            return active != null && active.isConnected();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    void openInput(String inputId) {
         // A CEC device is a child input of its HDMI port; the vendor source number belongs to the port
         // (MiTV-MFFU0). Only that lookup uses the parent: the generic path below still opens the child.
         String sourceId = inputId;

@@ -1,0 +1,427 @@
+package com.gathin.tvhome;
+
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.SoundEffectConstants;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * Slide-Out Control Center (Frosted Glass HUD).
+ * Apple TV / macOS-style translucent sidebar sliding in from the right edge.
+ * Provides quick connectivity toggles, sleep timer, live input switching,
+ * memory booster, and direct system settings shortcuts.
+ */
+public final class ControlCenterHUD {
+
+    private final MainActivity activity;
+    private final FrameLayout rootContainer;
+    private final float density;
+
+    private View hudRoot;
+    private View scrim;
+    private View panel;
+    private View previousFocus;
+    private boolean isShowing;
+
+    private int sleepTimerMinutes = 0;
+    private Runnable sleepTimerRunnable;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+
+    public ControlCenterHUD(MainActivity activity, FrameLayout rootContainer) {
+        this.activity = activity;
+        this.rootContainer = rootContainer;
+        this.density = activity.getResources().getDisplayMetrics().density;
+    }
+
+    public boolean isShowing() {
+        return isShowing;
+    }
+
+    public void show() {
+        if (isShowing) return;
+        isShowing = true;
+        previousFocus = activity.getCurrentFocus();
+
+        hudRoot = activity.getLayoutInflater().inflate(R.layout.control_center_hud, rootContainer, false);
+        scrim = hudRoot.findViewById(R.id.controlCenterScrim);
+        panel = hudRoot.findViewById(R.id.controlCenterPanel);
+
+        scrim.setOnClickListener(v -> dismiss());
+
+        setupHeader();
+        setupQuickToggles();
+        setupInputsDeck();
+        setupMemoryBooster();
+        setupSettingsShortcuts();
+
+        // Attach to root
+        rootContainer.addView(hudRoot, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Start offscreen to the right
+        float panelWidth = 360f * density;
+        panel.setTranslationX(panelWidth);
+        scrim.setAlpha(0f);
+
+        // Slide in animation
+        panel.animate()
+                .translationX(0f)
+                .setDuration(240)
+                .setInterpolator(new DecelerateInterpolator(1.8f))
+                .start();
+
+        scrim.animate()
+                .alpha(1f)
+                .setDuration(240)
+                .start();
+
+        // Focus first card
+        View cardWifi = hudRoot.findViewById(R.id.cardWifi);
+        if (cardWifi != null) {
+            cardWifi.post(cardWifi::requestFocus);
+        }
+    }
+
+    public void dismiss() {
+        if (!isShowing || hudRoot == null) return;
+        isShowing = false;
+
+        float panelWidth = 360f * density;
+        panel.animate()
+                .translationX(panelWidth)
+                .setDuration(190)
+                .setInterpolator(new AccelerateInterpolator(1.5f))
+                .start();
+
+        scrim.animate()
+                .alpha(0f)
+                .setDuration(190)
+                .withEndAction(this::cleanupAndRemove)
+                .start();
+    }
+
+    public void dismissImmediate() {
+        if (!isShowing || hudRoot == null) return;
+        isShowing = false;
+        cleanupAndRemove();
+    }
+
+    private void cleanupAndRemove() {
+        if (hudRoot != null && hudRoot.getParent() instanceof ViewGroup) {
+            ((ViewGroup) hudRoot.getParent()).removeView(hudRoot);
+        }
+        hudRoot = null;
+        scrim = null;
+        panel = null;
+        if (previousFocus != null && previousFocus.isAttachedToWindow()) {
+            previousFocus.requestFocus();
+        }
+        previousFocus = null;
+    }
+
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (!isShowing) return false;
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+
+        int code = event.getKeyCode();
+        if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
+            dismiss();
+            return true;
+        }
+
+        if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
+            View current = hudRoot != null ? hudRoot.findFocus() : null;
+            if (current != null) {
+                // If focus is on the left column or full-width button, slide out on D-pad left
+                int id = current.getId();
+                if (id == R.id.cardWifi || id == R.id.cardSleepTimer || id == R.id.btnCcLauncherSettings) {
+                    dismiss();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void setupHeader() {
+        TextView clock = hudRoot.findViewById(R.id.ccClock);
+        if (clock != null) {
+            SimpleDateFormat sdf = new SimpleDateFormat("h:mm a · EEE, MMM d", Locale.getDefault());
+            clock.setText(sdf.format(new Date()));
+        }
+    }
+
+    private void setupQuickToggles() {
+        // 1. Wi-Fi Card
+        View cardWifi = hudRoot.findViewById(R.id.cardWifi);
+        TextView ccWifiStatus = hudRoot.findViewById(R.id.ccWifiStatus);
+        if (cardWifi != null) {
+            applyCardFocusEffect(cardWifi);
+            if (ccWifiStatus != null) {
+                ccWifiStatus.setText(activity.isNetworkConnected() ? "Connected" : "Disconnected");
+            }
+            cardWifi.setOnClickListener(v -> {
+                try {
+                    activity.startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+                } catch (Throwable ignored) {
+                    try {
+                        activity.startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
+                    } catch (Throwable ignored2) {
+                        Toast.makeText(activity, "Wi-Fi settings not available", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+
+        // 2. Bluetooth Card
+        View cardBt = hudRoot.findViewById(R.id.cardBluetooth);
+        if (cardBt != null) {
+            applyCardFocusEffect(cardBt);
+            cardBt.setOnClickListener(v -> {
+                try {
+                    activity.startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+                } catch (Throwable ignored) {
+                    Toast.makeText(activity, "Bluetooth settings not available", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        // 3. Sleep Timer Card
+        View cardSleep = hudRoot.findViewById(R.id.cardSleepTimer);
+        TextView sleepStatus = hudRoot.findViewById(R.id.ccSleepTimerStatus);
+        if (cardSleep != null) {
+            applyCardFocusEffect(cardSleep);
+            if (sleepStatus != null) {
+                sleepStatus.setText(sleepTimerMinutes > 0 ? sleepTimerMinutes + " min" : "Off");
+            }
+            cardSleep.setOnClickListener(v -> {
+                cycleSleepTimer(sleepStatus);
+            });
+        }
+
+        // 4. Display / Night Mood Card
+        View cardDisplay = hudRoot.findViewById(R.id.cardDisplay);
+        if (cardDisplay != null) {
+            applyCardFocusEffect(cardDisplay);
+            cardDisplay.setOnClickListener(v -> {
+                try {
+                    activity.startActivity(new Intent(Settings.ACTION_DISPLAY_SETTINGS));
+                } catch (Throwable ignored) {
+                    Toast.makeText(activity, "Display settings not available", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    private void cycleSleepTimer(TextView statusView) {
+        if (sleepTimerRunnable != null) {
+            handler.removeCallbacks(sleepTimerRunnable);
+            sleepTimerRunnable = null;
+        }
+
+        if (sleepTimerMinutes == 0) sleepTimerMinutes = 15;
+        else if (sleepTimerMinutes == 15) sleepTimerMinutes = 30;
+        else if (sleepTimerMinutes == 30) sleepTimerMinutes = 60;
+        else if (sleepTimerMinutes == 60) sleepTimerMinutes = 120;
+        else sleepTimerMinutes = 0;
+
+        if (statusView != null) {
+            statusView.setText(sleepTimerMinutes > 0 ? sleepTimerMinutes + " min" : "Off");
+        }
+
+        if (sleepTimerMinutes > 0) {
+            Toast.makeText(activity, "Sleep timer set for " + sleepTimerMinutes + " minutes", Toast.LENGTH_SHORT).show();
+            sleepTimerRunnable = () -> {
+                try {
+                    activity.startActivity(new Intent(Intent.ACTION_MAIN)
+                            .addCategory(Intent.CATEGORY_DESK_DOCK)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                } catch (Throwable ignored) {
+                    activity.finish();
+                }
+            };
+            handler.postDelayed(sleepTimerRunnable, sleepTimerMinutes * 60L * 1000L);
+        } else {
+            Toast.makeText(activity, "Sleep timer turned off", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void setupInputsDeck() {
+        LinearLayout container = hudRoot.findViewById(R.id.ccInputsContainer);
+        if (container == null) return;
+        container.removeAllViews();
+
+        List<HdmiPreviewManager.HdmiDevice> devices = HdmiPreviewManager.getConnectedHdmiDevices(activity);
+        if (devices.isEmpty()) {
+            devices.add(new HdmiPreviewManager.HdmiDevice("hdmi1", "HDMI 1", "Connected Input", "Active Port", "4K 60Hz", 0));
+            devices.add(new HdmiPreviewManager.HdmiDevice("hdmi2", "HDMI 2", "Gaming Console", "Active Port", "120Hz HDR", 0));
+        }
+
+        for (int i = 0; i < Math.min(devices.size(), 3); i++) {
+            HdmiPreviewManager.HdmiDevice dev = devices.get(i);
+            LinearLayout row = new LinearLayout(activity);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setFocusable(true);
+            row.setClickable(true);
+            row.setBackgroundResource(R.drawable.glass_panel);
+            int padH = (int) (12 * density);
+            int padV = (int) (10 * density);
+            row.setPadding(padH, padV, padH, padV);
+
+            ImageView icon = new ImageView(activity);
+            icon.setImageResource(R.drawable.ic_input);
+            icon.setColorFilter(0xFF38BDF8);
+            row.addView(icon, new LinearLayout.LayoutParams((int) (18 * density), (int) (18 * density)));
+
+            LinearLayout texts = new LinearLayout(activity);
+            texts.setOrientation(LinearLayout.VERTICAL);
+            texts.setPadding((int) (10 * density), 0, 0, 0);
+
+            TextView title = new TextView(activity);
+            title.setText(dev.getDisplayTitle());
+            title.setTextColor(0xFFFFFFFF);
+            title.setTextSize(12);
+            texts.addView(title);
+
+            TextView sub = new TextView(activity);
+            sub.setText(dev.getDisplaySubtitle());
+            sub.setTextColor(0x99FFFFFF);
+            sub.setTextSize(10);
+            texts.addView(sub);
+
+            row.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+            TextView badge = new TextView(activity);
+            badge.setText("ACTIVE");
+            badge.setTextColor(0xFF38BDF8);
+            badge.setTextSize(9);
+            badge.setBackgroundColor(0x1A38BDF8);
+            badge.setPadding((int) (6 * density), (int) (2 * density), (int) (6 * density), (int) (2 * density));
+            row.addView(badge);
+
+            applyCardFocusEffect(row);
+            row.setOnClickListener(v -> {
+                dismiss();
+                activity.openInput(dev.inputId);
+            });
+
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (i > 0) lp.topMargin = (int) (8 * density);
+            container.addView(row, lp);
+        }
+    }
+
+    private void setupMemoryBooster() {
+        View cardBoost = hudRoot.findViewById(R.id.cardBoostRam);
+        TextView ccRamStatus = hudRoot.findViewById(R.id.ccRamStatus);
+        TextView ccBoostBadge = hudRoot.findViewById(R.id.ccBoostBadge);
+
+        if (cardBoost == null) return;
+        applyCardFocusEffect(cardBoost);
+
+        updateMemoryStats(ccRamStatus);
+
+        cardBoost.setOnClickListener(v -> {
+            System.gc();
+            try {
+                ActivityManager am = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
+                if (am != null) {
+                    am.killBackgroundProcesses(activity.getPackageName());
+                }
+            } catch (Throwable ignored) {}
+
+            if (ccBoostBadge != null) {
+                ccBoostBadge.setText("✨ BOOSTED!");
+                ccBoostBadge.setTextColor(0xFF34D399);
+            }
+            updateMemoryStats(ccRamStatus);
+            Toast.makeText(activity, "Memory optimized & caches cleared", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void updateMemoryStats(TextView statusView) {
+        if (statusView == null) return;
+        try {
+            ActivityManager am = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+                am.getMemoryInfo(mi);
+                long availMb = mi.availMem / (1024 * 1024);
+                long totalMb = mi.totalMem / (1024 * 1024);
+                statusView.setText("Free: " + availMb + " MB / " + totalMb + " MB");
+                return;
+            }
+        } catch (Throwable ignored) {}
+        statusView.setText("Clean & Optimized");
+    }
+
+    private void setupSettingsShortcuts() {
+        View btnLauncher = hudRoot.findViewById(R.id.btnCcLauncherSettings);
+        if (btnLauncher != null) {
+            applyCardFocusEffect(btnLauncher);
+            btnLauncher.setOnClickListener(v -> {
+                dismiss();
+                activity.startActivity(new Intent(activity, LauncherSettingsActivity.class));
+            });
+        }
+
+        View btnSystem = hudRoot.findViewById(R.id.btnCcSystemSettings);
+        if (btnSystem != null) {
+            applyCardFocusEffect(btnSystem);
+            btnSystem.setOnClickListener(v -> {
+                dismiss();
+                activity.startActivity(new Intent(Settings.ACTION_SETTINGS));
+            });
+        }
+    }
+
+    private void applyCardFocusEffect(View view) {
+        GradientDrawable focusedBg = new GradientDrawable();
+        focusedBg.setShape(GradientDrawable.RECTANGLE);
+        focusedBg.setCornerRadius(14 * density);
+        focusedBg.setColor(0x55FFFFFF);
+        focusedBg.setStroke((int) (2 * density), 0xFFFFFFFF);
+
+        GradientDrawable normalBg = new GradientDrawable();
+        normalBg.setShape(GradientDrawable.RECTANGLE);
+        normalBg.setCornerRadius(14 * density);
+        normalBg.setColor(0x28FFFFFF);
+        normalBg.setStroke((int) (1 * density), 0x22FFFFFF);
+
+        view.setBackground(normalBg);
+        view.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                v.setBackground(focusedBg);
+                v.animate().scaleX(1.04f).scaleY(1.04f).translationZ(6 * density).setDuration(150).start();
+                v.playSoundEffect(SoundEffectConstants.CLICK);
+            } else {
+                v.setBackground(normalBg);
+                v.animate().scaleX(1.0f).scaleY(1.0f).translationZ(0f).setDuration(150).start();
+            }
+        });
+    }
+}

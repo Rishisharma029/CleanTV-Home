@@ -3,17 +3,20 @@
     android:id="@+id/qrDialogRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#E0000000"
+    android:background="#D0000000"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="false">
 
     <LinearLayout
+        android:id="@+id/qrCardContent"
         android:layout_width="480dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:background="@drawable/glass_panel"
         android:orientation="vertical"
         android:padding="26dp"
+        android:clickable="true"
+        android:focusable="false"
         android:gravity="center_horizontal">
 
         <TextView
@@ -108,10 +111,16 @@
             android:layout_width="160dp"
             android:layout_height="44dp"
             android:layout_marginTop="18dp"
-            android:background="@drawable/glass_panel"
+            android:background="@drawable/pill_bg"
             android:text="Done"
-            android:textColor="#FFFFFFFF"
-            android:textSize="13sp"
-            android:focusable="true" />
+            android:textColor="@drawable/pill_text"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:focusable="true"
+            android:clickable="true"
+            android:nextFocusUp="@id/btnCloseQr"
+            android:nextFocusDown="@id/btnCloseQr"
+            android:nextFocusLeft="@id/btnCloseQr"
+            android:nextFocusRight="@id/btnCloseQr" />
     </LinearLayout>
 </FrameLayout>

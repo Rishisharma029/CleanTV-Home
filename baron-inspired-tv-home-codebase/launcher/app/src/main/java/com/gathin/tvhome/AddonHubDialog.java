@@ -1,12 +1,15 @@
 package com.gathin.tvhome;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -28,43 +31,53 @@ public final class AddonHubDialog {
     public static void show(Activity activity) {
         if (activity == null || activity.isFinishing()) return;
 
-        ViewGroup root = activity.findViewById(android.R.id.content);
-        if (root == null) return;
+        Dialog dialog = new Dialog(activity);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
-        View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_addon_hub, root, false);
+        View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_addon_hub, null);
+        dialog.setContentView(dialogView);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        }
+
         Button btnClose = dialogView.findViewById(R.id.btnCloseAddons);
         LinearLayout listContainer = dialogView.findViewById(R.id.addonListContainer);
 
-        Runnable dismiss = () -> {
-            if (dialogView.getParent() instanceof ViewGroup) {
-                ((ViewGroup) dialogView.getParent()).removeView(dialogView);
-            }
-        };
-
         if (btnClose != null) {
-            btnClose.setOnClickListener(v -> dismiss.run());
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+            btnClose.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                        dialog.dismiss();
+                        return true;
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                            || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                        dialog.dismiss();
+                        return true;
+                    }
+                }
+                return false;
+            });
         }
 
-        dialogView.setOnClickListener(v -> dismiss.run());
-        dialogView.setOnKeyListener((v, keyCode, event) -> {
-            if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_BACK) {
-                dismiss.run();
-                return true;
-            }
-            return false;
-        });
+        dialogView.setOnClickListener(v -> dialog.dismiss());
 
         populateList(activity, listContainer);
 
-        root.addView(dialogView, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        dialog.setOnShowListener(d -> {
+            if (listContainer != null && listContainer.getChildCount() > 0) {
+                View firstCard = listContainer.getChildAt(0);
+                firstCard.requestFocus();
+            } else if (btnClose != null) {
+                btnClose.requestFocus();
+            }
+        });
 
-        if (listContainer != null && listContainer.getChildCount() > 0) {
-            View firstCard = listContainer.getChildAt(0);
-            firstCard.post(firstCard::requestFocus);
-        } else if (btnClose != null) {
-            btnClose.requestFocus();
-        }
+        dialog.show();
     }
 
     private static void populateList(Activity activity, LinearLayout listContainer) {

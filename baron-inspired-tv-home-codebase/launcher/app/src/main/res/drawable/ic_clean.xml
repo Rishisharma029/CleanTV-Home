@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Clean / Sparkle / Broom vector -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M19.36,10.04l-7.4,-7.4a2,2 0,0 0,-2.83 0l-6.72,6.72a2,2 0,0 0,0 2.83l7.4,7.4a2,2 0,0 0,2.83 0l6.72,-6.72a2,2 0,0 0,0 -2.83zM11.08,18.17l-7.4,-7.4 6.72,-6.72 7.4,7.4 -6.72,6.72zM15,4h2v3h-2zM19,7h3v2h-3zM18.5,1.5l1.41,1.41 -2.12,2.12 -1.41,-1.41zM3,21h18v2H3z" />
+</vector>

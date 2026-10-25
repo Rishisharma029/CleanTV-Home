@@ -282,7 +282,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (ri.activityInfo == null) continue;
             String pkg = ri.activityInfo.packageName;
             if (pkg.equals(ctx.getPackageName()) || !ri.activityInfo.exported
-                    || !LibraryApps.visible(tvPackages.contains(pkg), hidden.contains(pkg), added.contains(pkg), removed.contains(pkg))) continue;
+                    || !LibraryApps.visible(tvPackages.contains(pkg), hidden.contains(pkg), added.contains(pkg), removed.contains(pkg))
+                    || !ProfileManager.isAppAllowed(ctx, pkg)) continue;
             ComponentName component = new ComponentName(pkg, ri.activityInfo.name);
             Cards.Card card = cardByPkg.get(pkg);
             if (card != null && !card.component.equals(component)) continue;   // the card stands in for this tile
@@ -667,7 +668,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Drawable d = live.getConstantState() != null ? live.getConstantState().newDrawable().mutate() : live;
         Rect saved = new Rect(d.getBounds());
         int n = 24;
-        Bitmap bmp = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888);
+        Bitmap bmp = TexturePool.getAnalysisBitmap24();
         d.setBounds(0, 0, n, n);
         d.draw(new Canvas(bmp));
         d.setBounds(saved);
@@ -688,7 +689,6 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 sum[bin][2] += Color.blue(p) * w;
             }
         }
-        bmp.recycle();
         int best = 0;
         for (int i = 1; i < 12; i++) if (weight[i] > weight[best]) best = i;
         if (weight[best] < n * n * 0.03f) return 0xFF6E6E73;   // a monochrome icon, like a grey gear
@@ -724,7 +724,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Drawable d = live.getConstantState() != null ? live.getConstantState().newDrawable().mutate() : live;
         Rect saved = new Rect(d.getBounds());
         int n = 48;
-        Bitmap bmp = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888);
+        Bitmap bmp = TexturePool.getAnalysisBitmap48();
         d.setBounds(0, 0, n, n);
         d.draw(new Canvas(bmp));
         d.setBounds(saved);
@@ -734,7 +734,6 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         int topRow = 7, bottomRow = n - 8;
         if (a == 0 && b != 0) a = plateColor(bmp, topRow = 10, n);
         else if (b == 0 && a != 0) b = plateColor(bmp, bottomRow = n - 11, n);
-        bmp.recycle();
         if (a == 0 || b == 0) return null;
         // The sampled rows sit at these heights of the tile; extend the line through them to its edges. A row
         // taken further in sits on artwork-side plate, so its slope is less certain: cap how far it reaches.
@@ -805,14 +804,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Drawable d = live.getConstantState() != null ? live.getConstantState().newDrawable().mutate() : live;
         Rect saved = new Rect(d.getBounds());
         int n = 12;
-        Bitmap bmp = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888);
-        Canvas c = new Canvas(bmp);
+        Bitmap bmp = TexturePool.getAnalysisBitmap12();
+        Canvas canvas = new Canvas(bmp);
         d.setBounds(0, 0, n, n);
-        d.draw(c);
+        d.draw(canvas);
         d.setBounds(saved);
         int[] px = new int[n * n];
         bmp.getPixels(px, 0, n, 0, 0, n, n);
-        bmp.recycle();
         float[] hsv = new float[3];
         int best = 0xFF444444;
         float bestScore = -1f;

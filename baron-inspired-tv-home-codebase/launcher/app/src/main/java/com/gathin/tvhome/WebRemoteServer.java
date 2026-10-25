@@ -243,11 +243,32 @@ public final class WebRemoteServer {
                 int audioMode = act != null ? AudioOutputManager.getCurrentMode(act) : 0;
                 String audioName = AudioOutputManager.getModeName(audioMode);
                 String sleepTimer = SleepTimerManager.getFormattedCountdown();
+                String profile = act != null ? ProfileManager.getActiveProfile(act) : "personal";
+                String profileName = ProfileManager.getProfileDisplayName(profile);
+                String profileIcon = ProfileManager.getProfileIcon(profile);
+                String kidsTime = act != null ? ProfileManager.getFormattedKidsRemainingTime(act) : "";
 
                 String json = String.format(Locale.US,
-                        "{\"gameMode\":%b,\"audioMode\":\"%s\",\"sleepTimer\":\"%s\"}",
-                        gameMode, audioName, sleepTimer);
+                        "{\"gameMode\":%b,\"audioMode\":\"%s\",\"sleepTimer\":\"%s\",\"profile\":\"%s\",\"profileName\":\"%s\",\"profileIcon\":\"%s\",\"kidsTime\":\"%s\"}",
+                        gameMode, audioName, sleepTimer, profile, escapeJson(profileName), escapeJson(profileIcon), kidsTime);
                 sendJson(out, json);
+            } else if (uri.startsWith("/api/profile")) {
+                String target = extractQueryParam(uri, "name");
+                String pin = extractQueryParam(uri, "pin");
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                boolean success = false;
+                if (act != null && target != null) {
+                    if (ProfileManager.isKidsMode(act) && !ProfileManager.PROFILE_KIDS.equals(target)) {
+                        if (ProfileManager.verifyPin(act, pin)) {
+                            ProfileManager.switchProfile(act, target);
+                            success = true;
+                        }
+                    } else {
+                        ProfileManager.switchProfile(act, target);
+                        success = true;
+                    }
+                }
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"profile\":\"" + (target != null ? target : "") + "\"}");
             } else if (uri.startsWith("/api/dock")) {
                 List<MainActivity.AppEntryInfo> apps = fetchAppsFromMain(true);
                 StringBuilder sb = new StringBuilder("[");
@@ -346,6 +367,66 @@ public final class WebRemoteServer {
                 }
                 sb.append("]");
                 sendJson(out, sb.toString());
+            } else if (uri.startsWith("/api/debloat/scan")) {
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                DebloaterEngine.DebloaterPreview preview = DebloaterEngine.getDebloaterPreview(act);
+                List<DebloaterEngine.DebloatItem> items = DebloaterEngine.scanDebloatCandidates(act);
+
+                StringBuilder sb = new StringBuilder("{");
+                sb.append("\"brand\":\"").append(escapeJson(preview.brand.name())).append("\",");
+                sb.append("\"brandName\":\"").append(escapeJson(preview.brand.displayName)).append("\",");
+                sb.append("\"device\":\"").append(escapeJson(preview.deviceInfo)).append("\",");
+                sb.append("\"totalFound\":").append(preview.totalFound).append(",");
+                sb.append("\"activeBloatCount\":").append(preview.activeBloatCount).append(",");
+                sb.append("\"alreadyDisabledCount\":").append(preview.alreadyDisabledCount).append(",");
+                sb.append("\"estimatedRamFreedMb\":").append(preview.estimatedRamFreedMb).append(",");
+                sb.append("\"cpuWakeupsSavedPerHour\":").append(preview.cpuWakeupsSavedPerHour).append(",");
+                sb.append("\"items\":[");
+                for (int i = 0; i < items.size(); i++) {
+                    if (i > 0) sb.append(",");
+                    DebloaterEngine.DebloatItem it = items.get(i);
+                    sb.append("{\"pkg\":\"").append(escapeJson(it.pkg))
+                      .append("\",\"label\":\"").append(escapeJson(it.label))
+                      .append("\",\"category\":\"").append(escapeJson(it.category))
+                      .append("\",\"description\":\"").append(escapeJson(it.description))
+                      .append("\",\"risk\":\"").append(escapeJson(it.risk.displayName))
+                      .append("\",\"estimatedRamMb\":").append(it.estimatedRamMb)
+                      .append(",\"installed\":").append(it.isInstalled)
+                      .append(",\"enabled\":").append(it.isEnabled)
+                      .append("}");
+                }
+                sb.append("]}");
+                sendJson(out, sb.toString());
+            } else if (uri.startsWith("/api/debloat/apply")) {
+                String pkg = extractQueryParam(uri, "pkg");
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                int count = 0;
+                boolean success = false;
+                if (act != null) {
+                    if (pkg != null && !pkg.isEmpty()) {
+                        success = DebloaterEngine.disablePackage(act, pkg);
+                        count = success ? 1 : 0;
+                    } else {
+                        count = DebloaterEngine.autoDebloatAll(act);
+                        success = count > 0;
+                    }
+                }
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}");
+            } else if (uri.startsWith("/api/debloat/restore")) {
+                String pkg = extractQueryParam(uri, "pkg");
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                int count = 0;
+                boolean success = false;
+                if (act != null) {
+                    if (pkg != null && !pkg.isEmpty()) {
+                        success = DebloaterEngine.enablePackage(act, pkg);
+                        count = success ? 1 : 0;
+                    } else {
+                        count = DebloaterEngine.restoreAll(act);
+                        success = count > 0;
+                    }
+                }
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}");
             } else if (uri.startsWith("/api/upload")) {
                 // Sideload APK directly from PC / Mobile browser over Wi-Fi
                 String fileName = extractQueryParam(uri, "name");
@@ -466,6 +547,12 @@ public final class WebRemoteServer {
                             break;
                         case "webremote_dialog":
                             WebRemoteDialog.show(main);
+                            break;
+                        case "profile_picker":
+                            main.showProfilePicker();
+                            break;
+                        case "debloater_dialog":
+                            main.showDebloaterDialog();
                             break;
                     }
                 }
@@ -627,6 +714,7 @@ public final class WebRemoteServer {
                 "    <button class=\"tab-btn\" id=\"tab-apps\" onclick=\"switchTab('apps')\">📱 Apps</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-dock\" onclick=\"switchTab('dock')\">🗂️ Dock</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-addons\" onclick=\"switchTab('addons')\">📦 Add-ons</button>\n" +
+                "    <button class=\"tab-btn\" id=\"tab-debloat\" onclick=\"switchTab('debloat')\">⚡ Debloat</button>\n" +
                 "  </div>\n" +
                 "  <div id=\"pane-remote\" class=\"tab-content\">\n" +
                 "    <div class=\"card\">\n" +
@@ -662,6 +750,11 @@ public final class WebRemoteServer {
                 "      <button class=\"btn-ctrl\" onclick=\"sendAction('smarthome')\"><span class=\"icon\">&#127968;</span>SmartHome</button>\n" +
                 "      <button class=\"btn-ctrl\" onclick=\"sendAction('aerial')\"><span class=\"icon\">&#127757;</span>Aerial</button>\n" +
                 "    </div>\n" +
+                "    <div class=\"grid-row\">\n" +
+                "      <button class=\"btn-ctrl\" onclick=\"sendAction('profile_picker')\"><span class=\"icon\">&#128101;</span>Profiles</button>\n" +
+                "      <button class=\"btn-ctrl\" onclick=\"sendAction('debloater_dialog')\"><span class=\"icon\">⚡</span>Debloat</button>\n" +
+                "      <button class=\"btn-ctrl\" onclick=\"cycleProfile()\"><span class=\"icon\">&#128118;</span>Kids Pin</button>\n" +
+                "    </div>\n" +
                 "  </div>\n" +
                 "  <div id=\"pane-apps\" class=\"tab-content\" style=\"display:none;\">\n" +
                 "    <div class=\"search-box\">\n" +
@@ -682,6 +775,21 @@ public final class WebRemoteServer {
                 "    </div>\n" +
                 "    <div style=\"font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;letter-spacing:0.05em;\">1-CLICK TV ADD-ON CATALOG</div>\n" +
                 "    <div id=\"addonsList\"></div>\n" +
+                "  </div>\n" +
+                "  <div id=\"pane-debloat\" class=\"tab-content\" style=\"display:none;\">\n" +
+                "    <div class=\"card\">\n" +
+                "      <div style=\"font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;\">" +
+                "        <span>⚡ Auto-Debloater Engine</span>" +
+                "        <span id=\"debloatBrandBadge\" style=\"font-size:10px;font-weight:700;background:rgba(239,68,68,0.2);color:#ef4444;padding:3px 8px;border-radius:6px;\">DETECTING</span>" +
+                "      </div>" +
+                "      <div id=\"debloatDevSummary\" style=\"font-size:11px;color:#94a3b8;margin-bottom:12px;\">Scanning OEM hardware...</div>" +
+                "      <div style=\"display:flex;gap:8px;\">" +
+                "        <button class=\"addon-btn btn-install\" style=\"flex:1;background:#ef4444;color:#fff;\" onclick=\"runAutoDebloat()\">⚡ 1-Click Debloat</button>" +
+                "        <button class=\"addon-btn\" style=\"flex:1;background:rgba(255,255,255,0.1);color:#fff;\" onclick=\"runRestoreDebloat()\">↩ Restore All</button>" +
+                "      </div>" +
+                "    </div>\n" +
+                "    <div style=\"font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;letter-spacing:0.05em;\">DETECTED OEM BLOATWARE PACKAGES</div>\n" +
+                "    <div id=\"debloatList\"></div>\n" +
                 "  </div>\n" +
                 "  <div id=\"toast\" class=\"toast\"></div>\n" +
                 "  <script>\n" +
@@ -722,6 +830,7 @@ public final class WebRemoteServer {
                 "      if (tab === 'apps') loadApps();\n" +
                 "      if (tab === 'dock') loadDock();\n" +
                 "      if (tab === 'addons') loadAddons();\n" +
+                "      if (tab === 'debloat') loadDebloat();\n" +
                 "    }\n" +
                 "    let allApps = [];\n" +
                 "    function loadApps() {\n" +
@@ -873,6 +982,80 @@ public final class WebRemoteServer {
                 "      }).catch(err => {\n" +
                 "        alert('Upload error: ' + err);\n" +
                 "      });\n" +
+                "    }\n" +
+                "    let currentProfile = 'personal';\n" +
+                "    function cycleProfile() {\n" +
+                "      haptic();\n" +
+                "      if (currentProfile === 'kids') {\n" +
+                "        const pin = prompt('Enter 4-digit Parent PIN to exit Kids Mode (Default: 0000):');\n" +
+                "        if (!pin) return;\n" +
+                "        fetch('/api/profile?name=personal&pin=' + encodeURIComponent(pin)).then(r => r.json()).then(res => {\n" +
+                "          if (res.status === 'ok') { showToast('Switched to Personal Profile'); updateStatus(); }\n" +
+                "          else { alert('Incorrect PIN!'); }\n" +
+                "        }).catch(()=>{});\n" +
+                "        return;\n" +
+                "      }\n" +
+                "      const target = currentProfile === 'personal' ? 'kids' : 'personal';\n" +
+                "      fetch('/api/profile?name=' + target).then(r => r.json()).then(res => {\n" +
+                "        if (res.status === 'ok') { showToast('Switched to ' + target); updateStatus(); }\n" +
+                "      }).catch(()=>{});\n" +
+                "    }\n" +
+                "    function updateStatus() {\n" +
+                "      fetch('/api/status').then(r => r.json()).then(data => {\n" +
+                "        if (data.profile) currentProfile = data.profile;\n" +
+                "      }).catch(()=>{});\n" +
+                "    }\n" +
+                "    setInterval(updateStatus, 5000);\n" +
+                "    updateStatus();\n" +
+                "    function loadDebloat() {\n" +
+                "      fetch('/api/debloat/scan').then(r => r.json()).then(data => {\n" +
+                "        const badge = document.getElementById('debloatBrandBadge');\n" +
+                "        const summary = document.getElementById('debloatDevSummary');\n" +
+                "        const list = document.getElementById('debloatList');\n" +
+                "        if (badge && data.brandName) badge.textContent = data.brandName;\n" +
+                "        if (summary && data.device) summary.textContent = data.device;\n" +
+                "        if (!data.items || data.items.length === 0) {\n" +
+                "          list.innerHTML = '<div class=\'empty-state\'>🎉 Clean TV! No OEM bloatware detected.</div>';\n" +
+                "          return;\n" +
+                "        }\n" +
+                "        list.innerHTML = data.items.map(it => {\n" +
+                "          const isBloat = it.enabled;\n" +
+                "          const statusColor = isBloat ? '#ef4444' : '#10b981';\n" +
+                "          const statusText = isBloat ? 'Active Bloat' : 'Disabled (Clean)';\n" +
+                "          const btnText = isBloat ? 'Disable' : 'Enable';\n" +
+                "          const btnBg = isBloat ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)';\n" +
+                "          const btnColor = isBloat ? '#ef4444' : '#10b981';\n" +
+                "          return `<div class=\'addon-card\'>` +\n" +
+                "            `<div class=\'addon-top\'><span class=\'addon-tag\' style=\'color:#f59e0b;background:rgba(245,158,11,0.15);\'>${it.category}</span><span style=\'font-size:11px;color:${statusColor};font-weight:700;\'>${statusText}</span></div>` +\n" +
+                "            `<div class=\'addon-title\'>${it.label}</div>` +\n" +
+                "            `<div class=\'addon-desc\'>${it.description} <br><code style=\'font-size:10px;color:#64748b;\'>${it.pkg}</code></div>` +\n" +
+                "            `<button class=\"addon-btn\" style=\"background:${btnBg};color:${btnColor};border:1px solid ${btnColor};\" onclick=\"toggleDebloat(\'${encodeURIComponent(it.pkg)}\', ${!isBloat})\">${btnText} on TV</button>` +\n" +
+                "          `</div>`;\n" +
+                "        }).join('');\n" +
+                "      }).catch(()=>{});\n" +
+                "    }\n" +
+                "    function toggleDebloat(pkgEnc, enable) {\n" +
+                "      haptic();\n" +
+                "      const pkg = decodeURIComponent(pkgEnc);\n" +
+                "      const endpoint = enable ? '/api/debloat/restore?pkg=' : '/api/debloat/apply?pkg=';\n" +
+                "      showToast((enable ? 'Enabling ' : 'Disabling ') + pkg);\n" +
+                "      fetch(endpoint + encodeURIComponent(pkg), { method: 'POST' }).then(() => loadDebloat()).catch(()=>{});\n" +
+                "    }\n" +
+                "    function runAutoDebloat() {\n" +
+                "      haptic();\n" +
+                "      showToast('Running 1-Click Auto-Debloat on TV...');\n" +
+                "      fetch('/api/debloat/apply', { method: 'POST' }).then(r => r.json()).then(res => {\n" +
+                "        showToast('Debloated ' + (res.count || 0) + ' OEM packages!');\n" +
+                "        loadDebloat();\n" +
+                "      }).catch(()=>{});\n" +
+                "    }\n" +
+                "    function runRestoreDebloat() {\n" +
+                "      haptic();\n" +
+                "      showToast('Restoring all OEM packages...');\n" +
+                "      fetch('/api/debloat/restore', { method: 'POST' }).then(r => r.json()).then(res => {\n" +
+                "        showToast('Restored ' + (res.count || 0) + ' packages');\n" +
+                "        loadDebloat();\n" +
+                "      }).catch(()=>{});\n" +
                 "    }\n" +
                 "  </script>\n" +
                 "</body>\n" +

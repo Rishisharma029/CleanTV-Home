@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pinDialogRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#E6000000"
+    android:clickable="true"
+    android:focusable="false">
+
+    <LinearLayout
+        android:id="@+id/pinCardContent"
+        android:layout_width="440dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/glass_panel"
+        android:orientation="vertical"
+        android:padding="26dp"
+        android:gravity="center_horizontal"
+        android:clickable="true"
+        android:focusable="false">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔒"
+            android:textSize="28sp" />
+
+        <TextView
+            android:id="@+id/tvPinTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Parent PIN Required"
+            android:textColor="#FFFFFFFF"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tvPinSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Enter 4-digit PIN to exit Kids Mode (Default: 0000)"
+            android:textColor="#99FFFFFF"
+            android:textSize="11sp" />
+
+        <!-- 4 PIN Dots -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/pinDot0"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="6dp"
+                android:background="@drawable/glass_panel"
+                android:gravity="center"
+                android:text="○"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/pinDot1"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="6dp"
+                android:background="@drawable/glass_panel"
+                android:gravity="center"
+                android:text="○"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/pinDot2"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="6dp"
+                android:background="@drawable/glass_panel"
+                android:gravity="center"
+                android:text="○"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/pinDot3"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="6dp"
+                android:background="@drawable/glass_panel"
+                android:gravity="center"
+                android:text="○"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvPinError"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Incorrect PIN. Try again."
+            android:textColor="#EF4444"
+            android:textSize="11sp"
+            android:visibility="invisible" />
+
+        <!-- TV Remote Numpad Grid -->
+        <GridLayout
+            android:id="@+id/pinNumpad"
+            android:layout_width="240dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:columnCount="3"
+            android:rowCount="4">
+
+            <!-- Row 1: 1, 2, 3 -->
+            <Button android:id="@+id/btnPin1" style="@style/TopButton" android:text="1" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPin2" style="@style/TopButton" android:text="2" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPin3" style="@style/TopButton" android:text="3" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+
+            <!-- Row 2: 4, 5, 6 -->
+            <Button android:id="@+id/btnPin4" style="@style/TopButton" android:text="4" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPin5" style="@style/TopButton" android:text="5" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPin6" style="@style/TopButton" android:text="6" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+
+            <!-- Row 3: 7, 8, 9 -->
+            <Button android:id="@+id/btnPin7" style="@style/TopButton" android:text="7" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPin8" style="@style/TopButton" android:text="8" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPin9" style="@style/TopButton" android:text="9" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+
+            <!-- Row 4: ⌫, 0, Cancel -->
+            <Button android:id="@+id/btnPinBack" style="@style/TopButton" android:text="⌫" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPin0" style="@style/TopButton" android:text="0" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+            <Button android:id="@+id/btnPinCancel" style="@style/TopButton" android:text="✕" android:layout_width="72dp" android:layout_height="40dp" android:layout_margin="4dp" android:focusable="true" android:clickable="true" />
+        </GridLayout>
+
+    </LinearLayout>
+</FrameLayout>

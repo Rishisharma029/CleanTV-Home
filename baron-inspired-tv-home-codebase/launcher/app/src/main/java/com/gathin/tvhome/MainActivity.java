@@ -192,6 +192,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView btnWifi;
     private TextView btnAudio;
     private final AudioOutputManager.AudioOutputListener audioListener = (mode, name) -> runOnUiThread(this::updateAudioButton);
+    private final ProfileManager.ProfileChangeListener profileListener = new ProfileManager.ProfileChangeListener() {
+        @Override
+        public void onProfileChanged(String newProfile) {
+            updateProfileButton();
+            reloadApps(true, true, false);
+        }
+
+        @Override
+        public void onBedtimeLimitReached() {
+            KidsBedtimeDialog.show(MainActivity.this);
+        }
+    };
     /** The network pill's icon as last set, so a refresh that changes nothing does not lay the top bar out again. */
     private int wifiIcon;
     /** The pills have been filled in once; later resumes refresh them after the first frame. */
@@ -378,23 +390,42 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             updateClockVisibility();
         }
     };
+    private final EventBroadcastEngine.ClockListener clockBroadcastListener = () -> {
+        runOnUiThread(() -> {
+            updateGreeting();
+            updateRace();
+            if (festive) updateWifiLabel();
+            sky.update();
+            if (weatherParticles != null && ambientWeatherEnabled && !reducedMotion) {
+                weatherParticles.start();
+            }
+            if (ambientWeatherEnabled) {
+                loadAmbientWeather();
+            }
+            wallpaperPlayer.update();
+        });
+    };
+
+    private final EventBroadcastEngine.ScreenListener screenBroadcastListener = new EventBroadcastEngine.ScreenListener() {
+        @Override
+        public void onScreenOff() {
+            wallpaperPlayer.stop();
+            if (weatherParticles != null) weatherParticles.stop();
+            if (diya != null) diya.stop();
+        }
+
+        @Override
+        public void onScreenOn() {
+            wallpaperPlayer.start();
+            if (festive && diya != null) diya.start();
+            clockBroadcastListener.onTimeTick();
+        }
+    };
+
     private final Runnable minuteTick = new Runnable() {
         @Override
         public void run() {
-            updateGreeting();
-            updateRace();
-            // The pill follows the network callbacks and each return to Home; only the diya's flame follows the
-            // signal level, so only it needs this minute's binder calls (about 7 ms on the UI thread).
-            if (festive) updateWifiLabel();
-            sky.update();
-        if (weatherParticles != null && ambientWeatherEnabled && !reducedMotion) {
-            weatherParticles.start();
-        }
-        if (ambientWeatherEnabled) {
-            loadAmbientWeather();
-        }
-            wallpaperPlayer.update();
-            handler.postDelayed(this, MINUTE_MS);
+            clockBroadcastListener.onTimeTick();
         }
     };
 
@@ -403,6 +434,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         density = getResources().getDisplayMetrics().density;
+        EventBroadcastEngine.register(this);
+        EventBroadcastEngine.addClockListener(clockBroadcastListener);
+        EventBroadcastEngine.addScreenListener(screenBroadcastListener);
         // config.xml, overlaid by config.json from a pushed theme (see Config and tools/theme.sh).
         Config cfg = Config.load(this);
         appLibrarySelection = cfg.appLibrarySelection;
@@ -745,6 +779,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             AudioOutputManager.registerListener(audioListener);
         }
         btnStorage = findViewById(R.id.btnStorage);
+        View btnProfile = findViewById(R.id.btnProfile);
+        if (btnProfile != null) {
+            btnProfile.setOnClickListener(v -> ProfilePickerDialog.show(this));
+            btnProfile.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(120).start();
+                    v.playSoundEffect(SoundEffectConstants.CLICK);
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                }
+            });
+            updateProfileButton();
+            ProfileManager.registerListener(profileListener);
+        }
+
         View btnControlCenter = findViewById(R.id.btnControlCenter);
         if (btnControlCenter != null) {
             btnControlCenter.setOnClickListener(v -> showControlCenter());
@@ -1034,6 +1083,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (openLiveTvAfterBoot()) return;
         updateGreeting();
         updateStorageButton();
+        updateProfileButton();
+        if (ProfileManager.isBedtimeLimitReached(this)) {
+            KidsBedtimeDialog.show(this);
+        }
         updateRace();
         // The network and Inputs pills keep their state while Home is in the background, and callbacks update them
         // when the network or the inputs change, so this refresh only catches anything missed. Its binder calls
@@ -1057,7 +1110,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             loadAmbientWeather();
         }
         wallpaperPlayer.start();
-        handler.postDelayed(minuteTick, MINUTE_MS);
+        clockBroadcastListener.onTimeTick();
         if (festive && diya != null) {
             diya.start();
             LocalDate today = LocalDate.now();
@@ -1267,6 +1320,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
+        TexturePool.onTrimMemory(level);
         // RUNNING_LOW and CRITICAL also arrive while Home is visible when an accessibility service keeps the
         // process in the foreground; never blank the screen the owner is looking at.
         if (!MemoryTrimPolicy.shouldRelease(level, started)) return;
@@ -1291,10 +1345,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+
+
     @Override
     protected void onDestroy() {
+        EventBroadcastEngine.removeClockListener(clockBroadcastListener);
+        EventBroadcastEngine.removeScreenListener(screenBroadcastListener);
+        EventBroadcastEngine.unregister(this);
         super.onDestroy();
         AudioOutputManager.unregisterListener(audioListener);
+        ProfileManager.unregisterListener(profileListener);
         WebRemoteServer.stop();
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
@@ -2204,6 +2264,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void launchApp(String pkg) {
         if (pkg == null) return;
+        if (!ProfileManager.isAppAllowed(this, pkg)) {
+            Toast.makeText(this, "🛡️ Blocked in Kids Guard Mode", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (ProfileManager.isBedtimeLimitReached(this)) {
+            KidsBedtimeDialog.show(this);
+            return;
+        }
         Intent intent = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
         if (intent == null) intent = getPackageManager().getLaunchIntentForPackage(pkg);
         if (intent != null) {
@@ -3452,6 +3520,41 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     public void showAddonHub() {
         AddonHubDialog.show(this);
+    }
+
+    public void showWebRemoteDialog() {
+        WebRemoteDialog.show(this);
+    }
+
+    public void showProfilePicker() {
+        ProfilePickerDialog.show(this);
+    }
+
+    public void showDebloaterDialog() {
+        DebloaterDialog.show(this);
+    }
+
+    private void updateProfileButton() {
+        TextView tvProfileAvatar = findViewById(R.id.tvProfileAvatar);
+        TextView tvProfileName = findViewById(R.id.tvProfileName);
+        View btnSettings = findViewById(R.id.btnSettings);
+        View btnReorder = findViewById(R.id.btnReorder);
+
+        String active = ProfileManager.getActiveProfile(this);
+        if (tvProfileAvatar != null) {
+            tvProfileAvatar.setText(ProfileManager.getProfileIcon(active));
+        }
+        if (tvProfileName != null) {
+            tvProfileName.setText(ProfileManager.getProfileDisplayName(active));
+        }
+
+        boolean settingsAllowed = ProfileManager.isSettingsAllowed(this);
+        if (btnSettings != null) {
+            btnSettings.setVisibility(settingsAllowed ? View.VISIBLE : View.GONE);
+        }
+        if (btnReorder != null) {
+            btnReorder.setVisibility(ProfileManager.isReorderAllowed(this) ? View.VISIBLE : View.GONE);
+        }
     }
 
     public void showSmartHome() {

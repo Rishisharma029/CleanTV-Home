@@ -55,13 +55,15 @@
                 android:id="@+id/btnCloseAddons"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:background="@drawable/glass_panel"
+                android:background="@drawable/pill_bg"
                 android:focusable="true"
+                android:clickable="true"
                 android:nextFocusDown="@+id/addonScrollView"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp"
                 android:text="Close"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@drawable/pill_text"
+                android:textStyle="bold"
                 android:textSize="12sp" />
         </LinearLayout>
 

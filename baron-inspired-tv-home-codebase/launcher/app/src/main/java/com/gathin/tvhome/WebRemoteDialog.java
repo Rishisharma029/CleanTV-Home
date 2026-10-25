@@ -1,17 +1,24 @@
 package com.gathin.tvhome;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.view.KeyEvent;
+import android.view.SoundEffectConstants;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 /**
- * Fullscreen frosted modal displaying the scannable Web Remote QR Code and URL.
+ * TV Modal Dialog displaying the scannable Web Remote QR Code and URL.
+ * Uses a modal Dialog window to trap TV remote focus inside the dialog,
+ * provides visible glowing focus states, and dismisses reliably via Done button,
+ * Back key, or clicking outside.
  */
 public final class WebRemoteDialog {
 
@@ -19,9 +26,6 @@ public final class WebRemoteDialog {
 
     public static void show(Activity activity) {
         if (activity == null || activity.isFinishing()) return;
-
-        ViewGroup root = activity.findViewById(android.R.id.content);
-        if (root == null) return;
 
         // Ensure server is started
         WebRemoteServer.start(activity);
@@ -33,13 +37,26 @@ public final class WebRemoteDialog {
         String url = WebRemoteServer.getServerUrl(activity);
         Bitmap qrBitmap = QRCodeGenerator.generate(url, 400);
 
-        View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_web_remote, root, false);
+        Dialog dialog = new Dialog(activity);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_web_remote, null);
+        dialog.setContentView(dialogView);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        }
+
         ImageView qrImage = dialogView.findViewById(R.id.qrCodeImage);
         TextView urlText = dialogView.findViewById(R.id.qrUrlText);
         TextView pcUrlText = dialogView.findViewById(R.id.qrPcUrlText);
         TextView hintText = dialogView.findViewById(R.id.qrHintText);
         TextView modeBadge = dialogView.findViewById(R.id.qrModeBadge);
         Button btnClose = dialogView.findViewById(R.id.btnCloseQr);
+        View rootOverlay = dialogView.findViewById(R.id.qrDialogRoot);
+        View cardContent = dialogView.findViewById(R.id.qrCardContent);
 
         if (qrImage != null && qrBitmap != null) {
             qrImage.setImageBitmap(qrBitmap);
@@ -73,37 +90,47 @@ public final class WebRemoteDialog {
             }
         }
 
-        Runnable dismiss = () -> {
-            if (dialogView.getParent() instanceof ViewGroup) {
-                ((ViewGroup) dialogView.getParent()).removeView(dialogView);
-            }
-        };
+        // Backdrop click dismisses
+        if (rootOverlay != null) {
+            rootOverlay.setOnClickListener(v -> dialog.dismiss());
+        }
+        // Card content consumes click so tapping inside doesn't dismiss accidentally
+        if (cardContent != null) {
+            cardContent.setOnClickListener(v -> {});
+        }
 
         if (btnClose != null) {
-            btnClose.setOnClickListener(v -> dismiss.run());
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+            btnClose.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) {
+                    v.animate().scaleX(1.08f).scaleY(1.08f).setDuration(120).start();
+                    v.playSoundEffect(SoundEffectConstants.CLICK);
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                }
+            });
             btnClose.setOnKeyListener((v, keyCode, event) -> {
-                if (event.getAction() == KeyEvent.ACTION_DOWN && (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_DPAD_CENTER)) {
-                    dismiss.run();
-                    return true;
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                        dialog.dismiss();
+                        return true;
+                    }
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                            || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                        dialog.dismiss();
+                        return true;
+                    }
                 }
                 return false;
             });
         }
 
-        dialogView.setOnClickListener(v -> dismiss.run());
-        dialogView.setOnKeyListener((v, keyCode, event) -> {
-            if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_BACK) {
-                dismiss.run();
-                return true;
+        dialog.setOnShowListener(d -> {
+            if (btnClose != null) {
+                btnClose.requestFocus();
             }
-            return false;
         });
 
-        root.addView(dialogView, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
-        if (btnClose != null) {
-            btnClose.requestFocus();
-        }
+        dialog.show();
     }
 }

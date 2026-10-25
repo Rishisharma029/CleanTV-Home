@@ -731,6 +731,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
 
+        SleepTimerManager.init(this);
         btnInputs = findViewById(R.id.btnInputs);
         btnAudio = findViewById(R.id.btnAudio);
         if (btnAudio != null) {

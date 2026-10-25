@@ -45,9 +45,32 @@ public final class ControlCenterHUD {
     private View previousFocus;
     private boolean isShowing;
 
-    private int sleepTimerMinutes = 0;
-    private Runnable sleepTimerRunnable;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final SleepTimerManager.SleepTimerListener sleepTimerListener = new SleepTimerManager.SleepTimerListener() {
+        @Override
+        public void onTick(long millisRemaining, String formattedRemaining) {
+            if (hudRoot == null) return;
+            TextView sleepStatus = hudRoot.findViewById(R.id.ccSleepTimerStatus);
+            if (sleepStatus != null) {
+                sleepStatus.setText(formattedRemaining);
+            }
+        }
+
+        @Override
+        public void onTimerStarted(int minutes, long millisRemaining) {
+            onTick(millisRemaining, SleepTimerManager.formatRemaining(millisRemaining));
+        }
+
+        @Override
+        public void onTimerCancelled() {
+            onTick(0, "Off");
+        }
+
+        @Override
+        public void onDeepStandbyTriggered() {
+            onTick(0, "Off");
+        }
+    };
 
     public ControlCenterHUD(MainActivity activity, FrameLayout rootContainer) {
         this.activity = activity;
@@ -70,6 +93,7 @@ public final class ControlCenterHUD {
 
         scrim.setOnClickListener(v -> dismiss());
 
+        SleepTimerManager.registerListener(sleepTimerListener);
         setupHeader();
         setupQuickToggles();
         setupAudioOutputSwitch();
@@ -130,6 +154,7 @@ public final class ControlCenterHUD {
     }
 
     private void cleanupAndRemove() {
+        SleepTimerManager.unregisterListener(sleepTimerListener);
         if (hudRoot != null && hudRoot.getParent() instanceof ViewGroup) {
             ((ViewGroup) hudRoot.getParent()).removeView(hudRoot);
         }
@@ -273,16 +298,16 @@ public final class ControlCenterHUD {
             });
         }
 
-        // 3. Sleep Timer Card
+        // 3. Sleep Timer Card (15m / 30m / 45m / 60m countdown)
         View cardSleep = hudRoot.findViewById(R.id.cardSleepTimer);
         TextView sleepStatus = hudRoot.findViewById(R.id.ccSleepTimerStatus);
         if (cardSleep != null) {
             applyCardFocusEffect(cardSleep);
             if (sleepStatus != null) {
-                sleepStatus.setText(sleepTimerMinutes > 0 ? sleepTimerMinutes + " min" : "Off");
+                sleepStatus.setText(SleepTimerManager.getFormattedCountdown());
             }
             cardSleep.setOnClickListener(v -> {
-                cycleSleepTimer(sleepStatus);
+                SleepTimerManager.cycleNext(activity);
             });
         }
 
@@ -300,38 +325,7 @@ public final class ControlCenterHUD {
         }
     }
 
-    private void cycleSleepTimer(TextView statusView) {
-        if (sleepTimerRunnable != null) {
-            handler.removeCallbacks(sleepTimerRunnable);
-            sleepTimerRunnable = null;
-        }
 
-        if (sleepTimerMinutes == 0) sleepTimerMinutes = 15;
-        else if (sleepTimerMinutes == 15) sleepTimerMinutes = 30;
-        else if (sleepTimerMinutes == 30) sleepTimerMinutes = 60;
-        else if (sleepTimerMinutes == 60) sleepTimerMinutes = 120;
-        else sleepTimerMinutes = 0;
-
-        if (statusView != null) {
-            statusView.setText(sleepTimerMinutes > 0 ? sleepTimerMinutes + " min" : "Off");
-        }
-
-        if (sleepTimerMinutes > 0) {
-            Toast.makeText(activity, "Sleep timer set for " + sleepTimerMinutes + " minutes", Toast.LENGTH_SHORT).show();
-            sleepTimerRunnable = () -> {
-                try {
-                    activity.startActivity(new Intent(Intent.ACTION_MAIN)
-                            .addCategory(Intent.CATEGORY_DESK_DOCK)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                } catch (Throwable ignored) {
-                    activity.finish();
-                }
-            };
-            handler.postDelayed(sleepTimerRunnable, sleepTimerMinutes * 60L * 1000L);
-        } else {
-            Toast.makeText(activity, "Sleep timer turned off", Toast.LENGTH_SHORT).show();
-        }
-    }
 
     private void setupInputsDeck() {
         LinearLayout container = hudRoot.findViewById(R.id.ccInputsContainer);

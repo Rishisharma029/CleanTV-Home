@@ -3445,6 +3445,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         AddonHubDialog.show(this);
     }
 
+    public void showSmartHome() {
+        SmartHomeHUD.show(this);
+    }
+
+    public void showAerialScreensaver() {
+        startActivity(new Intent(this, AmbientAerialActivity.class));
+    }
+
     public boolean isNetworkConnected() {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);

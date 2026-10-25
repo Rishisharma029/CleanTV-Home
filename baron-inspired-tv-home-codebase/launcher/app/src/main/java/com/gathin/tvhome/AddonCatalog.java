@@ -62,6 +62,16 @@ public final class AddonCatalog {
 
     static {
         CATALOG.add(new AddonItem(
+                "adblock",
+                "Ad-Blocker (Private DNS)",
+                "Privacy & AdBlock",
+                "1-click system-wide ad & telemetry blocking for third-party TV apps and web browsers.",
+                "com.adguard.android.contentblocker",
+                "https://github.com/AdguardTeam/AdguardForAndroid/releases/download/v4.4.24/adguard-4.4.24.apk",
+                0xFF10B981
+        ));
+
+        CATALOG.add(new AddonItem(
                 "smarttube",
                 "SmartTube",
                 "Streaming",

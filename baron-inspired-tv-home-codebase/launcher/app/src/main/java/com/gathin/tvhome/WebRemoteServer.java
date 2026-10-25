@@ -279,6 +279,15 @@ public final class WebRemoteServer {
                     }
                 }
                 sendJson(out, "{\"status\":\"" + (started ? "ok" : "error") + "\",\"id\":\"" + (id != null ? id : "") + "\"}");
+            } else if (uri.startsWith("/api/smarthome")) {
+                String action = extractQueryParam(uri, "action");
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                if (action != null && act != null) {
+                    SmartHomeManager.executeSmartAction(act, action);
+                }
+                boolean lights = act != null && SmartHomeManager.getLastLightState(act);
+                String cam = act != null ? SmartHomeManager.getCameraUrl(act) : "";
+                sendJson(out, "{\"status\":\"ok\",\"action\":\"" + (action != null ? action : "") + "\",\"lights\":" + lights + ",\"camera\":\"" + escapeJson(cam) + "\"}");
             } else if (uri.startsWith("/api/addons")) {
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 List<AddonCatalog.AddonItem> list = AddonCatalog.getCatalog();
@@ -396,6 +405,15 @@ public final class WebRemoteServer {
                             break;
                         case "addon_hub":
                             main.showAddonHub();
+                            break;
+                        case "adblock_cycle":
+                            AdBlockManager.cycleNext(main);
+                            break;
+                        case "smarthome":
+                            main.showSmartHome();
+                            break;
+                        case "aerial":
+                            main.showAerialScreensaver();
                             break;
                         case "gamemode":
                             GameModeManager.toggle(main);
@@ -595,6 +613,11 @@ public final class WebRemoteServer {
                 "      <button class=\"btn-ctrl\" onclick=\"sendAction('audio_cycle')\"><span class=\"icon\">&#127911;</span>Audio</button>\n" +
                 "      <button class=\"btn-ctrl\" onclick=\"sendAction('gamemode')\"><span class=\"icon\">&#127918;</span>Game</button>\n" +
                 "      <button class=\"btn-ctrl\" onclick=\"sendAction('sleeptimer')\"><span class=\"icon\">&#9201;</span>Sleep</button>\n" +
+                "    </div>\n" +
+                "    <div class=\"grid-row\">\n" +
+                "      <button class=\"btn-ctrl\" onclick=\"sendAction('adblock_cycle')\"><span class=\"icon\">&#128737;</span>AdBlock</button>\n" +
+                "      <button class=\"btn-ctrl\" onclick=\"sendAction('smarthome')\"><span class=\"icon\">&#127968;</span>SmartHome</button>\n" +
+                "      <button class=\"btn-ctrl\" onclick=\"sendAction('aerial')\"><span class=\"icon\">&#127757;</span>Aerial</button>\n" +
                 "    </div>\n" +
                 "  </div>\n" +
                 "  <div id=\"pane-apps\" class=\"tab-content\" style=\"display:none;\">\n" +

@@ -388,6 +388,42 @@ public final class ControlCenterHUD {
                 });
             });
         }
+
+        // 7. Ad-Blocker Card (1-Click Private DNS / Host Blocking)
+        View cardAdBlock = hudRoot.findViewById(R.id.cardAdBlock);
+        TextView ccAdBlockStatus = hudRoot.findViewById(R.id.ccAdBlockStatus);
+        ImageView ccAdBlockIcon = hudRoot.findViewById(R.id.ccAdBlockIcon);
+        if (cardAdBlock != null) {
+            applyCardFocusEffect(cardAdBlock);
+            updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
+            cardAdBlock.setOnClickListener(v -> {
+                int next = AdBlockManager.cycleNext(activity);
+                updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
+            });
+        }
+
+        // 8. Smart Home Tile (Doorbell Camera & Smart Room Lights)
+        View cardSmartHome = hudRoot.findViewById(R.id.cardSmartHome);
+        if (cardSmartHome != null) {
+            applyCardFocusEffect(cardSmartHome);
+            cardSmartHome.setOnClickListener(v -> {
+                dismiss();
+                SmartHomeHUD.show(activity);
+            });
+        }
+    }
+
+    private void updateAdBlockUI(TextView statusView, ImageView iconView) {
+        if (statusView == null) return;
+        int mode = AdBlockManager.getCurrentMode(activity);
+        statusView.setText(AdBlockManager.getModeName(mode));
+        if (mode != AdBlockManager.MODE_OFF) {
+            statusView.setTextColor(0xFF34D399);
+            if (iconView != null) iconView.setColorFilter(0xFF10B981);
+        } else {
+            statusView.setTextColor(0x99FFFFFF);
+            if (iconView != null) iconView.setColorFilter(0xFF64748B);
+        }
     }
 
     private void updateGameModeUI(TextView statusView, ImageView iconView) {
@@ -533,6 +569,15 @@ public final class ControlCenterHUD {
             btnSystem.setOnClickListener(v -> {
                 dismiss();
                 activity.startActivity(new Intent(Settings.ACTION_SETTINGS));
+            });
+        }
+
+        View cardAerial = hudRoot.findViewById(R.id.cardAerialScreensaver);
+        if (cardAerial != null) {
+            applyCardFocusEffect(cardAerial);
+            cardAerial.setOnClickListener(v -> {
+                dismiss();
+                activity.startActivity(new Intent(activity, AmbientAerialActivity.class));
             });
         }
 

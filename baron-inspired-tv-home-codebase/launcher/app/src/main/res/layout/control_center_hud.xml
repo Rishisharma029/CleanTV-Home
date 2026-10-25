@@ -377,6 +377,101 @@
                     </LinearLayout>
                 </LinearLayout>
 
+                <!-- 2-Column Grid Row 4: Ad-Blocker & Smart Home Tile -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <!-- Ad-Blocker Card -->
+                    <LinearLayout
+                        android:id="@+id/cardAdBlock"
+                        android:layout_width="0dp"
+                        android:layout_height="80dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/glass_panel"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <ImageView
+                            android:id="@+id/ccAdBlockIcon"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_shield"
+                            android:tint="#FF10B981" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="end"
+                            android:fontFamily="sans-serif-medium"
+                            android:maxLines="1"
+                            android:text="Ad-Blocker"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/ccAdBlockStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="AdGuard DNS"
+                            android:textColor="#99FFFFFF"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="10dp"
+                        android:layout_height="wrap_content" />
+
+                    <!-- Smart Home Tile (Doorbell & Lights) -->
+                    <LinearLayout
+                        android:id="@+id/cardSmartHome"
+                        android:layout_width="0dp"
+                        android:layout_height="80dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/glass_panel"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center_vertical"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_smart_home"
+                            android:tint="#FF38BDF8" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="end"
+                            android:fontFamily="sans-serif-medium"
+                            android:maxLines="1"
+                            android:text="Smart Home"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/ccSmartHomeStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="Doorbell &amp; Lights"
+                            android:textColor="#99FFFFFF"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <!-- Section: Audio Output Quick-Switch -->
                 <TextView
                     android:layout_width="wrap_content"
@@ -730,6 +825,67 @@
                             android:textColor="#FFFFFFFF"
                             android:textSize="11sp" />
                     </LinearLayout>
+                </LinearLayout>
+
+                <!-- Section: Ambient Aerial Screensaver -->
+                <LinearLayout
+                    android:id="@+id/cardAerialScreensaver"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/glass_panel"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+
+                    <FrameLayout
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="#22A855F7"
+                        android:padding="8dp">
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_picture"
+                            android:tint="#FFA855F7" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Aerial Screensaver"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif-medium" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="4K Earth &amp; City Drifts"
+                            android:textColor="#99FFFFFF"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="4K AERIAL"
+                        android:textColor="#FFA855F7"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.08" />
                 </LinearLayout>
 
                 <!-- Section: CleanTV Add-on Hub & Package Manager -->

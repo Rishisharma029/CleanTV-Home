@@ -1924,9 +1924,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void requestTopShelfForFocus(int position) {
         String pkg = adapter.packageAt(position);
         if (pkg == null) return;
+        if (pkg.equals(catalogPackage) && !activeShelfItems.isEmpty()) {
+            // Already loaded and displayed for this focused app; prevent flicker & loop
+            return;
+        }
         String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
 
-        // Unload textures and cancel pending queries immediately when focus shifts
+        // Unload textures and cancel pending queries immediately when focus shifts to a new app
         if (topShelfRunnable != null) {
             handler.removeCallbacks(topShelfRunnable);
             topShelfRunnable = null;
@@ -1951,6 +1955,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void requestTopShelfForInputs() {
         if (!DYNAMIC_TOP_SHELF_ENABLED) return;
+        if ("inputs".equals(catalogPackage) && !activeShelfItems.isEmpty()) {
+            return;
+        }
         if (topShelfRunnable != null) {
             handler.removeCallbacks(topShelfRunnable);
             topShelfRunnable = null;
@@ -2103,7 +2110,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (focused != null) {
                     Rect rect = new Rect(0, 0, focused.getWidth(), focused.getHeight());
                     root.offsetDescendantRectToMyCoords(focused, rect);
-                    showHero(lastFocused, rect.top);
+                    float y = rect.top - 14 * density - 26 * density - hero.getHeight();
+                    hero.setY(y);
                 }
             }
         });

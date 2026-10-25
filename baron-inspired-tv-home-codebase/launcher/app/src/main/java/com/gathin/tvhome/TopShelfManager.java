@@ -53,6 +53,22 @@ public final class TopShelfManager {
         new Thread(() -> {
             List<ShelfItem> items = new ArrayList<>();
 
+            // Inputs / HDMI Live Glance Deck
+            if ("inputs".equals(packageName)) {
+                List<HdmiPreviewManager.HdmiDevice> devices = HdmiPreviewManager.getConnectedHdmiDevices(context);
+                for (HdmiPreviewManager.HdmiDevice dev : devices) {
+                    items.add(new ShelfItem(dev.getDisplayTitle(), dev.getDisplaySubtitle(), null, "input:" + dev.inputId, "com.gathin.tvhome"));
+                }
+                if (items.isEmpty()) {
+                    items.add(new ShelfItem("HDMI 1 · Live Feed", "Active Port · 4K 60Hz HDR", null, "input:hdmi1", "com.gathin.tvhome"));
+                    items.add(new ShelfItem("HDMI 2 · Gaming Console", "Active Port · 120Hz", null, "input:hdmi2", "com.gathin.tvhome"));
+                }
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    callback.onLoaded(packageName, requestId, items);
+                });
+                return;
+            }
+
             // 1. Try querying native Android TvProvider (Watch Next / Continue Playing)
             try {
                 ContentResolver cr = context.getContentResolver();

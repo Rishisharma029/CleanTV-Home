@@ -174,6 +174,10 @@ graph LR
 +----------------------------------------------------------------------------------------+
 ```
 
+* **Live HDMI Preview Deck**: Mini 16:9 thumbnail previewing real-time video feed from connected HDMI inputs (PlayStation 5, Xbox Series X|S, Nintendo Switch, Cable/Set-Top Box, PC/Mac):
+  * 🎮 **Auto Device Identification**: Classifies CEC device names and assigns appropriate hardware badges (`4K 120Hz HDR`, `4K Dolby Vision`, `1080p 60Hz`).
+  * 📺 **Native TvView Hardware Passthrough**: Leverages Android TV's native `android.media.tv.TvView` pipeline for silent, zero-latency live feeds right inside the Inputs deck.
+  * ⚡ **Zero Background Overhead**: Video surfaces automatically disconnect and reset decoder hardware when the menu or top shelf closes, guaranteeing zero CPU/GPU drain.
 * **Ambient Live Glance & Dynamic Weather Particles**: Real-time ambient weather conditions with subtle, non-intrusive drifting particles tailored to your TV's local forecast:
   * ☀️ **Golden Sun Motes**: Ambient shimmering sun motes floating upward during fair, sunny days.
   * 🌧️ **Rain Streaks**: Fine translucent slanting droplets with gentle wind drift during rainfall and storms.

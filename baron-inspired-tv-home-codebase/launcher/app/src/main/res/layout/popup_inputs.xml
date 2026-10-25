@@ -8,6 +8,117 @@
     android:padding="6dp"
     android:elevation="12dp">
 
+    <!-- Live HDMI Preview: Mini 16:9 thumbnail showing live feed from connected HDMI inputs (PS5, Xbox, Cable box) -->
+    <FrameLayout
+        android:id="@+id/hdmiPreviewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="132dp"
+        android:layout_marginBottom="6dp"
+        android:background="#FF111318"
+        android:clipChildren="true"
+        android:clipToPadding="true"
+        android:visibility="gone">
+
+        <!-- Live Hardware Passthrough TvView Surface -->
+        <android.media.tv.TvView
+            android:id="@+id/hdmiTvView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Cinematic Live Feed Overlay / Standby Art -->
+        <RelativeLayout
+            android:id="@+id/hdmiOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_alignParentStart="true"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#99000000"
+                android:paddingStart="7dp"
+                android:paddingEnd="7dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp">
+
+                <View
+                    android:id="@+id/hdmiLiveDot"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/status_dot" />
+
+                <TextView
+                    android:id="@+id/hdmiLiveBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LIVE FEED"
+                    android:textColor="#34D399"
+                    android:textSize="10sp"
+                    android:fontFamily="@string/font_medium"
+                    android:letterSpacing="0.08"
+                    android:includeFontPadding="false" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/hdmiResolutionBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_alignParentEnd="true"
+                android:text="4K 60Hz HDR"
+                android:textColor="#B3FFFFFF"
+                android:textSize="10sp"
+                android:fontFamily="@string/font_medium"
+                android:letterSpacing="0.04"
+                android:background="#99000000"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:includeFontPadding="false" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:orientation="vertical"
+                android:background="#B3000000"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp">
+
+                <TextView
+                    android:id="@+id/hdmiDeviceTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="HDMI 1 · PlayStation 5"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="13sp"
+                    android:fontFamily="@string/font_medium"
+                    android:singleLine="true"
+                    android:includeFontPadding="false" />
+
+                <TextView
+                    android:id="@+id/hdmiDeviceSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Active Signal · Click to Switch"
+                    android:textColor="#80FFFFFF"
+                    android:textSize="11sp"
+                    android:fontFamily="@string/font_body"
+                    android:singleLine="true"
+                    android:includeFontPadding="false" />
+            </LinearLayout>
+        </RelativeLayout>
+    </FrameLayout>
+
     <LinearLayout
         android:id="@+id/rows"
         android:layout_width="match_parent"

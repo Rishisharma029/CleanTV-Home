@@ -726,6 +726,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnStorage = findViewById(R.id.btnStorage);
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
+        btnInputs.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) requestTopShelfForInputs();
+        });
         btnStorage.setContentDescription(getString(R.string.storage_status_accessibility, storageSummary()));
         btnStorage.setTooltipText(storageSummary());
         btnStorage.setOnClickListener(v -> openStorageSettings());
@@ -1784,7 +1787,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- top shelf -------------------------------------------------------------------------------
 
     private void showHero(int position, float dockTopInRoot) {
-        String label = adapter.labelAt(position);
+        String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
         int color = adapter.ambientColorAt(position);
         float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
         boolean changed = !label.contentEquals(heroName.getText());
@@ -1845,7 +1848,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void requestTopShelfForFocus(int position) {
         String pkg = adapter.packageAt(position);
         if (pkg == null) return;
-        String label = adapter.labelAt(position);
+        String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
         int request = ++catalogGeneration;
         catalogPackage = pkg;
 
@@ -1858,6 +1861,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }, 220);
     }
 
+    private void requestTopShelfForInputs() {
+        if (!DYNAMIC_TOP_SHELF_ENABLED) return;
+        int request = ++catalogGeneration;
+        catalogPackage = "inputs";
+        TopShelfManager.loadShelf(this, "inputs", "HDMI Inputs", request, (packageName, reqId, items) -> {
+            if (isFinishing() || reqId != catalogGeneration) return;
+            showTopShelfResult(-1, "inputs", reqId, items);
+        });
+    }
+
     private void showTopShelfResult(int position, String pkg, int request, List<TopShelfManager.ShelfItem> items) {
         recommendationCards.removeAllViews();
         if (items == null || items.isEmpty()) {
@@ -1867,13 +1880,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
 
-        String label = adapter.labelAt(position);
-        recommendationHeading.setText(label != null ? "Continue Watching & Previews · " + label : "Watch Next");
+        String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
+        recommendationHeading.setText(position >= 0 ? (label != null ? "Continue Watching & Previews · " + label : "Watch Next") : "Live HDMI Previews · Connected Inputs");
         recommendationHeading.setVisibility(View.VISIBLE);
         recommendationCards.setVisibility(View.VISIBLE);
         recommendationScroll.setVisibility(View.VISIBLE);
 
-        int ambientColor = adapter.ambientColorAt(position);
+        int ambientColor = position >= 0 ? adapter.ambientColorAt(position) : 0xFF0EA5E9;
 
         for (int i = 0; i < items.size(); i++) {
             TopShelfManager.ShelfItem item = items.get(i);
@@ -1968,6 +1981,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
             card.setOnClickListener(v -> {
                 if (item.intentUri != null && !item.intentUri.isEmpty()) {
+                    if (item.intentUri.startsWith("input:")) {
+                        openInput(item.intentUri.substring(6));
+                        return;
+                    }
                     try {
                         Intent intent = Intent.parseUri(item.intentUri, Intent.URI_INTENT_SCHEME);
                         startActivity(intent);
@@ -3238,8 +3255,26 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         LinearLayout rows = panel.findViewById(R.id.rows);
 
         // Compact: as wide as the Inputs pill (a touch wider so "HDMI 1" fits), hanging right below it.
-        int width = Math.max(anchor.getWidth(), (int) (150 * density));
+        FrameLayout previewContainer = panel.findViewById(R.id.hdmiPreviewContainer);
+        android.media.tv.TvView tvView = panel.findViewById(R.id.hdmiTvView);
+        View liveDot = panel.findViewById(R.id.hdmiLiveDot);
+        TextView liveBadge = panel.findViewById(R.id.hdmiLiveBadge);
+        TextView resBadge = panel.findViewById(R.id.hdmiResolutionBadge);
+        TextView deviceTitle = panel.findViewById(R.id.hdmiDeviceTitle);
+        TextView deviceSubtitle = panel.findViewById(R.id.hdmiDeviceSubtitle);
+
+        if (previewContainer != null) {
+            previewContainer.setVisibility(View.VISIBLE);
+        }
+
+        int width = Math.max((int) (270 * density), Math.max(anchor.getWidth(), (int) (150 * density)));
         final PopupWindow popup = glassPopup(panel, width);
+        popup.setOnDismissListener(() -> {
+            if (openPopup == popup) openPopup = null;
+            if (tvView != null) {
+                HdmiPreviewManager.releasePreview(tvView);
+            }
+        });
 
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         boolean sawNonHdmi = false;
@@ -3326,7 +3361,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         String deviceLabel = name == null || name.length() == 0 ? label : name + " \u00B7 " + label;
                         final String deviceId = device.getId();
                         int state = hdmiStateBogus ? -1 : tim.getInputState(deviceId);
-                        addInputRow(rows, popup, R.drawable.ic_input, deviceLabel, state, () -> openInput(deviceId));
+                        addInputRow(rows, popup, R.drawable.ic_input, deviceLabel, state, deviceId, true, tvView, deviceTitle, deviceSubtitle, liveBadge, liveDot, resBadge, () -> openInput(deviceId));
                     }
                     continue;
                 }
@@ -3336,7 +3371,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 // Analog AV jacks have no hotplug detection, and some TVs report them as always connected
                 // (TCL Smart TV Pro G03 says "Connected" with nothing plugged in), so AV rows show no state.
                 int state = !hdmi || hdmiStateBogus ? -1 : tim.getInputState(id);
-                addInputRow(rows, popup, hdmi ? R.drawable.ic_input : R.drawable.ic_av, label, state,
+                addInputRow(rows, popup, hdmi ? R.drawable.ic_input : R.drawable.ic_av, label, state, id, hdmi, tvView, deviceTitle, deviceSubtitle, liveBadge, liveDot, resBadge,
                         () -> openInput(id));
             }
         }
@@ -3451,6 +3486,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void addInputRow(LinearLayout rows, PopupWindow popup, int iconRes, String title, int state, Runnable action) {
+        addInputRow(rows, popup, iconRes, title, state, null, false, null, null, null, null, null, null, action);
+    }
+
+    private void addInputRow(LinearLayout rows, PopupWindow popup, int iconRes, String title, int state,
+                             String inputId, boolean isHdmi, android.media.tv.TvView tvView,
+                             TextView devTitle, TextView devSub, TextView lBadge, View lDot,
+                             TextView rBadge, Runnable action) {
         View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
         ((ImageView) row.findViewById(R.id.icon)).setImageResource(iconRes);
         ((TextView) row.findViewById(R.id.title)).setText(title);
@@ -3468,6 +3510,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             status.setVisibility(View.GONE);
             dot.setVisibility(View.GONE);
         }
+        row.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus && devTitle != null) {
+                HdmiPreviewManager.DeviceInfo dev = HdmiPreviewManager.classifyDevice(title, inputId != null ? inputId : "");
+                devTitle.setText(dev.name + " (" + title + ")");
+                if (rBadge != null) rBadge.setText(dev.badge);
+                boolean connected = (state == TvInputManager.INPUT_STATE_CONNECTED);
+                if (lDot != null) lDot.setVisibility(connected ? View.VISIBLE : View.GONE);
+                if (lBadge != null) lBadge.setText(connected ? "LIVE FEED" : "STANDBY");
+                if (devSub != null) devSub.setText(connected ? "Active Signal · Click to Switch" : "Standby / No Signal");
+
+                if (connected && isHdmi && tvView != null && inputId != null) {
+                    HdmiPreviewManager.tunePreview(tvView, inputId, null);
+                } else if (tvView != null) {
+                    HdmiPreviewManager.releasePreview(tvView);
+                }
+            }
+        });
+
         row.setOnClickListener(v -> {
             popup.dismiss();
             action.run();

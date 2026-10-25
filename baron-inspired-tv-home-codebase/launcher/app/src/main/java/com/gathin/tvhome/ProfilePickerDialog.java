@@ -129,6 +129,18 @@ public final class ProfilePickerDialog {
             cardContent.setOnClickListener(v -> {});
         }
 
+        View previousFocus = activity.getCurrentFocus();
+        dialog.setOnDismissListener(d -> {
+            View prof = activity.findViewById(R.id.btnProfile);
+            if (prof != null && prof.getVisibility() == View.VISIBLE) {
+                prof.requestFocus();
+            } else if (previousFocus != null && previousFocus.isAttachedToWindow() && previousFocus.getVisibility() == View.VISIBLE) {
+                previousFocus.requestFocus();
+            } else if (activity instanceof MainActivity) {
+                ((MainActivity) activity).focusTile(MainActivity.getLastFocused());
+            }
+        });
+
         dialog.setOnShowListener(d -> {
             if (ProfileManager.PROFILE_KIDS.equals(currentProfile)) {
                 if (cardKids != null) cardKids.requestFocus();

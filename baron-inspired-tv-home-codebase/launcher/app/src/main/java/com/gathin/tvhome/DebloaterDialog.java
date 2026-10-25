@@ -99,6 +99,15 @@ public final class DebloaterDialog {
 
         refreshList.run();
 
+        View previousFocus = activity.getCurrentFocus();
+        dialog.setOnDismissListener(d -> {
+            if (previousFocus != null && previousFocus.isAttachedToWindow() && previousFocus.getVisibility() == View.VISIBLE) {
+                previousFocus.requestFocus();
+            } else if (activity instanceof MainActivity) {
+                ((MainActivity) activity).focusTile(MainActivity.getLastFocused());
+            }
+        });
+
         dialog.setOnShowListener(d -> {
             if (btnAutoDebloat != null) {
                 btnAutoDebloat.requestFocus();

@@ -245,6 +245,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static int lastFocused = 0;
     /** App of the last focused tile, so focus follows it when the app list changes. */
     private static String lastFocusedKey;
+
+    public static int getLastFocused() {
+        return lastFocused;
+    }
     private float density;
     /** Module cards (res/values/config.xml, module_cards): discovered on resume, shown only after the owner's Show. */
     private boolean moduleCards;
@@ -787,38 +791,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
                 }
             });
-            btnProfile.setOnKeyListener((v, keyCode, event) -> {
-                if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-                if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
-                if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-                    if (recommendationCards != null && recommendationCards.getVisibility() == View.VISIBLE && recommendationCards.getChildCount() > 0) {
-                        View card = findClosestCardForView(v);
-                        if (card != null) {
-                            card.requestFocus();
-                            v.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
-                            return true;
-                        }
-                    }
-                    focusTile(singleRow ? lastFocused : lastFocused % COLUMNS);
-                    return true;
-                }
-                if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                    View first = btnInputs.getVisibility() == View.VISIBLE ? btnInputs : firstTopButton();
-                    if (first != null) {
-                        first.requestFocus();
-                        v.playSoundEffect(SoundEffectConstants.NAVIGATION_RIGHT);
-                        return true;
-                    }
-                }
-                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return true;
-                return false;
-            });
+            btnProfile.setOnKeyListener(topBarKeyListener);
             updateProfileButton();
             ProfileManager.registerListener(profileListener);
         }
 
         View btnControlCenter = findViewById(R.id.btnControlCenter);
         if (btnControlCenter != null) {
+            btnControlCenter.setFocusable(true);
+            btnControlCenter.setClickable(true);
             btnControlCenter.setOnClickListener(v -> showControlCenter());
         }
         View btnSettings = findViewById(R.id.btnSettings);
@@ -869,10 +850,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             libraryFromTopBar = true;   // closing it goes back to this button, not to the pill after the last row
         });
         btnLibraryTop.setVisibility(cfg.libraryButton && cfg.appLibrary ? View.VISIBLE : View.GONE);
-        // Hook top bar buttons to navigate down into recommendation cards when visible
-        View[] topNavBtns = new View[]{btnProfile, btnInputs, btnAudio, btnStorage, btnWifi, btnReorder, btnControlCenter, btnSettings, btnLibraryTop};
-        for (View b : topNavBtns) {
-            if (b != null) b.setOnKeyListener(topButtonDownKeyListener);
+
+        // Bind unified top bar D-pad key navigation to all top controls
+        View[] topBarControls = new View[]{btnProfile, btnInputs, btnAudio, btnStorage, btnWifi, btnReorder, btnLibraryTop, btnControlCenter, btnSettings};
+        for (View b : topBarControls) {
+            if (b != null) b.setOnKeyListener(topBarKeyListener);
         }
 
         addTopBarApps(cfg.topBarApps);
@@ -916,57 +898,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return true;
         });
 
-        // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
-        // jump to a tile far below when there is nothing in that direction.
-        boolean rtlMenuBar = getResources().getBoolean(R.bool.rtl_menu_bar);
-        View.OnKeyListener pillKeys = (v, keyCode, event) -> {
-            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-                if (recommendationCards != null && recommendationCards.getVisibility() == View.VISIBLE && recommendationCards.getChildCount() > 0) {
-                    View card = findClosestCardForView(v);
-                    if (card != null) {
-                        card.requestFocus();
-                        v.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
-                        return true;
-                    }
-                }
-                focusTile(singleRow ? lastFocused : lastFocused % COLUMNS);
-                return true;
-            }
-            int firstButton = btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : firstTopButton().getId();
-            int leftButton = rtlMenuBar ? R.id.btnSettings : firstButton;
-            int rightButton = rtlMenuBar ? firstButton : R.id.btnSettings;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                if (v.getId() == leftButton) {
-                    View prof = findViewById(R.id.btnProfile);
-                    if (prof != null && prof.getVisibility() == View.VISIBLE) {
-                        prof.requestFocus();
-                        v.playSoundEffect(SoundEffectConstants.NAVIGATION_LEFT);
-                        return true;
-                    }
-                    return true;
-                }
-                return false;
-            }
-            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
-        };
-        btnInputs.setOnKeyListener(pillKeys);
-        btnAudio.setOnKeyListener(pillKeys);
-        btnStorage.setOnKeyListener(pillKeys);
-        btnWifi.setOnKeyListener(pillKeys);
-        btnSettings.setOnKeyListener(pillKeys);
-        btnReorder.setOnKeyListener(pillKeys);
-        btnLibraryTop.setOnKeyListener(pillKeys);
-        if (btnControlCenter != null) btnControlCenter.setOnKeyListener(pillKeys);
-        for (View button : topAppButtons) button.setOnKeyListener(pillKeys);
-        if (advancedEffects) {
-            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnStorage, btnWifi, btnReorder, btnLibraryTop, btnSettings));
-            pills.addAll(topAppButtons);
-            for (View button : pills) {
-                button.setOnFocusChangeListener((view, focused) -> view.animate()
-                        .scaleX(focused ? 1.04f : 1f).scaleY(focused ? 1.04f : 1f)
-                        .setDuration(reducedMotion ? Motion.REDUCED_MS : 160).start());
+        // Unified top bar buttons focus scale animation and tactile click sound
+        List<View> pills = new ArrayList<>(Arrays.asList(
+                btnInputs, btnAudio, btnStorage, btnWifi, btnReorder, 
+                btnLibraryTop, btnControlCenter, btnSettings
+        ));
+        pills.addAll(topAppButtons);
+        for (View button : pills) {
+            if (button != null) {
+                button.setOnKeyListener(topBarKeyListener);
+                button.setOnFocusChangeListener((view, focused) -> {
+                    float scale = focused ? 1.05f : 1.0f;
+                    view.animate().scaleX(scale).scaleY(scale)
+                            .setDuration(reducedMotion ? Motion.REDUCED_MS : 140).start();
+                    if (focused) view.playSoundEffect(SoundEffectConstants.CLICK);
+                });
             }
         }
         if (festive) applyFestiveSkin((TextView) btnInputs, (TextView) btnSettings);
@@ -2022,22 +1968,157 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return closest != null ? closest : recommendationCards.getChildAt(0);
     }
 
+    private List<View> getOrderedTopBarButtons() {
+        List<View> list = new ArrayList<>();
+        View prof = findViewById(R.id.btnProfile);
+        if (prof != null && prof.getVisibility() == View.VISIBLE && prof.isFocusable()) {
+            list.add(prof);
+        }
+        ViewGroup bar = findViewById(R.id.topButtons);
+        if (bar != null) {
+            for (int i = 0; i < bar.getChildCount(); i++) {
+                View child = bar.getChildAt(i);
+                if (child != null && child.getVisibility() == View.VISIBLE && child.isFocusable()) {
+                    list.add(child);
+                }
+            }
+        }
+        for (View appBtn : topAppButtons) {
+            if (appBtn != null && appBtn.getVisibility() == View.VISIBLE && appBtn.isFocusable() && !list.contains(appBtn)) {
+                list.add(appBtn);
+            }
+        }
+        list.sort((a, b) -> {
+            int[] locA = new int[2];
+            int[] locB = new int[2];
+            a.getLocationOnScreen(locA);
+            b.getLocationOnScreen(locB);
+            return Integer.compare(locA[0], locB[0]);
+        });
+        return list;
+    }
+
+    private final View.OnKeyListener topBarKeyListener = (v, keyCode, event) -> {
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            return true;
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+            if (recommendationCards != null && recommendationCards.getVisibility() == View.VISIBLE && recommendationCards.getChildCount() > 0) {
+                View card = findClosestCardForView(v);
+                if (card != null) {
+                    card.requestFocus();
+                    v.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
+                    return true;
+                }
+            }
+            View tile = findClosestDockTileForView(v);
+            if (tile != null) {
+                tile.requestFocus();
+                v.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
+                return true;
+            }
+            focusTile(singleRow ? lastFocused : lastFocused % COLUMNS);
+            return true;
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            List<View> buttons = getOrderedTopBarButtons();
+            int idx = -1;
+            for (int i = 0; i < buttons.size(); i++) {
+                if (buttons.get(i) == v || buttons.get(i).getId() == v.getId()) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx >= 0 && idx < buttons.size() - 1) {
+                View next = buttons.get(idx + 1);
+                next.requestFocus();
+                v.playSoundEffect(SoundEffectConstants.NAVIGATION_RIGHT);
+                return true;
+            }
+            return true; // Rightmost top button reached, consume so focus doesn't jump to lower elements
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+            List<View> buttons = getOrderedTopBarButtons();
+            int idx = -1;
+            for (int i = 0; i < buttons.size(); i++) {
+                if (buttons.get(i) == v || buttons.get(i).getId() == v.getId()) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx > 0) {
+                View prev = buttons.get(idx - 1);
+                prev.requestFocus();
+                v.playSoundEffect(SoundEffectConstants.NAVIGATION_LEFT);
+                return true;
+            }
+            return true; // Leftmost top button reached, consume
+        }
+
+        return false;
+    };
+
+    private View findClosestDockTileForView(View source) {
+        if (grid == null || adapter == null || adapter.appCount() == 0 || source == null) return null;
+        Rect srcRect = new Rect();
+        source.getGlobalVisibleRect(srcRect);
+        int srcCenterX = srcRect.centerX();
+
+        View closest = null;
+        int minDistance = Integer.MAX_VALUE;
+        int checkCount = Math.min(adapter.appCount(), COLUMNS);
+        for (int i = 0; i < checkCount; i++) {
+            RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(i);
+            if (vh != null && vh.itemView != null) {
+                View card = vh.itemView.findViewById(R.id.card);
+                View targetView = card != null ? card : vh.itemView;
+                if (targetView.getVisibility() == View.VISIBLE && targetView.isFocusable()) {
+                    Rect tileRect = new Rect();
+                    targetView.getGlobalVisibleRect(tileRect);
+                    int dist = Math.abs(tileRect.centerX() - srcCenterX);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closest = targetView;
+                    }
+                }
+            }
+        }
+        return closest;
+    }
+
     private View findTopBarTargetForCard(View card) {
+        if (card == null) return btnAudio != null && btnAudio.getVisibility() == View.VISIBLE ? btnAudio : findViewById(R.id.btnSettings);
         Rect cardRect = new Rect();
         card.getGlobalVisibleRect(cardRect);
         int cardCenterX = cardRect.centerX();
 
-        View[] candidates = new View[]{
-                findViewById(R.id.btnProfile),
-                findViewById(R.id.btnInputs),
+        // Cards and dock vertically target the top bar controls (soundbar, storage, wifi, HUD, settings).
+        // Navigation from leftmost shelf cards (e.g. Subscriptions) targets the Soundbar tray directly.
+        // Profile is accessed seamlessly by pressing LEFT from the soundbar tray.
+        if (btnAudio != null && btnAudio.getVisibility() == View.VISIBLE && btnAudio.isFocusable()) {
+            Rect audioRect = new Rect();
+            btnAudio.getGlobalVisibleRect(audioRect);
+            if (cardCenterX <= audioRect.right) {
+                return btnAudio;
+            }
+        }
+
+        List<View> candidates = new ArrayList<>(Arrays.asList(
                 btnAudio,
+                findViewById(R.id.btnInputs),
                 btnStorage,
                 btnWifi,
                 btnReorder,
                 findViewById(R.id.btnControlCenter),
                 findViewById(R.id.btnSettings),
                 btnLibraryTop
-        };
+        ));
+        candidates.addAll(topAppButtons);
 
         View best = null;
         int minDistance = Integer.MAX_VALUE;
@@ -2052,23 +2133,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
             }
         }
-        return best;
+        return best != null ? best : (btnAudio != null && btnAudio.getVisibility() == View.VISIBLE ? btnAudio : findViewById(R.id.btnSettings));
     }
-
-    private final View.OnKeyListener topButtonDownKeyListener = (v, keyCode, event) -> {
-        if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-            if (recommendationCards != null && recommendationCards.getVisibility() == View.VISIBLE && recommendationCards.getChildCount() > 0) {
-                View card = findClosestCardForView(v);
-                if (card != null) {
-                    card.requestFocus();
-                    v.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
-                    return true;
-                }
-            }
-        }
-        return false;
-    };
 
     private float calculateHeroY(float dockTopInRoot) {
         boolean hasShelf = recommendationScroll != null && recommendationScroll.getVisibility() == View.VISIBLE;
@@ -2232,7 +2298,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
     }
 
+    private boolean isTopShelfFocused() {
+        if (recommendationCards == null || recommendationCards.getVisibility() != View.VISIBLE) return false;
+        View focused = getCurrentFocus();
+        if (focused == null) return false;
+        for (int i = 0; i < recommendationCards.getChildCount(); i++) {
+            View child = recommendationCards.getChildAt(i);
+            if (child == focused || (child instanceof ViewGroup && ((ViewGroup) child).hasFocus())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void showTopShelfResult(int position, String pkg, int request, List<TopShelfManager.ShelfItem> items) {
+        if (isTopShelfFocused()) {
+            TopShelfManager.recycleItems(items);
+            return;
+        }
         unloadTopShelfTextures();
         if (items == null || items.isEmpty()) {
             recommendationHeading.setVisibility(View.GONE);
@@ -2271,7 +2354,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             TopShelfManager.ShelfItem item = items.get(i);
             FrameLayout card = new FrameLayout(this);
             card.setFocusable(true);
-            card.setFocusableInTouchMode(true);
+            card.setFocusableInTouchMode(false);
             card.setClipToOutline(true);
 
             int cardW = (int) (140 * density);
@@ -2352,8 +2435,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             final int cardIndex = i;
             card.setOnKeyListener((v, keyCode, event) -> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-                if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_BACK) {
+                if (keyCode == KeyEvent.KEYCODE_BACK) {
                     focusTile(lastFocused);
+                    return true;
+                }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    View tile = findClosestDockTileForView(v);
+                    if (tile != null) {
+                        tile.requestFocus();
+                    } else {
+                        focusTile(lastFocused);
+                    }
+                    v.playSoundEffect(SoundEffectConstants.NAVIGATION_DOWN);
                     return true;
                 }
                 if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
@@ -2376,7 +2469,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                             return true;
                         }
                     }
-                    return true;
+                    return true; // Last card reached, consume so focus doesn't jump to HUD or dock!
                 }
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
                     if (cardIndex > 0) {
@@ -2390,7 +2483,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                             return true;
                         }
                     }
-                    return true;
+                    return true; // First card reached, consume so focus doesn't jump to HUD or dock!
                 }
                 return false;
             });
@@ -3004,6 +3097,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         return true;
                     }
                 }
+                RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(position);
+                View dockTile = vh != null ? vh.itemView : null;
+                View targetBtn = dockTile != null ? findTopBarTargetForCard(dockTile) : null;
+                if (targetBtn != null) {
+                    targetBtn.requestFocus();
+                    grid.playSoundEffect(SoundEffectConstants.NAVIGATION_UP);
+                    return true;
+                }
                 return false;
             }
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) return true;
@@ -3039,6 +3140,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         grid.playSoundEffect(SoundEffectConstants.NAVIGATION_UP);
                         return true;
                     }
+                }
+                RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(position);
+                View dockTile = vh != null ? vh.itemView : null;
+                View targetBtn = dockTile != null ? findTopBarTargetForCard(dockTile) : null;
+                if (targetBtn != null) {
+                    targetBtn.requestFocus();
+                    grid.playSoundEffect(SoundEffectConstants.NAVIGATION_UP);
+                    return true;
                 }
                 return false;
             }          // dock row: let focus move to the top bar
@@ -3131,6 +3240,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             button.setOnClickListener(v -> open(new Intent(target)));
             bar.addView(button, bar.indexOfChild(btnWifi));
             topAppButtons.add(button);
+            button.setOnKeyListener(topBarKeyListener);
         }
     }
 
@@ -3186,7 +3296,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    private void focusTile(int position) {
+    public void focusTile(int position) {
         libraryFocusPending = false;
         cancelPendingFocusScroll();
         if (adapter.appCount() == 0) {

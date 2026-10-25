@@ -408,16 +408,33 @@
                     android:nextFocusDown="@+id/grid" />
 
                 <TextView
-                    android:id="@+id/btnInputs"
-                    style="@style/TopButton"
-                    android:text="@string/inputs"
-                    android:drawableStart="@drawable/ic_input"
-                    android:nextFocusDown="@+id/grid" />
-                <TextView
                     android:id="@+id/btnStorage"
                     style="@style/TopButtonIcon"
                     android:contentDescription="@string/storage"
                     android:drawableStart="@drawable/ic_storage"
+                    android:nextFocusDown="@+id/grid" />
+
+                <TextView
+                    android:id="@+id/btnAudio"
+                    style="@style/TopButton"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:text="TV Audio"
+                    android:drawableStart="@drawable/ic_speaker"
+                    android:nextFocusDown="@+id/grid" />
+
+                <TextView
+                    android:id="@+id/btnControlCenter"
+                    style="@style/TopButton"
+                    android:text="HUD"
+                    android:drawableStart="@drawable/ic_control_center"
+                    android:nextFocusDown="@+id/grid" />
+
+                <TextView
+                    android:id="@+id/btnInputs"
+                    style="@style/TopButton"
+                    android:text="@string/inputs"
+                    android:drawableStart="@drawable/ic_input"
                     android:nextFocusDown="@+id/grid" />
             </LinearLayout>
         </RelativeLayout>

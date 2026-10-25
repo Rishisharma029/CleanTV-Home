@@ -182,7 +182,7 @@ public final class ControlCenterHUD {
             if (current != null) {
                 // If focus is on the left column or full-width button, slide out on D-pad left
                 int id = current.getId();
-                if (id == R.id.cardWifi || id == R.id.cardSleepTimer || id == R.id.btnCcLauncherSettings) {
+                if (id == R.id.cardWifi || id == R.id.cardSleepTimer || id == R.id.cardGameMode || id == R.id.btnCcLauncherSettings) {
                     dismiss();
                     return true;
                 }
@@ -322,6 +322,85 @@ public final class ControlCenterHUD {
                     Toast.makeText(activity, "Display settings not available", Toast.LENGTH_SHORT).show();
                 }
             });
+        }
+
+        // 5. Game Mode Card (Force ALLM & Disable Motion Smoothing)
+        View cardGame = hudRoot.findViewById(R.id.cardGameMode);
+        TextView gameStatus = hudRoot.findViewById(R.id.ccGameModeStatus);
+        ImageView gameIcon = hudRoot.findViewById(R.id.ccGameIcon);
+        if (cardGame != null) {
+            applyCardFocusEffect(cardGame);
+            updateGameModeUI(gameStatus, gameIcon);
+            cardGame.setOnClickListener(v -> {
+                GameModeManager.toggle(activity);
+                updateGameModeUI(gameStatus, gameIcon);
+            });
+        }
+
+        // 6. Network Speed Meter Card (Live Ping & Bandwidth Test)
+        View cardSpeed = hudRoot.findViewById(R.id.cardSpeedMeter);
+        TextView speedStatus = hudRoot.findViewById(R.id.ccSpeedStatus);
+        ImageView speedIcon = hudRoot.findViewById(R.id.ccSpeedIcon);
+        if (cardSpeed != null) {
+            applyCardFocusEffect(cardSpeed);
+            if (speedStatus != null) {
+                if (NetworkSpeedMeter.getLastPingMs() > 0 && NetworkSpeedMeter.getLastSpeedMbps() > 0) {
+                    speedStatus.setText(NetworkSpeedMeter.getLastPingMs() + "ms · " + NetworkSpeedMeter.formatSpeed(NetworkSpeedMeter.getLastSpeedMbps()));
+                } else {
+                    speedStatus.setText("Tap to test");
+                }
+            }
+            cardSpeed.setOnClickListener(v -> {
+                if (NetworkSpeedMeter.isRunning()) return;
+                if (speedStatus != null) speedStatus.setText("Pinging...");
+                if (speedIcon != null) speedIcon.animate().rotationBy(360f).setDuration(1000).start();
+
+                NetworkSpeedMeter.startTest(new NetworkSpeedMeter.SpeedTestListener() {
+                    @Override
+                    public void onPingMeasured(int pingMs, int jitterMs) {
+                        if (speedStatus != null) {
+                            speedStatus.setText("Ping: " + pingMs + "ms (" + jitterMs + "ms jit)");
+                        }
+                    }
+
+                    @Override
+                    public void onBandwidthProgress(float currentMbps, int progressPercent) {
+                        if (speedStatus != null) {
+                            speedStatus.setText(NetworkSpeedMeter.formatSpeed(currentMbps) + " (" + progressPercent + "%)");
+                        }
+                    }
+
+                    @Override
+                    public void onTestComplete(int pingMs, float finalMbps, String qualityRating) {
+                        if (speedStatus != null) {
+                            speedStatus.setText(pingMs + "ms · " + NetworkSpeedMeter.formatSpeed(finalMbps));
+                        }
+                        Toast.makeText(activity, "Speed Test: " + NetworkSpeedMeter.formatSpeed(finalMbps) + " · " + qualityRating, Toast.LENGTH_LONG).show();
+                    }
+
+                    @Override
+                    public void onTestError(String error) {
+                        if (speedStatus != null) {
+                            speedStatus.setText("Retry test");
+                        }
+                        Toast.makeText(activity, error, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            });
+        }
+    }
+
+    private void updateGameModeUI(TextView statusView, ImageView iconView) {
+        if (statusView == null) return;
+        boolean enabled = GameModeManager.isGameModeEnabled(activity);
+        if (enabled) {
+            statusView.setText("● ALLM Active");
+            statusView.setTextColor(0xFF34D399);
+            if (iconView != null) iconView.setColorFilter(0xFF10B981);
+        } else {
+            statusView.setText("ALLM · Off");
+            statusView.setTextColor(0x99FFFFFF);
+            if (iconView != null) iconView.setColorFilter(0xFFF59E0B);
         }
     }
 

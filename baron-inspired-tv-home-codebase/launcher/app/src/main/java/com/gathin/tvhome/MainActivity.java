@@ -338,7 +338,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         @Override
         public void onInputAdded(String inputId) {
             updateInputsButton();
-        updateAudioButton();
         }
 
         @Override
@@ -732,6 +731,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
 
         SleepTimerManager.init(this);
+        GameModeManager.applyWindowMode(this);
         btnInputs = findViewById(R.id.btnInputs);
         btnAudio = findViewById(R.id.btnAudio);
         if (btnAudio != null) {
@@ -1036,6 +1036,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             updateInputsButton();
             pillsShown = true;
         }
+        updateAudioButton();
+        GameModeManager.applyWindowMode(this);
         if (showStats) startStats();
         sky.update();
         if (weatherParticles != null && ambientWeatherEnabled && !reducedMotion) {

@@ -69,8 +69,8 @@ flowchart TD
     TextureEngine -->|"Artwork Surfaces"| TopShelf
     ProfileEngine -->|"App Filtering & Limits"| AppGrid
     ShelfEngine -->|"16:9 Cards"| TopShelf
-    MainActivity --> UI
-    GPU --> UI
+    MainActivity --> TopBar
+    GPU --> GlassHighlight
 ```
 
 ---
@@ -224,31 +224,28 @@ flowchart TD
 Entry-level smart TVs often have only 1 GB of RAM and low-power quad-core MediaTek or Amlogic processors. CleanTV Home is engineered specifically to prevent the stutter and Out-Of-Memory (OOM) crashes common in heavy web-view launchers.
 
 ```mermaid
-flowchart LR
-    subgraph Pipeline["Zero-Jank Hardware Pipeline"]
-        direction TB
-        subgraph Render["RenderThread"]
-            A["Hardware Layers enabled (withLayer)"]
-            B["RenderNode scaleX / scaleY / translationZ"]
-            C["Zero requestLayout() during focus transitions"]
-        end
-
-        subgraph Memory["TexturePool (15 MB Max)"]
-            D["Shared Analysis Bitmaps (24x24 / 48x48)"]
-            E["Bounded LRU Artwork Cache"]
-            F["Active onTrimMemory Critical Hooks"]
-        end
-
-        subgraph Power["Zero Polling (EventBroadcastEngine)"]
-            G["Screen OFF Broadcast -> Stop Wallpaper & Loops"]
-            H["Screen ON Broadcast -> Resume Display"]
-            I["ConnectivityManager NetworkCallback"]
-        end
+flowchart TD
+    subgraph Render["RenderThread Engine"]
+        A["Hardware Layers withLayer"]
+        B["RenderNode Hardware Transforms"]
+        C["Zero requestLayout in Focus Flow"]
     end
 
-    Render -->|"Guaranteed 60-120 FPS"| TV["Silky TV Home Screen"]
-    Memory -->|"Zero GC Pauses"| TV
-    Power -->|"0% Idle CPU"| TV
+    subgraph Memory["TexturePool 15 MB Max"]
+        D["Shared Analysis Bitmaps 24x24 and 48x48"]
+        E["Bounded LRU Artwork Cache"]
+        F["Active onTrimMemory Hooks"]
+    end
+
+    subgraph Power["Zero Polling EventBroadcastEngine"]
+        G["Screen-OFF: Sleeps Animators and Loops"]
+        H["Screen-ON: Resumes Active Display"]
+        I["ConnectivityManager Push Callbacks"]
+    end
+
+    C -->|"Guaranteed 60 to 120 FPS"| TV["CleanTV Home (Silky 60-120 FPS)"]
+    F -->|"Zero GC Pauses"| TV
+    I -->|"0% Idle CPU Overhead"| TV
 ```
 
 ---

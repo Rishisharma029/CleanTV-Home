@@ -44,18 +44,44 @@ public final class TopShelfManager {
         void onLoaded(String packageName, int requestId, List<ShelfItem> items);
     }
 
-    private static final Uri WATCH_NEXT_URI = Uri.parse("content://android.media.tv/watch_next_program");
-    private static final Uri PREVIEW_PROGRAMS_URI = Uri.parse("content://android.media.tv/preview_program");
+    private static final String WATCH_NEXT_URI = "content://android.media.tv/watch_next_program";
+    private static final String PREVIEW_PROGRAMS_URI = "content://android.media.tv/preview_program";
+
+    private static volatile int activeRequestId = -1;
+    private static volatile String activePackage = null;
 
     private TopShelfManager() {}
 
+    /** Invalidate all in-flight background queries immediately so only the focused app is processed. */
+    public static void cancelPendingQueries() {
+        activeRequestId = -1;
+        activePackage = null;
+    }
+
+    /** Explicitly recycle bitmap textures to release GPU and native heap memory immediately. */
+    public static void recycleItems(List<ShelfItem> items) {
+        if (items == null) return;
+        for (ShelfItem item : items) {
+            if (item != null && item.posterBitmap != null && !item.posterBitmap.isRecycled()) {
+                item.posterBitmap.recycle();
+                item.posterBitmap = null;
+            }
+        }
+    }
+
     public static void loadShelf(Context context, String packageName, String appLabel, int requestId, ShelfCallback callback) {
+        activeRequestId = requestId;
+        activePackage = packageName;
+
         new Thread(() -> {
+            if (requestId != activeRequestId) return;
+
             List<ShelfItem> items = new ArrayList<>();
 
             // Inputs / HDMI Live Glance Deck
             if ("inputs".equals(packageName)) {
                 List<HdmiPreviewManager.HdmiDevice> devices = HdmiPreviewManager.getConnectedHdmiDevices(context);
+                if (requestId != activeRequestId) return;
                 for (HdmiPreviewManager.HdmiDevice dev : devices) {
                     items.add(new ShelfItem(dev.getDisplayTitle(), dev.getDisplaySubtitle(), null, "input:" + dev.inputId, "com.gathin.tvhome"));
                 }
@@ -64,20 +90,31 @@ public final class TopShelfManager {
                     items.add(new ShelfItem("HDMI 2 · Gaming Console", "Active Port · 120Hz", null, "input:hdmi2", "com.gathin.tvhome"));
                 }
                 new Handler(Looper.getMainLooper()).post(() -> {
+                    if (requestId != activeRequestId) {
+                        recycleItems(items);
+                        return;
+                    }
                     callback.onLoaded(packageName, requestId, items);
                 });
                 return;
             }
 
-            // 1. Try querying native Android TvProvider (Watch Next / Continue Playing)
+            // 1. Try querying native Android TvProvider (Watch Next / Continue Playing) strictly for focused package
             try {
-                ContentResolver cr = context.getContentResolver();
-                queryTvProvider(cr, WATCH_NEXT_URI, packageName, "Continue Watching", items);
-                if (items.size() < 3) {
-                    queryTvProvider(cr, PREVIEW_PROGRAMS_URI, packageName, "Recommended", items);
+                if (requestId == activeRequestId) {
+                    ContentResolver cr = context.getContentResolver();
+                    queryTvProvider(cr, Uri.parse(WATCH_NEXT_URI), packageName, "Continue Watching", items, requestId);
+                    if (items.size() < 3 && requestId == activeRequestId) {
+                        queryTvProvider(cr, Uri.parse(PREVIEW_PROGRAMS_URI), packageName, "Recommended", items, requestId);
+                    }
                 }
             } catch (Throwable ignored) {
                 // Ignore SecurityException or missing provider
+            }
+
+            if (requestId != activeRequestId) {
+                recycleItems(items);
+                return;
             }
 
             // 2. If no system items were found, build curated ad-free glance channels
@@ -85,21 +122,39 @@ public final class TopShelfManager {
                 buildCuratedGlanceItems(packageName, appLabel, items);
             }
 
+            if (requestId != activeRequestId) {
+                recycleItems(items);
+                return;
+            }
+
             // 3. Load poster images asynchronously if available (up to 6 items)
             for (int i = 0; i < Math.min(items.size(), 6); i++) {
+                if (requestId != activeRequestId) {
+                    recycleItems(items);
+                    return;
+                }
                 ShelfItem item = items.get(i);
                 if (item.posterUri != null && !item.posterUri.isEmpty()) {
                     item.posterBitmap = loadPosterBitmap(context, item.posterUri);
                 }
             }
 
+            if (requestId != activeRequestId) {
+                recycleItems(items);
+                return;
+            }
+
             new Handler(Looper.getMainLooper()).post(() -> {
+                if (requestId != activeRequestId) {
+                    recycleItems(items);
+                    return;
+                }
                 callback.onLoaded(packageName, requestId, items);
             });
         }, "top-shelf-worker").start();
     }
 
-    private static void queryTvProvider(ContentResolver cr, Uri uri, String targetPkg, String defaultSub, List<ShelfItem> out) {
+    private static void queryTvProvider(ContentResolver cr, Uri uri, String targetPkg, String defaultSub, List<ShelfItem> out, int requestId) {
         Cursor cursor = null;
         try {
             // AOSP TvProvider forbids selection clause without signature permission: read all & filter in memory
@@ -113,6 +168,9 @@ public final class TopShelfManager {
             int descIdx = cursor.getColumnIndex("short_description");
 
             while (cursor.moveToNext() && out.size() < 6) {
+                if (requestId != activeRequestId) {
+                    break;
+                }
                 if (pkgIdx != -1) {
                     String pkg = cursor.getString(pkgIdx);
                     if (pkg == null || !pkg.equalsIgnoreCase(targetPkg)) {

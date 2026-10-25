@@ -151,6 +151,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final boolean DYNAMIC_TOP_SHELF_ENABLED = true;
     private String catalogPackage;
     private int catalogGeneration;
+    private final List<TopShelfManager.ShelfItem> activeShelfItems = new ArrayList<>();
+    private Runnable topShelfRunnable;
     /** Cinematic top shelf (config.xml, cinematic_home): the focused dock app's artwork behind a larger shelf. */
     private boolean cinematic;
     /** config.xml ambient_glow, overridable by a theme. Off: the glow view is gone and no fade or colour animator
@@ -1195,6 +1197,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         stopStats();
         if (diya != null) diya.stop();
         cancelPendingFocusScroll();
+        if (topShelfRunnable != null) {
+            handler.removeCallbacks(topShelfRunnable);
+            topShelfRunnable = null;
+        }
+        unloadTopShelfTextures();
         // Nothing of ours stays on screen over another app; an undecided prompt simply returns next time.
         if (cardPrompt != null) cardPrompt.dismiss();
         if (appLibrary != null) appLibrary.close();
@@ -1845,40 +1852,84 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+    /** Immediately releases ImageView drawables and recycles all ShelfItem bitmaps. */
+    private void unloadTopShelfTextures() {
+        TopShelfManager.cancelPendingQueries();
+        if (recommendationCards != null) {
+            for (int i = 0; i < recommendationCards.getChildCount(); i++) {
+                View child = recommendationCards.getChildAt(i);
+                if (child instanceof ViewGroup) {
+                    ViewGroup vg = (ViewGroup) child;
+                    for (int j = 0; j < vg.getChildCount(); j++) {
+                        View sub = vg.getChildAt(j);
+                        if (sub instanceof ImageView) {
+                            ((ImageView) sub).setImageDrawable(null);
+                        }
+                    }
+                }
+            }
+            recommendationCards.removeAllViews();
+        }
+        TopShelfManager.recycleItems(activeShelfItems);
+        activeShelfItems.clear();
+    }
+
     private void requestTopShelfForFocus(int position) {
         String pkg = adapter.packageAt(position);
         if (pkg == null) return;
         String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
+
+        // Unload textures and cancel pending queries immediately when focus shifts
+        if (topShelfRunnable != null) {
+            handler.removeCallbacks(topShelfRunnable);
+            topShelfRunnable = null;
+        }
+        unloadTopShelfTextures();
+
         int request = ++catalogGeneration;
         catalogPackage = pkg;
 
-        handler.postDelayed(() -> {
+        topShelfRunnable = () -> {
             if (isFinishing() || request != catalogGeneration || !pkg.equals(catalogPackage)) return;
             TopShelfManager.loadShelf(this, pkg, label, request, (packageName, reqId, items) -> {
-                if (isFinishing() || reqId != catalogGeneration || !packageName.equals(catalogPackage)) return;
+                if (isFinishing() || reqId != catalogGeneration || !packageName.equals(catalogPackage)) {
+                    TopShelfManager.recycleItems(items);
+                    return;
+                }
                 showTopShelfResult(position, packageName, reqId, items);
             });
-        }, 220);
+        };
+        handler.postDelayed(topShelfRunnable, 220);
     }
 
     private void requestTopShelfForInputs() {
         if (!DYNAMIC_TOP_SHELF_ENABLED) return;
+        if (topShelfRunnable != null) {
+            handler.removeCallbacks(topShelfRunnable);
+            topShelfRunnable = null;
+        }
+        unloadTopShelfTextures();
+
         int request = ++catalogGeneration;
         catalogPackage = "inputs";
         TopShelfManager.loadShelf(this, "inputs", "HDMI Inputs", request, (packageName, reqId, items) -> {
-            if (isFinishing() || reqId != catalogGeneration) return;
+            if (isFinishing() || reqId != catalogGeneration) {
+                TopShelfManager.recycleItems(items);
+                return;
+            }
             showTopShelfResult(-1, "inputs", reqId, items);
         });
     }
 
     private void showTopShelfResult(int position, String pkg, int request, List<TopShelfManager.ShelfItem> items) {
-        recommendationCards.removeAllViews();
+        unloadTopShelfTextures();
         if (items == null || items.isEmpty()) {
             recommendationHeading.setVisibility(View.GONE);
             recommendationCards.setVisibility(View.GONE);
             recommendationScroll.setVisibility(View.GONE);
             return;
         }
+        activeShelfItems.addAll(items);
 
         String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
         recommendationHeading.setText(position >= 0 ? (label != null ? "Continue Watching & Previews · " + label : "Watch Next") : "Live HDMI Previews · Connected Inputs");
@@ -2248,6 +2299,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroArt.animate().cancel();
         heroArt.setAlpha(0f);
         heroShown = false;
+        if (topShelfRunnable != null) {
+            handler.removeCallbacks(topShelfRunnable);
+            topShelfRunnable = null;
+        }
+        unloadTopShelfTextures();
+        if (recommendationHeading != null) recommendationHeading.setVisibility(View.GONE);
+        if (recommendationCards != null) recommendationCards.setVisibility(View.GONE);
+        if (recommendationScroll != null) recommendationScroll.setVisibility(View.GONE);
         if (!ambientGlow) return;
         if (!animations || reducedMotion) {
             setAmbient(color);
@@ -2266,6 +2325,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void hideHero() {
+        if (topShelfRunnable != null) {
+            handler.removeCallbacks(topShelfRunnable);
+            topShelfRunnable = null;
+        }
+        unloadTopShelfTextures();
+        if (recommendationHeading != null) recommendationHeading.setVisibility(View.GONE);
+        if (recommendationCards != null) recommendationCards.setVisibility(View.GONE);
+        if (recommendationScroll != null) recommendationScroll.setVisibility(View.GONE);
         if (!heroShown) return;
         stopAmbientAnimation();
         hero.animate().cancel();

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/tv-home-live-screenshot.png" alt="CleanTV Home Running Live on Android TV" width="850">
+  <img src="docs/assets/cleantv-home-preview.png" alt="CleanTV Home Running Live on Android TV" width="900">
 </p>
 
 <h1 align="center">📺 CleanTV Home</h1>
@@ -76,6 +76,10 @@ flowchart TD
 ---
 
 ## 🛡️ Multi-Profile & Kids Guard Mode
+
+<p align="center">
+  <img src="docs/assets/cleantv-profile-switcher.png" alt="CleanTV Multi-Profile & Kids Guard Switcher" width="820">
+</p>
 
 CleanTV Home features an integrated profile management engine accessible from the top-left corner:
 
@@ -170,25 +174,27 @@ CleanTV Home features a symmetrical 2D DPAD remote traversal algorithm ensuring 
 
 ```mermaid
 flowchart TD
-    subgraph TopBar["Top Bar"]
-        P["👤 Personal"] <--> Inputs["Inputs"]
-        Inputs <--> Audio["TV Audio"]
-        Audio <--> Storage["Storage"]
-        Storage <--> Wifi["Wi-Fi"]
-        Wifi <--> HUD["HUD"]
-        HUD <--> Settings["Settings"]
+    subgraph TopBar["Top Action Bar (Deterministic Horizontal Strip)"]
+        P["👤 Personal Profile"] <--> Audio["🔊 Soundbar Tray"]
+        Audio <--> Storage["💾 Storage"]
+        Storage <--> Wifi["🌐 Ethernet / Wi-Fi"]
+        Wifi <--> Reorder["⇅ Reorder"]
+        Reorder <--> HUD["🎛️ Control Center HUD"]
+        HUD <--> Settings["⚙️ Settings"]
     end
 
-    subgraph Shelf["Dynamic Top Shelf (16:9 Cards)"]
+    subgraph Shelf["Dynamic Top Shelf (16:9 Glance Cards)"]
         Card0["Card 0 (Subscriptions)"] <--> Card1["Card 1 (Trending)"]
-        Card1 <--> Card2["Card 2 (Watch Later)"]
-        Card2 <--> Card3["Card 3 (Previews)"]
+        Card1 <--> Card2["Card 2 (Watch History)"]
+        Card2 <--> Card3["Card 3 (Watch Later)"]
     end
 
     subgraph Dock["App Dock (Row 1)"]
-        Tile0["Tile 0 (YouTube)"] <--> Tile1["Tile 1 (Netflix)"]
-        Tile1 <--> Tile2["Tile 2 (Prime)"]
-        Tile2 <--> Tile3["Tile 3 (Settings)"]
+        Tile0["Tile 0 (YouTube)"] <--> Tile1["Tile 1 (YouTube Music)"]
+        Tile1 <--> Tile2["Tile 2 (Live TV)"]
+        Tile2 <--> Tile3["Tile 3 (Play Games)"]
+        Tile3 <--> Tile4["Tile 4 (Play Store)"]
+        Tile4 <--> Tile5["Tile 5 (Settings)"]
     end
 
     subgraph GridRows["Lower App Grid"]
@@ -196,16 +202,16 @@ flowchart TD
         Row3["Row 3 (Tools & Utilities)"]
     end
 
-    %% Vertical Symmetrical Bridges
+    %% Vertical Deterministic Bridges
     Tile0 <-->|"D-Pad UP / DOWN"| Card0
     Tile1 <-->|"D-Pad UP / DOWN"| Card1
     Tile2 <-->|"D-Pad UP / DOWN"| Card2
     Tile3 <-->|"D-Pad UP / DOWN"| Card3
 
-    Card0 <-->|"D-Pad UP / DOWN"| P
-    Card1 <-->|"D-Pad UP / DOWN"| Inputs
+    Card0 <-->|"D-Pad UP / DOWN"| Audio
+    Card1 <-->|"D-Pad UP / DOWN"| Audio
     Card2 <-->|"D-Pad UP / DOWN"| Storage
-    Card3 <-->|"D-Pad UP / DOWN"| Settings
+    Card3 <-->|"D-Pad UP / DOWN"| Wifi
 
     Tile0 <-->|"D-Pad DOWN / UP"| Row2
     Row2 <-->|"D-Pad DOWN / UP"| Row3
@@ -248,6 +254,11 @@ flowchart LR
 ---
 
 ## 📱 Mobile Web Remote & Control Center HUD
+
+<p align="center">
+  <img src="docs/assets/cleantv-hud-quick-toggles.png" alt="Control Center HUD - Quick Toggles & System" width="49%">
+  <img src="docs/assets/cleantv-hud-debloater.png" alt="Control Center HUD - TV Auto-Debloater & Add-ons" width="49%">
+</p>
 
 CleanTV Home includes an integrated HTTP and WebSocket remote server running natively on port `8080`.
 

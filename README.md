@@ -38,32 +38,32 @@ Most modern Android TVs and Google TVs (Realme, Xiaomi, TCL, Hisense, Chromecast
 
 ```mermaid
 flowchart TD
-    subgraph PC["🖥️ Your Computer (PC / Mac / Linux)"]
-        Installer["install.bat / install.ps1 / install.sh"]
-        ADB["Google ADB Bridge (Auto-provisioned)"]
-        APKs["apks/clean-tv-launcher-latest.apk"]
-        Presets["presets/ (Debloat Profiles)"]
+    subgraph PC["Computer (PC / Mac / Linux)"]
+        Installer["1-Click Installer (install.bat / install.sh)"]
+        ADB["ADB Engine (Auto-Provisioned)"]
+        APKs["Clean TV Launcher APK"]
+        Presets["Debloat Profiles"]
         Installer --> ADB
         Installer --> APKs
         Installer --> Presets
     end
 
-    subgraph TV["📺 Android TV / Google TV (Over Wi-Fi)"]
-        Daemon["ADB Daemon (:5555)"]
-        Backup["Safety Snapshot (backups/)"]
-        Launcher["com.gathin.tvhome (New Home)"]
-        StockHome["Stock Home (Disabled)"]
-        Bloat["OEM Bloat / Ad Daemons (Disabled)"]
-        SafeApps["User Apps (Netflix, YouTube, Prime)"]
+    subgraph TV["Android TV / Google TV (Over Wi-Fi)"]
+        Daemon["ADB Daemon (Port 5555)"]
+        Backup["Safety Backup (backups/)"]
+        Launcher["CleanTV Home (Default Home)"]
+        StockHome["Stock Ad Launcher (Disabled)"]
+        Bloat["OEM Bloat and Ad Services (Disabled)"]
+        Apps["Streaming Apps (Netflix, YouTube, Prime)"]
 
         Daemon --> Backup
         Daemon --> Launcher
-        Daemon -.->|Safely Disable| StockHome
-        Daemon -.->|Safely Disable| Bloat
-        Launcher --> SafeApps
+        Daemon -.->|"Safely Disable"| StockHome
+        Daemon -.->|"Safely Disable"| Bloat
+        Launcher --> Apps
     end
 
-    ADB ==>|Wireless ADB / Port 5555| Daemon
+    ADB -->|"Wireless Connection (Port 5555)"| Daemon
 ```
 
 ### Installation Sequence
@@ -71,23 +71,23 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 👤 User
-    participant Script as 💻 Installer Script
-    participant ADB as 🛠️ ADB Engine
-    participant TV as 📺 Android TV
+    actor User as User
+    participant Script as Installer Script
+    participant ADB as ADB Engine
+    participant TV as Android TV
 
-    User->>Script: Run install.bat / install.sh
-    Script->>ADB: Check for adb.exe (Auto-download if missing)
+    User->>Script: Run install.bat or install.sh
+    Script->>ADB: Check for adb (auto-download if missing)
     Script->>TV: Connect to TV_IP:5555
     TV-->>User: Display 'Allow USB debugging?' on TV screen
-    User->>TV: Check 'Always allow' & Click OK on Remote
+    User->>TV: Check 'Always allow' and click OK on Remote
     Script->>TV: Dump full package & settings backup to backups/
     Script->>TV: Sideload clean-tv-launcher-latest.apk
-    Script->>TV: Set com.gathin.tvhome as default Home activity
+    Script->>TV: Set CleanTV Home as default Home activity
     Script->>TV: Safely disable stock ad-launcher (pm disable-user)
-    Script->>TV: Apply manufacturer debloat preset (presets/*.txt)
-    Script->>TV: Send HOME keyevent & verify active focus
-    TV-->>User: ✨ TV transitions to clean Apple TV-style Home screen!
+    Script->>TV: Apply debloat preset (presets/*.txt)
+    Script->>TV: Send HOME keyevent & verify focus
+    TV-->>User: TV transitions to clean Apple TV-style Home screen!
 ```
 
 ---

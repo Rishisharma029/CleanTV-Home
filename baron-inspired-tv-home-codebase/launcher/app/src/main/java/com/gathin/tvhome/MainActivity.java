@@ -732,6 +732,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         SleepTimerManager.init(this);
         GameModeManager.applyWindowMode(this);
+        WebRemoteServer.start(this);
         btnInputs = findViewById(R.id.btnInputs);
         btnAudio = findViewById(R.id.btnAudio);
         if (btnAudio != null) {
@@ -1285,6 +1286,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onDestroy() {
         super.onDestroy();
         AudioOutputManager.unregisterListener(audioListener);
+        WebRemoteServer.stop();
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);

@@ -535,6 +535,28 @@ public final class ControlCenterHUD {
                 activity.startActivity(new Intent(Settings.ACTION_SETTINGS));
             });
         }
+
+        View cardWebRemote = hudRoot.findViewById(R.id.cardWebRemote);
+        if (cardWebRemote != null) {
+            applyCardFocusEffect(cardWebRemote);
+            ImageView qrThumb = hudRoot.findViewById(R.id.ccQrThumbnail);
+            TextView qrUrlStatus = hudRoot.findViewById(R.id.ccQrUrlStatus);
+
+            String url = WebRemoteServer.getServerUrl(activity);
+            if (qrUrlStatus != null) {
+                qrUrlStatus.setText(url);
+            }
+            if (qrThumb != null) {
+                android.graphics.Bitmap thumb = QRCodeGenerator.generate(url, 96);
+                if (thumb != null) {
+                    qrThumb.setImageBitmap(thumb);
+                }
+            }
+
+            cardWebRemote.setOnClickListener(v -> {
+                WebRemoteDialog.show(activity);
+            });
+        }
     }
 
     private void applyCardFocusEffect(View view) {

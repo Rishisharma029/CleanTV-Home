@@ -1,0 +1,32 @@
+name: TV Compatibility Report
+description: Share your experience testing CleanTV Home on a new TV model
+labels: [compatibility, device-report]
+body:
+  - type: input
+    id: tv_model
+    attributes:
+      label: TV Brand & Exact Model
+      description: e.g. Changhong AI PONT (ikebukuro / DVB91RM)
+    validations:
+      required: true
+  - type: input
+    id: android_version
+    attributes:
+      label: Android TV Version
+      description: e.g. Android 11
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Verification Checklist
+      options:
+        - label: Home button successfully opens CleanTV Home
+        - label: Stock launcher disabled successfully
+        - label: HDMI Inputs / Storage / Settings work properly
+        - label: Streaming apps (Netflix, YouTube, Prime) launch without issue
+  - type: textarea
+    id: packages
+    attributes:
+      label: Successfully Debloated Packages
+      description: List any packages you safely disabled

@@ -1,44 +1,118 @@
 <p align="center">
-  <img src="docs/assets/tv-home-preview.png" alt="Clean TV Home Preview" width="800">
+  <img src="docs/assets/tv-home-live-screenshot.png" alt="CleanTV Home Running Live on Android TV" width="850">
 </p>
 
-# 📺 CleanTV Home — 1-Click Seamless TV Setup
+<h1 align="center">📺 CleanTV Home</h1>
 
-> **Transform your Android TV into an ultra-clean, ad-free, Apple TV-style experience in under 2 minutes.**  
-> *No root required. No cables required (works over Wi-Fi). Zero technical dependencies. 1-click instant restore.*
+<p align="center">
+  <strong>The Apple TV-inspired, lightning-fast, ad-free Home Launcher & 1-Click Debloater for Android TV & Google TV.</strong><br>
+  <em>No root required · Zero cables · Runs over Wi-Fi · Zero build dependencies · 1-click instant factory rollback</em>
+</p>
 
----
-
-## ⚡ Highlights
-
-* **🍎 Apple TV Aesthetic**: Pitch-black background, floating glass highlights, smooth animations, and top-shelf focus glowing with the active app's theme.
-* **🚫 Zero Ads & Sponsored Junk**: Strips away OEM carousels, Google TV recommendations, background telemetry, and vendor bloatware.
-* **📦 Ready to Run**: Comes with pre-compiled signed release APKs (`com.gathin.tvhome`). No need to install Java, Android Studio, Gradle, or build tools.
-* **🔌 Zero-Config ADB**: Automatically detects or downloads standalone Google Android platform-tools if you don't have them installed.
-* **🛡️ 100% Safe & Reversible**: Uses Android's native `pm disable-user` without uninstalling system files. Every step is automatically backed up, and running `restore.bat` immediately restores your original TV state.
-
----
-
-## 🚀 Quick Start (Under 2 Minutes)
-
-### Step 1: Turn on USB Debugging on your TV
-1. On your TV remote, open **Settings** (⚙️) ➜ **Device Preferences** (or **System**) ➜ **About**.
-2. Scroll down to **Build** (or **Android TV OS build**) and press the **OK / Center button 7 times** until you see: *"You are now a developer!"*
-3. Go back one screen ➜ Select **Developer options** ➜ Toggle **USB debugging** to **ON**.  
-   *(If you see an option for **Network debugging** or **Wireless debugging**, turn that ON as well).*
-4. Check your TV's IP address in **Settings** ➜ **Network & Internet** (e.g. `192.168.0.159`).
+<p align="center">
+  <a href="https://github.com/Rishisharma029/CleanTV-Home/actions"><img src="https://img.shields.io/github/actions/workflow/status/Rishisharma029/CleanTV-Home/ci.yml?branch=master&style=flat-square&label=CI%2FCD&color=34d399" alt="CI/CD Status"></a>
+  <a href="https://github.com/Rishisharma029/CleanTV-Home/releases"><img src="https://img.shields.io/badge/version-3.5-blue?style=flat-square" alt="Version 3.5"></a>
+  <a href="https://developer.android.com/tv"><img src="https://img.shields.io/badge/Android%20TV-8.0%20--%2014-orange?style=flat-square&logo=android" alt="Android TV 8-14"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License"></a>
+  <a href="#-safety-first-zero-root--reversible-guarantee"><img src="https://img.shields.io/badge/Root-NOT%20Required-success?style=flat-square" alt="No Root Required"></a>
+</p>
 
 ---
 
-### Step 2: Run the Installer
+## 🌟 Overview
 
-Make sure your computer and TV are connected to the same Wi-Fi network.
+Most modern Android TVs and Google TVs (Realme, Xiaomi, TCL, Hisense, Chromecast) are plagued by **unskippable video ads, sponsored banner rows, auto-installing bloatware, and heavy analytics daemons** that consume RAM and make the TV interface sluggish.
 
-#### 🪟 Windows (Easiest)
-* **Double-click `install.bat`** (or right-click `install.ps1` ➜ *Run with PowerShell*).
+**CleanTV Home** completely restores your TV experience:
+* 🍎 **Apple TV Experience**: Pure black background, dynamic ambient glow tailored to your focused app, fluid 60fps glass highlight navigation, and zero distractions.
+* ⚡ **Ultra-Lean Native Launcher**: Tiny ~530 KB binary footprint. Starts in milliseconds without cold-boot stutters.
+* 📦 **Pre-Compiled & Zero Setup**: Includes tested, ready-to-install release APKs (`com.gathin.tvhome`). No need to install Java, Android SDK, or build tools.
+* 🔌 **Zero-Dependency ADB**: The installer auto-detects or downloads standalone Google Android platform-tools directly—anyone can run it.
+* 🛡️ **100% Safe & Reversible**: Does **not** permanently delete any system files. Uses standard Android `pm disable-user --user 0`. If you change your mind, a single click on `restore.bat` restores the stock factory TV launcher in 5 seconds.
+
+---
+
+## 🏗️ Architecture & How It Works
+
+### System Lifecycle & Architecture
+
+```mermaid
+flowchart TD
+    subgraph PC["🖥️ Your Computer (PC / Mac / Linux)"]
+        Installer["install.bat / install.ps1 / install.sh"]
+        ADB["Google ADB Bridge (Auto-provisioned)"]
+        APKs["apks/clean-tv-launcher-latest.apk"]
+        Presets["presets/ (Debloat Profiles)"]
+        Installer --> ADB
+        Installer --> APKs
+        Installer --> Presets
+    end
+
+    subgraph TV["📺 Android TV / Google TV (Over Wi-Fi)"]
+        Daemon["ADB Daemon (:5555)"]
+        Backup["Safety Snapshot (backups/)"]
+        Launcher["com.gathin.tvhome (New Home)"]
+        StockHome["Stock Home (Disabled)"]
+        Bloat["OEM Bloat / Ad Daemons (Disabled)"]
+        SafeApps["User Apps (Netflix, YouTube, Prime)"]
+
+        Daemon --> Backup
+        Daemon --> Launcher
+        Daemon -.->|Safely Disable| StockHome
+        Daemon -.->|Safely Disable| Bloat
+        Launcher --> SafeApps
+    end
+
+    ADB ==>|Wireless ADB / Port 5555| Daemon
+```
+
+### Installation Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 👤 User
+    participant Script as 💻 Installer Script
+    participant ADB as 🛠️ ADB Engine
+    participant TV as 📺 Android TV
+
+    User->>Script: Run install.bat / install.sh
+    Script->>ADB: Check for adb.exe (Auto-download if missing)
+    Script->>TV: Connect to TV_IP:5555
+    TV-->>User: Display 'Allow USB debugging?' on TV screen
+    User->>TV: Check 'Always allow' & Click OK on Remote
+    Script->>TV: Dump full package & settings backup to backups/
+    Script->>TV: Sideload clean-tv-launcher-latest.apk
+    Script->>TV: Set com.gathin.tvhome as default Home activity
+    Script->>TV: Safely disable stock ad-launcher (pm disable-user)
+    Script->>TV: Apply manufacturer debloat preset (presets/*.txt)
+    Script->>TV: Send HOME keyevent & verify active focus
+    TV-->>User: ✨ TV transitions to clean Apple TV-style Home screen!
+```
+
+---
+
+## 🚀 Quick Start Guide
+
+### Step 1: Enable USB Debugging on your TV
+1. On your TV remote, navigate to **Settings** (⚙️) ➜ **Device Preferences** (or **System**) ➜ **About**.
+2. Scroll to **Build** (or **Android TV OS build**) and click the **Center / OK button 7 times** until the toast message says *"You are now a developer!"*
+3. Go back one level ➜ open **Developer options** ➜ turn **USB debugging** to **ON**.  
+   *(If you see **Network debugging** or **Wireless debugging**, turn that ON as well).*
+4. Check your TV's local IP address under **Settings** ➜ **Network & Internet** (e.g., `192.168.0.159`).
+
+---
+
+### Step 2: Run the 1-Click Installer
+
+Ensure your computer and TV are on the same Wi-Fi network.
+
+#### 🪟 Windows (Double-Click)
+* Double-click [**`install.bat`**](install.bat)  
+  *(Or run `powershell -ExecutionPolicy Bypass -File .\install.ps1` in terminal).*
 
 #### 🍎 macOS & 🐧 Linux
-Open terminal in this folder and run:
+Open your terminal in this repository and run:
 ```bash
 chmod +x install.sh
 ./install.sh
@@ -47,88 +121,130 @@ chmod +x install.sh
 ---
 
 ### Step 3: Accept the Remote Prompt on Your TV Screen
-When the script connects, look at your TV screen:
-1. A dialog will appear: **"Allow USB debugging?"**
-2. Check the box: `[x] Always allow from this computer`
-3. Click **OK / Allow** with your TV remote.
+When the script initiates the connection:
+1. Look at your TV screen for the dialog: **"Allow USB debugging?"**
+2. Check `[x] Always allow from this computer`.
+3. Click **OK / Allow** using your TV remote.
 
-*The script will automatically back up your TV settings, sideload the clean launcher, set it as default Home, and apply safe debloating!*
+The installer will automatically snapshot your system, sideload the launcher, set it as Home, and disable background ad daemons!
 
 ---
 
-## 🔄 1-Click Restore (Rollback to Factory)
+## 🔄 1-Click Instant Factory Rollback
 
-If you ever want to revert back to your TV's original stock launcher and re-enable all manufacturer apps:
-* **Windows**: Double-click `restore.bat`
+If you ever want to revert everything back to the manufacturer's original state:
+* **Windows**: Double-click [**`restore.bat`**](restore.bat)
 * **macOS / Linux**: Run `./restore.sh`
 
-In 5 seconds, all apps and the default Google TV/OEM launcher will be re-enabled and restored.
-
----
-
-## 📁 Repository Structure
-
-```text
-├── install.bat               # Windows 1-click double-clickable installer
-├── install.ps1               # PowerShell interactive installer with automatic backups
-├── install.sh                # macOS & Linux one-line installer
-├── restore.bat               # Windows 1-click factory restore
-├── restore.ps1               # PowerShell rollback script
-├── restore.sh                # macOS & Linux factory rollback script
-├── apks/                     # Tested, pre-built signed APKs ready to install
-│   ├── clean-tv-launcher-latest.apk   # Latest release (v3.5, storage & reorder features)
-│   ├── clean-tv-launcher-v3.4.apk
-│   └── clean-tv-launcher-v2.8.apk
-├── presets/                  # Safe debloat profiles categorized by manufacturer
-│   ├── realme-changhong.txt  # Realme TV / Changhong AI PONT tested safe debloat
-│   ├── google-tv.txt         # Google TV / Chromecast ad recommendation suppression
-│   ├── xiaomi-mitv.txt       # Xiaomi / Redmi PatchWall & analytics debloat
-│   ├── tcl-tv.txt            # TCL Smart TV telemetry & ad debloat
-│   └── generic-android-tv.txt# Generic Android TV safe debloat
-├── tools/                    # Helper utilities
-│   ├── get-adb.ps1           # Auto-downloads official ADB platform-tools if missing
-│   ├── get-adb.sh            # Auto-downloads platform-tools for Linux/macOS
-│   └── ...
-├── baron-inspired-tv-home-codebase/ # Full open-source launcher, addons & theme codebase
-└── docs/                     # Guides, remote mappings, and screenshots
+```mermaid
+flowchart LR
+    A["restore.bat / restore.sh"] --> B["Re-enable stock launcher"]
+    B --> C["Re-enable OEM & Google services"]
+    C --> D["Set stock launcher as Home"]
+    D --> E["100% Factory State Restored"]
 ```
 
 ---
 
-## 🎯 TV Compatibility Matrix
+## 🛡️ Safety First: Zero-Root & Reversible Guarantee
 
-| Brand / OS | Status | Notes |
+| Feature | Standard "Debloaters" | CleanTV Home |
 |---|---|---|
-| **Realme Smart TV** | ✅ Fully Verified | Full safe debloat (AI PONT, Anoki ACR telemetry disabled). |
-| **Google TV / Chromecast** | ✅ Fully Verified | Disables sponsored row recommendations; keeps voice & Cast. |
-| **Xiaomi / Mi TV / Redmi** | ✅ Fully Verified | Disables heavy PatchWall promo banners and analytics. |
-| **TCL Smart TV** | ✅ Fully Verified | Tested on Android 9, 11, and 12. |
-| **Sony Bravia (Android TV)** | ✅ Fully Verified | Retains Sony Bravia picture settings and HDMI controls. |
-| **OnePlus TV** | ✅ Fully Verified | Disables OxygenPlay bloatware smoothly. |
-| **Generic Android TV Boxes**| ✅ Fully Verified | Works on any device running Android TV 8.0+. |
+| **Root Required** | Often Yes / Risky | **NO (Zero Root required)** |
+| **System Modification** | Deletes APKs (`pm uninstall`) | **Non-destructive (`pm disable-user`)** |
+| **Recovery Method** | Requires factory reset / firmware flash | **Instant 1-click script (`restore.bat`)** |
+| **Pre-Install Backup** | None | **Automated full snapshot in `backups/`** |
+| **Brick Risk** | High | **Zero — fallback logic auto-restores stock Home if verification fails** |
 
 ---
 
-## 🎮 Navigation & Remote Controls
+## 🎨 Features & Capabilities
 
-* **Navigate**: Use the D-Pad arrows (Up, Down, Left, Right).
-* **Launch**: Press **OK / Select**.
-* **App Options & Reorder**: **Hold OK / Select** on any dock app to open the quick action menu (Move left, Move right, Move to first, Move to last).
-* **Storage & Inputs**: Dedicated frosted buttons at the top bar give 1-click access to HDMI inputs, Live TV, and live disk space metrics.
-* **Return Home**: Pressing the physical **Home** button on your remote will immediately return to CleanTV Home.
+```
++----------------------------------------------------------------------------------------+
+| GOOD AFTERNOON                                                                        |
+| 2:13 PM  |  SUNDAY 25 OCTOBER              [Inputs] [Storage] [Wi-Fi] [Settings]       |
+|                                                                                        |
+| YouTube                                                                                |
+| Last opened 51 minutes ago                                                             |
+| ......                                                                                 |
+|                                                                                        |
+| [ YouTube ] [ JioHotstar ] [ Prime Video ] [ Netflix ] [ Play Store ] [ YT Music ] [Zee]|
++----------------------------------------------------------------------------------------+
+```
+
+* **Custom Dock Sizing**: Supports 4 to 7 dock apps that fit cleanly at 720p, 1080p, and 4K UHD resolutions.
+* **In-Place Tile Reordering**: Hold **OK / Select** on your remote over any dock tile to move it up, down, first, or last without opening setting menus.
+* **Storage Dashboard**: Direct live memory indicator at the top bar reporting free/used space.
+* **HDMI Input Switcher**: Instant switching between HDMI 1, HDMI 2, AV, and Live TV.
+* **Dynamic Accent Glow**: The top shelf smoothly casts ambient glow matching the accent colors of the selected app.
 
 ---
 
-## 🔒 Security Best Practices
+## 📊 Manufacturer Debloat Presets
 
-Once setup is complete:
-1. On your TV, navigate to **Settings** ➜ **Developer options**.
-2. Toggle **USB debugging** back to **OFF** (prevents unauthorized network access to your TV).
-3. If you ever need to run updates or the restore script, simply toggle USB debugging back ON.
+CleanTV Home includes battle-tested debloat profiles in the [**`presets/`**](presets/) folder:
+
+* **Realme TV / Changhong AI PONT** (`presets/realme-changhong.txt`): Disables `tv.anoki.acr.controller` (ACR telemetry), `com.homwee.aipont`, `com.google.android.tvrecommendations`, `android.autoinstalls.config.homwee`, `com.homwee.store`, and `com.homwee.help`.
+* **Google TV / Chromecast** (`presets/google-tv.txt`): Disables sponsored ad rows, promotional banners, and sync daemons.
+* **Xiaomi / Mi TV / Redmi** (`presets/xiaomi-mitv.txt`): Disables heavy PatchWall ads, payment daemons, and `com.miui.analytics`.
+* **TCL Smart TV** (`presets/tcl-tv.txt`): Disables TCL ad services and promotional notifications.
+* **Generic Android TV** (`presets/generic-android-tv.txt`): Universal safe list compatible with all standard Android TV sets.
 
 ---
 
-## 📄 License
+## 🛠️ Repository Layout
 
-This repository is distributed under the [MIT License](LICENSE).
-Launcher source and addons based on the CleanYourTV project.
+```text
+├── install.bat               # Windows double-click 1-click launcher
+├── install.ps1               # PowerShell interactive engine with auto-backup & adb provisioning
+├── install.sh                # macOS & Linux bash installer
+├── restore.bat               # Windows double-click 1-click restore
+├── restore.ps1               # PowerShell rollback engine
+├── restore.sh                # macOS & Linux rollback script
+├── apks/                     # Tested signed release APKs
+│   ├── clean-tv-launcher-latest.apk   # Latest v3.5 (Storage + Tile reordering)
+│   ├── clean-tv-launcher-v3.4.apk
+│   └── clean-tv-launcher-v2.8.apk
+├── presets/                  # Debloat presets by TV manufacturer
+│   ├── realme-changhong.txt
+│   ├── google-tv.txt
+│   ├── xiaomi-mitv.txt
+│   ├── tcl-tv.txt
+│   └── generic-android-tv.txt
+├── tools/                    # Portable tooling
+│   ├── get-adb.ps1           # Standalone ADB auto-downloader (Windows)
+│   ├── get-adb.sh            # Standalone ADB auto-downloader (macOS/Linux)
+├── docs/                     # Documentation, assets, device guides
+│   └── assets/               # Screenshots, diagrams, and banners
+├── baron-inspired-tv-home-codebase/ # Full open-source launcher, addons & theme codebase
+├── .github/                  # CI/CD workflows, issue templates, security scan
+├── SECURITY.md               # Security policy & responsible disclosure
+├── CODE_OF_CONDUCT.md        # Contributor Covenant Code of Conduct
+├── CONTRIBUTING.md           # Contribution guidelines
+└── LICENSE                   # MIT License
+```
+
+---
+
+## 🔒 Security & Privacy Best Practice
+
+After running the installer:
+1. On your TV, open **Settings** ➜ **Developer options**.
+2. Switch **USB debugging** to **OFF**.  
+*(This closes port 5555 so your TV cannot be accessed over the network. When you want to run updates or the restore script, simply toggle it back on).*
+
+---
+
+## 🤝 Contributing
+
+Contributions, device reports, and debloat profiles are welcome!
+1. Check [**`CONTRIBUTING.md`**](CONTRIBUTING.md) for guidelines.
+2. Submit a device report via [**Issue Templates**](https://github.com/Rishisharma029/CleanTV-Home/issues).
+
+---
+
+## 📜 License
+
+Distributed under the [MIT License](LICENSE).  
+CleanTV Home is based on the CleanYourTV project.

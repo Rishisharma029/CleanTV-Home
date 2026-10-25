@@ -1,0 +1,33 @@
+name: Bug Report
+description: File a bug report for an installation or runtime issue
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting an issue!
+  - type: input
+    id: tv_model
+    attributes:
+      label: TV Brand & Model
+      description: What TV do you have? (e.g. Realme 43 4K, Chromecast with Google TV)
+    validations:
+      required: true
+  - type: input
+    id: android_version
+    attributes:
+      label: Android TV Version
+      description: e.g. Android 9, Android 11, Google TV 12
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the Bug
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Terminal / ADB Logs
+      description: Paste any error messages or logs

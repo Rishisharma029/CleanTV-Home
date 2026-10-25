@@ -1,0 +1,32 @@
+name: Package Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create Portable Bundle Zip
+        run: |
+          zip -r "CleanTV-Home-Portable-${{ github.ref_name }}.zip" \
+            install.bat install.ps1 install.sh \
+            restore.bat restore.ps1 restore.sh \
+            apks presets tools docs README.md LICENSE
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            CleanTV-Home-Portable-${{ github.ref_name }}.zip
+            apks/clean-tv-launcher-latest.apk
+          generate_release_notes: true

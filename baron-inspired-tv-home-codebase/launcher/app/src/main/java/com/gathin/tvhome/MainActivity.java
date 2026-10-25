@@ -2203,6 +2203,64 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+    public static class AppEntryInfo {
+        public final String label;
+        public final String pkg;
+        public final int pos;
+
+        public AppEntryInfo(String label, String pkg, int pos) {
+            this.label = label != null ? label : "";
+            this.pkg = pkg != null ? pkg : "";
+            this.pos = pos;
+        }
+    }
+
+    public List<AppEntryInfo> getDockAppsList() {
+        List<AppEntryInfo> list = new ArrayList<>();
+        if (adapter == null) return list;
+        int count = adapter.dockFilled();
+        for (int i = 0; i < count; i++) {
+            String label = adapter.labelAt(i);
+            String pkg = adapter.packageAt(i);
+            if (pkg != null && !pkg.isEmpty()) {
+                list.add(new AppEntryInfo(label, pkg, i));
+            }
+        }
+        return list;
+    }
+
+    public List<AppEntryInfo> getAllAppsList() {
+        List<AppEntryInfo> list = new ArrayList<>();
+        if (adapter == null) return list;
+        int count = adapter.movableCount();
+        for (int i = 0; i < count; i++) {
+            String label = adapter.labelAt(i);
+            String pkg = adapter.packageAt(i);
+            if (pkg != null && !pkg.isEmpty()) {
+                list.add(new AppEntryInfo(label, pkg, i));
+            }
+        }
+        return list;
+    }
+
+    public boolean reorderDockSlot(int from, int to) {
+        if (adapter == null) return false;
+        int count = adapter.movableCount();
+        if (from < 0 || to < 0 || from >= count || to >= count || from == to) return false;
+        if (reordering) endReorder();
+        if (!beginReorder()) return false;
+        String key = adapter.keyAt(from);
+        keepScroll(() -> adapter.move(from, to));
+        endReorder();
+        int newPos = adapter.positionOf(key);
+        refocusAfterLayout(newPos >= 0 ? newPos : to);
+        return true;
+    }
+
+    public void launchAppByPackage(String pkg) {
+        launchApp(pkg);
+    }
+
     private View findFocusedDockCard() {
         if (grid == null) return null;
         RecyclerView.ViewHolder holder = grid.findViewHolderForAdapterPosition(lastFocused);

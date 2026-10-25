@@ -1,7 +1,5 @@
 package com.gathin.tvhome;
 
-import android.graphics.Bitmap;
-
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -37,5 +35,18 @@ public class WebRemoteTest {
         assertNotNull(url);
         assertTrue(url.startsWith("http://"));
         assertTrue(url.contains(":8080") || url.contains(":8888"));
+    }
+
+    @Test
+    public void appEntryInfoStructure() {
+        MainActivity.AppEntryInfo entry = new MainActivity.AppEntryInfo("YouTube", "com.google.android.youtube.tv", 2);
+        assertEquals("YouTube", entry.label);
+        assertEquals("com.google.android.youtube.tv", entry.pkg);
+        assertEquals(2, entry.pos);
+
+        MainActivity.AppEntryInfo fallback = new MainActivity.AppEntryInfo(null, null, 0);
+        assertEquals("", fallback.label);
+        assertEquals("", fallback.pkg);
+        assertEquals(0, fallback.pos);
     }
 }

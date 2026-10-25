@@ -26,12 +26,19 @@ public final class WebRemoteDialog {
         // Ensure server is started
         WebRemoteServer.start(activity);
 
+        String ip = WebRemoteServer.getLocalIpAddress(activity);
+        int port = WebRemoteServer.getActivePort();
+        boolean isEmu = WebRemoteServer.isEmulator() || "10.0.2.15".equals(ip);
+
         String url = WebRemoteServer.getServerUrl(activity);
         Bitmap qrBitmap = QRCodeGenerator.generate(url, 400);
 
         View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_web_remote, root, false);
         ImageView qrImage = dialogView.findViewById(R.id.qrCodeImage);
         TextView urlText = dialogView.findViewById(R.id.qrUrlText);
+        TextView pcUrlText = dialogView.findViewById(R.id.qrPcUrlText);
+        TextView hintText = dialogView.findViewById(R.id.qrHintText);
+        TextView modeBadge = dialogView.findViewById(R.id.qrModeBadge);
         Button btnClose = dialogView.findViewById(R.id.btnCloseQr);
 
         if (qrImage != null && qrBitmap != null) {
@@ -39,6 +46,31 @@ public final class WebRemoteDialog {
         }
         if (urlText != null) {
             urlText.setText(url);
+        }
+
+        if (isEmu) {
+            if (modeBadge != null) {
+                modeBadge.setText("💻 Android Emulator Mode");
+                modeBadge.setTextColor(0xFF38BDF8);
+            }
+            if (pcUrlText != null) {
+                pcUrlText.setVisibility(View.VISIBLE);
+                pcUrlText.setText("💻 Open in PC Browser: http://localhost:" + port);
+            }
+            if (hintText != null) {
+                hintText.setText("Open http://localhost:" + port + " in Chrome on this PC to test!\nFor phone scan: Ensure phone is on same Wi-Fi (" + ip + ":" + port + ")");
+            }
+        } else {
+            if (modeBadge != null) {
+                modeBadge.setText("⚡ TV Local Wi-Fi Active");
+                modeBadge.setTextColor(0xFF34D399);
+            }
+            if (pcUrlText != null) {
+                pcUrlText.setVisibility(View.GONE);
+            }
+            if (hintText != null) {
+                hintText.setText("Connect phone to the same Wi-Fi network to control this TV");
+            }
         }
 
         Runnable dismiss = () -> {

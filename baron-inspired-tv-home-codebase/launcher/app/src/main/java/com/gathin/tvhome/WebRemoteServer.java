@@ -3,6 +3,7 @@ package com.gathin.tvhome;
 import android.app.Activity;
 import android.content.Context;
 import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -13,7 +14,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.net.Inet4Address;
+import java.lang.reflect.Method;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -70,23 +73,34 @@ public final class WebRemoteServer {
         if (activity != null) {
             currentActivityRef = new WeakReference<>(activity);
         }
-        if (isRunning.get()) return;
+        if (isRunning.get() && serverSocket != null && !serverSocket.isClosed()) return;
 
         isRunning.set(true);
-        serverExecutor = Executors.newCachedThreadPool();
+        if (serverExecutor == null || serverExecutor.isShutdown()) {
+            serverExecutor = Executors.newCachedThreadPool();
+        }
 
         serverExecutor.execute(() -> {
             try {
                 try {
-                    serverSocket = new ServerSocket(DEFAULT_PORT);
+                    ServerSocket s = new ServerSocket();
+                    s.setReuseAddress(true);
+                    s.bind(new InetSocketAddress(DEFAULT_PORT));
+                    serverSocket = s;
                     activePort = DEFAULT_PORT;
                 } catch (Throwable t) {
-                    serverSocket = new ServerSocket(FALLBACK_PORT);
+                    ServerSocket s = new ServerSocket();
+                    s.setReuseAddress(true);
+                    s.bind(new InetSocketAddress(FALLBACK_PORT));
+                    serverSocket = s;
                     activePort = FALLBACK_PORT;
                 }
 
-                while (isRunning.get() && !serverSocket.isClosed()) {
+                while (isRunning.get() && serverSocket != null && !serverSocket.isClosed()) {
                     Socket client = serverSocket.accept();
+                    try {
+                        client.setSoTimeout(5000);
+                    } catch (Throwable ignored) {}
                     serverExecutor.execute(() -> handleClient(client));
                 }
             } catch (Throwable ignored) {
@@ -115,8 +129,34 @@ public final class WebRemoteServer {
         return activePort;
     }
 
+    public static boolean isEmulator() {
+        return Build.FINGERPRINT.startsWith("generic")
+                || Build.FINGERPRINT.startsWith("unknown")
+                || Build.MODEL.contains("google_sdk")
+                || Build.MODEL.contains("Emulator")
+                || Build.MODEL.contains("Android SDK built for")
+                || Build.HARDWARE.contains("goldfish")
+                || Build.HARDWARE.contains("ranchu")
+                || Build.PRODUCT.contains("sdk_google");
+    }
+
+    public static String getSystemProperty(String key) {
+        try {
+            Class<?> clazz = Class.forName("android.os.SystemProperties");
+            Method method = clazz.getMethod("get", String.class);
+            return (String) method.invoke(null, key);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
     public static String getLocalIpAddress(Context context) {
         try {
+            String overrideIp = getSystemProperty("debug.tvhome.host_ip");
+            if (overrideIp != null && !overrideIp.trim().isEmpty()) {
+                return overrideIp.trim();
+            }
+
             if (context != null) {
                 WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
                 if (wm != null && wm.getConnectionInfo() != null) {
@@ -423,6 +463,9 @@ public final class WebRemoteServer {
                             break;
                         case "sleeptimer":
                             SleepTimerManager.cycleNext(main);
+                            break;
+                        case "webremote_dialog":
+                            WebRemoteDialog.show(main);
                             break;
                     }
                 }

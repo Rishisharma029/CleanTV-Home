@@ -3,28 +3,45 @@
     android:id="@+id/qrDialogRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#D0000000"
+    android:background="#E0000000"
     android:clickable="true"
     android:focusable="true">
 
     <LinearLayout
-        android:layout_width="440dp"
+        android:layout_width="480dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:background="@drawable/glass_panel"
         android:orientation="vertical"
-        android:padding="28dp"
+        android:padding="26dp"
         android:gravity="center_horizontal">
 
         <TextView
+            android:id="@+id/qrModeBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Mobile Web Remote"
-            android:textColor="#FFFFFFFF"
-            android:textSize="20sp"
+            android:background="@drawable/pill_bg"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:text="⚡ CleanTV Remote Hub"
+            android:textColor="#FF38BDF8"
+            android:textSize="11sp"
             android:fontFamily="sans-serif-medium" />
 
         <TextView
+            android:id="@+id/qrTitleText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Mobile Web Remote"
+            android:textColor="#FFFFFFFF"
+            android:textSize="21sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/qrSubtitleText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
@@ -33,11 +50,11 @@
             android:textSize="12sp" />
 
         <FrameLayout
-            android:layout_width="220dp"
-            android:layout_height="220dp"
-            android:layout_marginTop="20dp"
+            android:layout_width="210dp"
+            android:layout_height="210dp"
+            android:layout_marginTop="16dp"
             android:background="#FFFFFFFF"
-            android:padding="10dp">
+            android:padding="8dp">
 
             <ImageView
                 android:id="@+id/qrCodeImage"
@@ -50,7 +67,7 @@
             android:id="@+id/qrUrlText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="14dp"
             android:background="@drawable/pill_bg"
             android:paddingStart="14dp"
             android:paddingEnd="14dp"
@@ -62,18 +79,35 @@
             android:fontFamily="sans-serif-medium" />
 
         <TextView
+            android:id="@+id/qrPcUrlText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/glass_panel"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:text="PC Browser: http://localhost:8080"
+            android:textColor="#FFA7F3D0"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/qrHintText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:text="Fast virtual keyboard typing, D-pad, and TV setup"
-            android:textColor="#66FFFFFF"
-            android:textSize="11sp" />
+            android:textColor="#88FFFFFF"
+            android:textSize="11sp"
+            android:gravity="center" />
 
         <Button
             android:id="@+id/btnCloseQr"
             android:layout_width="160dp"
             android:layout_height="44dp"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="18dp"
             android:background="@drawable/glass_panel"
             android:text="Done"
             android:textColor="#FFFFFFFF"

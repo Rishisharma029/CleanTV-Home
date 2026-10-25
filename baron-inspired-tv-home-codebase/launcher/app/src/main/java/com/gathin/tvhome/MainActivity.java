@@ -148,7 +148,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private LinearLayout recommendationCards;
     private HorizontalScrollView recommendationScroll;
     // Disabled at the user's request; keeping the Watchmode key private allows re-enabling later if desired.
-    private static final boolean DYNAMIC_TOP_SHELF_ENABLED = true;
+    public static final boolean DYNAMIC_TOP_SHELF_ENABLED = true;
     private String catalogPackage;
     private int catalogGeneration;
     private final List<TopShelfManager.ShelfItem> activeShelfItems = new ArrayList<>();
@@ -675,13 +675,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int itemH = AppAdapter.itemHeightPx(AppAdapter.tileHeightPx(tileW), density);
             int dockRow = itemH + (int) (AppAdapter.DOCK_EXTRA_DP * density);   // item height plus DockDecoration offsets
             int gridRows = itemH * rowsBelowDock;
-            // Keep the hero below the header when the library is enabled on a short screen,
-            // even when the theme requests an extra visible row below the dock.
-            int shelfClearance = cfg.appLibrary ? hero.getMeasuredHeight() + (int) (40 * density) : 0;
+            // Keep the hero and recommendation shelf safely above the dock across all row configurations
+            int shelfClearance = (cfg.dockTitle || DYNAMIC_TOP_SHELF_ENABLED) ? (int) (156f * density) : 0;
             int want = Math.max(shelfClearance, h - dockRow - gridRows - (int) (AppAdapter.BOTTOM_ROOM_DP * density));
-            // Where the rows cannot fit even at the smallest tile (3 rows with the title on), the title keeps its
-            // room above the dock and the last rows run off the bottom instead of the title drawing over the clock.
-            if (MainActivity.this.dockRow && cfg.dockTitle && rowsBelowDock > 0) want = Math.max(want, (int) (AppAdapter.TITLE_ROOM_DP * density));
+            if (MainActivity.this.dockRow && cfg.dockTitle) want = Math.max(want, shelfClearance);
             // No dock to push down: the grid starts at the top, with room for the first row's zoom and glass.
             if (!MainActivity.this.dockRow) want = (int) (AppAdapter.TOP_ROOM_DP * density);
             // A single row never shows the names under its tiles (the title above the row names the app), so the
@@ -1954,18 +1951,26 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private float calculateHeroY(float dockTopInRoot) {
         boolean hasShelf = recommendationScroll != null && recommendationScroll.getVisibility() == View.VISIBLE;
-        float gap = (hasShelf ? 16f : 24f) * density;
-        float y = dockTopInRoot - gap - hero.getHeight();
+        float gap = (hasShelf ? 10f : 18f) * density;
+        int heroH = hero.getHeight();
+        if (heroH <= 0) {
+            heroH = (int) ((hasShelf ? 134f : 50f) * density);
+        }
+        float y = dockTopInRoot - gap - heroH;
 
-        float minY = 135f * density;
+        float minY = 118f * density;
         if (clockBlock != null && clockBlock.getHeight() > 0) {
             Rect clockRect = new Rect();
             clockBlock.getDrawingRect(clockRect);
             root.offsetDescendantRectToMyCoords(clockBlock, clockRect);
-            minY = Math.max(minY, clockRect.bottom + 14f * density);
+            minY = Math.max(minY, clockRect.bottom + 6f * density);
         }
         if (y < minY) {
             y = minY;
+        }
+        float maxAllowedY = dockTopInRoot - heroH - (4f * density);
+        if (y > maxAllowedY) {
+            y = Math.max(minY, maxAllowedY);
         }
         return y;
     }
@@ -2112,6 +2117,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             recommendationHeading.setVisibility(View.GONE);
             recommendationCards.setVisibility(View.GONE);
             recommendationScroll.setVisibility(View.GONE);
+            heroName.setTextSize(TypedValue.COMPLEX_UNIT_SP, cinematic ? 68f : 48f);
+            if (cinematic) {
+                updateHeroMeta(position);
+                updateHeroDots(position);
+            }
             hero.post(() -> {
                 View focused = findFocusedDockCard();
                 if (focused != null) {
@@ -2123,6 +2133,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return;
         }
         activeShelfItems.addAll(items);
+
+        heroName.setTextSize(TypedValue.COMPLEX_UNIT_SP, cinematic ? 32f : 28f);
+        if (heroMeta != null) heroMeta.setVisibility(View.GONE);
+        if (heroDots != null) heroDots.setVisibility(View.GONE);
 
         String label = position >= 0 ? adapter.labelAt(position) : "HDMI Inputs";
         recommendationHeading.setText(position >= 0 ? (label != null ? "Continue Watching & Previews · " + label : "Watch Next") : "Live HDMI Previews · Connected Inputs");
@@ -2139,18 +2153,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             card.setFocusableInTouchMode(true);
             card.setClipToOutline(true);
 
-            int cardW = (int) (156 * density);
-            int cardH = (int) (88 * density);
+            int cardW = (int) (140 * density);
+            int cardH = (int) (78 * density);
 
             GradientDrawable normalBg = new GradientDrawable();
             normalBg.setShape(GradientDrawable.RECTANGLE);
-            normalBg.setCornerRadius(10 * density);
+            normalBg.setCornerRadius(8 * density);
             normalBg.setColor(0x28FFFFFF);
             normalBg.setStroke((int) (1 * density), 0x22FFFFFF);
 
             GradientDrawable focusedBg = new GradientDrawable();
             focusedBg.setShape(GradientDrawable.RECTANGLE);
-            focusedBg.setCornerRadius(10 * density);
+            focusedBg.setCornerRadius(8 * density);
             focusedBg.setColor(0x4DFFFFFF);
             focusedBg.setStroke((int) (2 * density), 0xFFFFFFFF);
 
@@ -2171,18 +2185,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             scrim.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[]{0x00000000, 0xEE0D1117}));
             FrameLayout.LayoutParams scrimLp = new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT, (int) (42 * density));
+                    FrameLayout.LayoutParams.MATCH_PARENT, (int) (36 * density));
             scrimLp.gravity = Gravity.BOTTOM;
             card.addView(scrim, scrimLp);
 
             LinearLayout textLayout = new LinearLayout(this);
             textLayout.setOrientation(LinearLayout.VERTICAL);
-            textLayout.setPadding((int) (8 * density), 0, (int) (8 * density), (int) (6 * density));
+            textLayout.setPadding((int) (8 * density), 0, (int) (8 * density), (int) (5 * density));
 
             TextView titleView = new TextView(this);
             titleView.setText(item.title);
             titleView.setTextColor(0xFFFFFFFF);
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
             titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             titleView.setMaxLines(1);
             titleView.setEllipsize(TextUtils.TruncateAt.END);
@@ -2192,7 +2206,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 TextView subView = new TextView(this);
                 subView.setText(item.subtitle);
                 subView.setTextColor(0xA6FFFFFF);
-                subView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+                subView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
                 subView.setMaxLines(1);
                 subView.setEllipsize(TextUtils.TruncateAt.END);
                 textLayout.addView(subView);
@@ -2206,7 +2220,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             card.setOnFocusChangeListener((v, hasFocus) -> {
                 if (hasFocus) {
                     v.setBackground(focusedBg);
-                    v.animate().scaleX(1.08f).scaleY(1.08f).translationZ(10 * density).setDuration(160).start();
+                    v.animate().scaleX(1.06f).scaleY(1.06f).translationZ(6 * density).setDuration(160).start();
                     v.playSoundEffect(SoundEffectConstants.CLICK);
                 } else {
                     v.setBackground(normalBg);
@@ -2219,6 +2233,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_BACK) {
                     focusTile(lastFocused);
                     return true;
+                }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                    View btnProfile = findViewById(R.id.btnProfile);
+                    if (btnProfile != null && btnProfile.isFocusable()) {
+                        btnProfile.requestFocus();
+                        return true;
+                    }
+                    View btnInputs = findViewById(R.id.btnInputs);
+                    if (btnInputs != null && btnInputs.isFocusable()) {
+                        btnInputs.requestFocus();
+                        return true;
+                    }
                 }
                 return false;
             });
@@ -2239,7 +2265,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             });
 
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(cardW, cardH);
-            if (i > 0) lp.leftMargin = (int) (12 * density);
+            if (i > 0) lp.leftMargin = (int) (10 * density);
             recommendationCards.addView(card, lp);
         }
 
@@ -2347,9 +2373,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** The shelf's text for this dock app: its name and, on the cinematic shelf, "Last opened" and the dots. */
     private void fillHero(int position, String label) {
         heroName.setText(label);
-        if (!cinematic) return;
-        updateHeroMeta(position);
-        updateHeroDots(position);
+        boolean hasShelf = recommendationScroll != null && recommendationScroll.getVisibility() == View.VISIBLE;
+        if (hasShelf) {
+            heroName.setTextSize(TypedValue.COMPLEX_UNIT_SP, cinematic ? 32f : 28f);
+            if (heroMeta != null) heroMeta.setVisibility(View.GONE);
+            if (heroDots != null) heroDots.setVisibility(View.GONE);
+        } else {
+            heroName.setTextSize(TypedValue.COMPLEX_UNIT_SP, cinematic ? 68f : 48f);
+            if (!cinematic) return;
+            updateHeroMeta(position);
+            updateHeroDots(position);
+        }
     }
 
     // ---- cinematic shelf -------------------------------------------------------------------------

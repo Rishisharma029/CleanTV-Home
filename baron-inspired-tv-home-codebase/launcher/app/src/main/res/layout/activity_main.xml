@@ -113,10 +113,13 @@
     <!-- Top shelf: the focused dock app's name, positioned above the dock in code. -->
     <LinearLayout
         android:id="@+id/hero"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="68dp"
+        android:layout_marginEnd="68dp"
         android:orientation="vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:alpha="0">
 
         <TextView
@@ -136,10 +139,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="6dp"
             android:singleLine="true"
             android:textColor="#B3FFFFFF"
-            android:textSize="15sp"
+            android:textSize="14sp"
             android:fontFamily="@string/font_light"
             android:visibility="gone" />
 
@@ -151,23 +154,25 @@
             android:layout_marginTop="6dp"
             android:orientation="horizontal"
             android:visibility="gone" />
+
         <TextView
             android:id="@+id/recommendationHeading"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             android:textColor="#B3FFFFFF"
-            android:textSize="13sp"
-            android:letterSpacing="0.04"
+            android:textSize="11sp"
+            android:letterSpacing="0.08"
+            android:textAllCaps="true"
             android:fontFamily="@string/font_medium"
             android:visibility="gone" />
 
         <HorizontalScrollView
             android:id="@+id/recommendationScroll"
             android:layout_width="match_parent"
-            android:layout_height="92dp"
-            android:layout_marginTop="6dp"
+            android:layout_height="84dp"
+            android:layout_marginTop="4dp"
             android:fillViewport="false"
             android:scrollbars="none"
             android:visibility="gone"

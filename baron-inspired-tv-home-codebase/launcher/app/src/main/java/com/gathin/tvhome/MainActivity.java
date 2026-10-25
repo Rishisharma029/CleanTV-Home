@@ -205,6 +205,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String greetingName = "";
     /** Optional time-of-day backdrop (config.xml, sky_intensity); 0 keeps it hidden. */
     private SkyView sky;
+    private WeatherParticleView weatherParticles;
+    private View weatherGlance;
+    private TextView weatherIcon, weatherText;
+    private boolean ambientWeatherEnabled = true;
     private String vpnApp;
     private SpringAnimation springX, springY;
     private float glassTargetX, glassTargetY;
@@ -376,6 +380,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // signal level, so only it needs this minute's binder calls (about 7 ms on the UI thread).
             if (festive) updateWifiLabel();
             sky.update();
+        if (weatherParticles != null && ambientWeatherEnabled && !reducedMotion) {
+            weatherParticles.start();
+        }
+        if (ambientWeatherEnabled) {
+            loadAmbientWeather();
+        }
             wallpaperPlayer.update();
             handler.postDelayed(this, MINUTE_MS);
         }
@@ -430,6 +440,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         wallpaperPlayer = new WallpaperPlayer(this, root, cfg);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
+        weatherParticles = findViewById(R.id.weatherParticles);
+        weatherGlance = findViewById(R.id.weatherGlance);
+        weatherIcon = findViewById(R.id.weatherIcon);
+        weatherText = findViewById(R.id.weatherText);
+        try {
+            ambientWeatherEnabled = getResources().getBoolean(R.bool.ambient_weather);
+        } catch (Exception ignored) {
+            ambientWeatherEnabled = true;
+        }
+        if (ambientWeatherEnabled) {
+            loadAmbientWeather();
+        }
         glass = findViewById(R.id.glass);
         glass.setStyle(cfg.glassStyle);
         if (festive) glass.setAccent(festival.accentColor());
@@ -985,6 +1007,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (showStats) startStats();
         sky.update();
+        if (weatherParticles != null && ambientWeatherEnabled && !reducedMotion) {
+            weatherParticles.start();
+        }
+        if (ambientWeatherEnabled) {
+            loadAmbientWeather();
+        }
         wallpaperPlayer.start();
         handler.postDelayed(minuteTick, MINUTE_MS);
         if (festive && diya != null) {
@@ -1155,6 +1183,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.removeCallbacks(showIdleClock);
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
+        if (weatherParticles != null) weatherParticles.stop();
         stopAmbientAnimation();
         hero.animate().cancel();
         ambient.animate().cancel();
@@ -2727,6 +2756,48 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (shamsi) shamsiDate.setText(Shamsi.today(getResources()));
         if (lunar) lunarDate.setText(Lunar.today(getResources(), lunarOffset));
+    }
+
+    private void loadAmbientWeather() {
+        if (!ambientWeatherEnabled) return;
+        AmbientWeatherManager.loadWeather(this, this::updateWeatherUi);
+    }
+
+    private void updateWeatherUi(AmbientWeatherManager.WeatherInfo info) {
+        if (info == null || isFinishing() || isDestroyed()) return;
+
+        if (weatherIcon != null) {
+            weatherIcon.setText(info.icon);
+        }
+        if (weatherText != null) {
+            boolean useFahrenheit = false;
+            try {
+                String unit = getString(R.string.temperature_unit).trim();
+                if ("f".equalsIgnoreCase(unit)) {
+                    useFahrenheit = true;
+                } else if ("auto".equalsIgnoreCase(unit)) {
+                    String country = Locale.getDefault().getCountry();
+                    useFahrenheit = "US".equalsIgnoreCase(country) || "BS".equalsIgnoreCase(country)
+                            || "BZ".equalsIgnoreCase(country) || "KY".equalsIgnoreCase(country)
+                            || "PW".equalsIgnoreCase(country);
+                }
+            } catch (Exception ignored) {
+                useFahrenheit = "US".equalsIgnoreCase(Locale.getDefault().getCountry());
+            }
+
+            weatherText.setText(info.format(useFahrenheit));
+        }
+
+        if (weatherGlance != null && weatherGlance.getVisibility() != View.VISIBLE) {
+            weatherGlance.setAlpha(0f);
+            weatherGlance.setVisibility(View.VISIBLE);
+            weatherGlance.animate().alpha(1f).setDuration(350).start();
+        }
+
+        if (weatherParticles != null && !reducedMotion) {
+            weatherParticles.setMode(info.particleMode);
+            weatherParticles.start();
+        }
     }
 
     // ---- race-weekend panel (a theme's race_calendar) -----------------------------------------------

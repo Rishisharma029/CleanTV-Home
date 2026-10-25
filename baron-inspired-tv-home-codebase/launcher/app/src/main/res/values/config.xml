@@ -379,6 +379,11 @@
     <string name="latitude" translatable="false"></string>
     <string name="longitude" translatable="false"></string>
 
+    <!-- Ambient Live Glance: weather condition widget and subtle drifting particles (snow/rain/sun).
+         false keeps it hidden. Can also be set in a theme's config.json. -->
+    <bool name="ambient_weather">true</bool>
+    <string name="temperature_unit" translatable="false">auto</string>
+
     <!-- Cinematic top shelf: the focused dock app's artwork, softened, fills the top of the screen in its
          colour; the shelf gets a larger name, a "Last opened" line (from the apps Home opened) and dock position
          dots, the focus glow takes the app's colour and the dock band turns translucent. false keeps the plain

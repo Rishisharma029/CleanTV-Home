@@ -165,6 +165,7 @@ graph LR
 +----------------------------------------------------------------------------------------+
 | GOOD AFTERNOON                                                                        |
 | 2:13 PM  |  SUNDAY 25 OCTOBER              [Inputs] [Storage] [Wi-Fi] [Settings]       |
+| ☀️ 24°C · CLEAR SKY                                                                   |
 |                                                                                        |
 | YouTube                                                                                |
 | [ Continue: Tech Review ]  [ Watch Next: Science 4K ]  [ Curated: Lo-Fi Chill ]        |
@@ -173,6 +174,12 @@ graph LR
 +----------------------------------------------------------------------------------------+
 ```
 
+* **Ambient Live Glance & Dynamic Weather Particles**: Real-time ambient weather conditions with subtle, non-intrusive drifting particles tailored to your TV's local forecast:
+  * ☀️ **Golden Sun Motes**: Ambient shimmering sun motes floating upward during fair, sunny days.
+  * 🌧️ **Rain Streaks**: Fine translucent slanting droplets with gentle wind drift during rainfall and storms.
+  * ❄️ **Crystalline Snow**: Gentle swaying snowflakes tumbling softly across the screen in winter conditions.
+  * ☁️ **Atmospheric Mist**: Soft diffuse floating clouds during overcast or foggy weather.
+  * ⚡ **Zero-Overhead GPU Engine**: Allocates 0 memory during frame drawing, utilizes hardware acceleration, and completely sleeps (0% CPU/GPU) when streaming apps are playing.
 * **Apple TV-Style Dynamic Top Shelf**: When focusing any dock app (YouTube, Netflix, Prime Video, Hotstar, Zee, etc.), the top shelf dynamically expands into interactive 16:9 glance cards showing **Watch Next / Continue Playing** recommendations without advertisements.
   * **Interactive Remote Navigation**: Press **D-pad UP** from the dock to enter the Top Shelf cards. Use **D-pad LEFT/RIGHT** to browse cards. Press **OK** to launch the content directly, or press **D-pad DOWN / BACK** to return focus to the dock app tile.
   * **Native TvContract Integration**: Queries Android's native `content://android.media.tv/watch_next_program` and `preview_program` channels securely in-memory with curated zero-ad fallbacks.

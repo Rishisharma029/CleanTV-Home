@@ -12,6 +12,13 @@
         android:layout_height="match_parent"
         android:importantForAccessibility="no" />
 
+    <!-- Ambient Live Glance: subtle drifting particles (snow/rain/sun) matching current local conditions -->
+    <com.gathin.tvhome.WeatherParticleView
+        android:id="@+id/weatherParticles"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
+
     <!-- Cinematic top shelf (cinematic_home): the focused dock app's artwork, a few pixels across and
          stretched over the screen, which softens it like a blur without the cost of one. Hidden otherwise. -->
     <ImageView
@@ -318,6 +325,40 @@
                             android:letterSpacing="0.14"
                             android:textAllCaps="true"
                             android:visibility="gone" />
+
+                        <!-- Ambient Live Glance: Weather widget -->
+                        <LinearLayout
+                            android:id="@+id/weatherGlance"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:focusable="false"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/weatherIcon"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textSize="14sp"
+                                android:textColor="#FFFFFFFF"
+                                android:includeFontPadding="false" />
+
+                            <TextView
+                                android:id="@+id/weatherText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:singleLine="true"
+                                android:ellipsize="end"
+                                android:textColor="#CCFFFFFF"
+                                android:textSize="13sp"
+                                android:fontFamily="@string/font_medium"
+                                android:letterSpacing="0.06"
+                                android:textAllCaps="true"
+                                android:includeFontPadding="false" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
 

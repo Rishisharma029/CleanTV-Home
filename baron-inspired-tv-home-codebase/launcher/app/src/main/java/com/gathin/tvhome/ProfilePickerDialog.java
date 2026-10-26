@@ -78,6 +78,13 @@ public final class ProfilePickerDialog {
                 return;
             }
             if (ProfileManager.isKidsMode(activity)) {
+                if (!ProfileManager.isPinConfigured(activity)) {
+                    // Safe recovery fallback if PIN is not configured
+                    ProfileManager.switchProfile(activity, ProfileManager.PROFILE_PERSONAL);
+                    dialog.dismiss();
+                    Toast.makeText(activity, "👤 Switched to Personal Profile", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 // Require Parent PIN to exit kids mode
                 PinEntryDialog.show(activity, "Unlock Personal Profile", "Enter 4-digit PIN to exit Kids Guard Mode", () -> {
                     ProfileManager.switchProfile(activity, ProfileManager.PROFILE_PERSONAL);
@@ -94,6 +101,14 @@ public final class ProfilePickerDialog {
         cardKids.setOnClickListener(v -> {
             if (ProfileManager.PROFILE_KIDS.equals(currentProfile)) {
                 dialog.dismiss();
+                return;
+            }
+            if (!ProfileManager.isPinConfigured(activity)) {
+                PinEntryDialog.showSetup(activity, "Set Parent PIN", "Create a 4-digit PIN to enable Kids Guard", () -> {
+                    ProfileManager.switchProfile(activity, ProfileManager.PROFILE_KIDS);
+                    dialog.dismiss();
+                    Toast.makeText(activity, "🎈 Kids Guard Mode Active! Safe viewing enabled.", Toast.LENGTH_LONG).show();
+                });
                 return;
             }
             ProfileManager.switchProfile(activity, ProfileManager.PROFILE_KIDS);

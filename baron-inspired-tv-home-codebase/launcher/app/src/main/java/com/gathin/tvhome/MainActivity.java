@@ -196,6 +196,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         @Override
         public void onProfileChanged(String newProfile) {
             updateProfileButton();
+            hideHero();
             reloadApps(true, true, false);
         }
 
@@ -2489,6 +2490,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             });
 
             card.setOnClickListener(v -> {
+                if (ProfileManager.isBedtimeLimitReached(this)) {
+                    KidsBedtimeDialog.show(this);
+                    return;
+                }
                 if (item.intentUri != null && !item.intentUri.isEmpty()) {
                     if (item.intentUri.startsWith("input:")) {
                         openInput(item.intentUri.substring(6));
@@ -2496,6 +2501,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     }
                     try {
                         Intent intent = Intent.parseUri(item.intentUri, Intent.URI_INTENT_SCHEME);
+                        String targetPkg = intent.getPackage();
+                        if (targetPkg == null && intent.getComponent() != null) {
+                            targetPkg = intent.getComponent().getPackageName();
+                        }
+                        if (targetPkg == null) {
+                            targetPkg = pkg;
+                        }
+                        if (!ProfileManager.isAppAllowed(this, targetPkg)) {
+                            Toast.makeText(this, "🛡️ Blocked in Kids Guard Mode", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
                         startActivity(intent);
                         return;
                     } catch (Throwable ignored) {}
@@ -4291,7 +4307,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public void onTileLongPress(int position, View card) {
-        if (reordering) return;
+        if (reordering || !ProfileManager.isPersonalMode(this)) return;
         String key = adapter.keyAt(position);
         String pkg = adapter.packageAt(position);
         // Empty dock slots and the Default-home tile carry the launcher's own package: no menu for them.

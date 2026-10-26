@@ -9,6 +9,7 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -34,20 +35,22 @@ public final class ProfileManager {
     private static final String KEY_KIDS_BEDTIME_LIMIT_MIN = "kids_bedtime_limit_min";
     private static final String KEY_KIDS_SESSION_START = "kids_session_start_ms";
     private static final String KEY_KIDS_EXTRA_TIME_MS = "kids_extra_time_ms";
+    private static final String KEY_CUSTOM_KIDS_WHITELIST = "custom_kids_whitelist";
+    private static final String KEY_CUSTOM_GUEST_WHITELIST = "custom_guest_whitelist";
 
     public static final String DEFAULT_PIN = "0000";
     public static final int DEFAULT_KIDS_BEDTIME_MIN = 60; // 1 hour screen limit
 
     // Curated kids-safe packages whitelist
     private static final Set<String> DEFAULT_KIDS_WHITELIST = new HashSet<>(Arrays.asList(
-            "com.google.android.youtube.tvkids", // YouTube Kids
-            "com.disney.disneyplus",            // Disney+
-            "com.netflix.ninja",                // Netflix (Kids profile inside)
-            "org.pbskids.video",                // PBS Kids Video
-            "com.nick.kids",                    // Nickelodeon
-            "com.google.android.play.games",    // Play Games
-            "com.android.tv",                   // Live TV
-            "com.google.android.youtube.tv"     // YouTube (Fallback if kids app absent)
+            "com.google.android.youtube.tvkids",      // YouTube Kids (Android TV)
+            "com.google.android.youtube.googletvkids",// YouTube Kids (Google TV)
+            "com.disney.disneyplus",                 // Disney+
+            "com.netflix.ninja",                     // Netflix (Kids profile inside)
+            "org.pbskids.video",                     // PBS Kids Video
+            "org.pbskids.games",                     // PBS Kids Games
+            "com.nick.kids",                         // Nickelodeon
+            "com.android.tv"                        // Live TV
     ));
 
     // Explicitly blocked packages in Kids Mode
@@ -186,6 +189,67 @@ public final class ProfileManager {
         long currentExtra = getPrefs(context).getLong(KEY_KIDS_EXTRA_TIME_MS, 0);
         long added = extraMinutes * 60L * 1000L;
         getPrefs(context).edit().putLong(KEY_KIDS_EXTRA_TIME_MS, currentExtra + added).apply();
+        if (context != null) {
+            startBedtimeMonitoring(context);
+        }
+    }
+
+    public static Set<String> getCustomKidsAllowlist(Context context) {
+        SharedPreferences p = getPrefs(context);
+        return p != null ? new HashSet<>(p.getStringSet(KEY_CUSTOM_KIDS_WHITELIST, Collections.emptySet())) : new HashSet<>();
+    }
+
+    public static void addCustomKidsPackage(Context context, String packageName) {
+        if (context == null || packageName == null || packageName.trim().isEmpty()) return;
+        String cleanPkg = packageName.trim();
+        if (KIDS_BLOCKED_PACKAGES.contains(cleanPkg)) return;
+        Set<String> custom = getCustomKidsAllowlist(context);
+        custom.add(cleanPkg);
+        SharedPreferences p = getPrefs(context);
+        if (p != null) {
+            p.edit().putStringSet(KEY_CUSTOM_KIDS_WHITELIST, custom).apply();
+            notifyProfileChanged(PROFILE_KIDS);
+        }
+    }
+
+    public static void removeCustomKidsPackage(Context context, String packageName) {
+        if (context == null || packageName == null) return;
+        Set<String> custom = getCustomKidsAllowlist(context);
+        if (custom.remove(packageName.trim())) {
+            SharedPreferences p = getPrefs(context);
+            if (p != null) {
+                p.edit().putStringSet(KEY_CUSTOM_KIDS_WHITELIST, custom).apply();
+                notifyProfileChanged(PROFILE_KIDS);
+            }
+        }
+    }
+
+    public static Set<String> getCustomGuestAllowlist(Context context) {
+        SharedPreferences p = getPrefs(context);
+        return p != null ? new HashSet<>(p.getStringSet(KEY_CUSTOM_GUEST_WHITELIST, Collections.emptySet())) : new HashSet<>();
+    }
+
+    public static void addCustomGuestPackage(Context context, String packageName) {
+        if (context == null || packageName == null || packageName.trim().isEmpty()) return;
+        Set<String> custom = getCustomGuestAllowlist(context);
+        custom.add(packageName.trim());
+        SharedPreferences p = getPrefs(context);
+        if (p != null) {
+            p.edit().putStringSet(KEY_CUSTOM_GUEST_WHITELIST, custom).apply();
+            notifyProfileChanged(PROFILE_GUEST);
+        }
+    }
+
+    public static void removeCustomGuestPackage(Context context, String packageName) {
+        if (context == null || packageName == null) return;
+        Set<String> custom = getCustomGuestAllowlist(context);
+        if (custom.remove(packageName.trim())) {
+            SharedPreferences p = getPrefs(context);
+            if (p != null) {
+                p.edit().putStringSet(KEY_CUSTOM_GUEST_WHITELIST, custom).apply();
+                notifyProfileChanged(PROFILE_GUEST);
+            }
+        }
     }
 
     public static long getKidsTimeRemainingMillis(Context context) {
@@ -214,30 +278,49 @@ public final class ProfileManager {
      * Checks if a package is allowed to be visible/launched in the current profile.
      */
     public static boolean isAppAllowed(Context context, String packageName) {
-        return isAppAllowedForProfile(getActiveProfile(context), packageName);
+        if (packageName == null || packageName.trim().isEmpty()) return false;
+        String cleanPkg = packageName.trim();
+        String active = getActiveProfile(context);
+        if (PROFILE_PERSONAL.equals(active)) {
+            return true;
+        }
+
+        if (PROFILE_KIDS.equals(active)) {
+            if (KIDS_BLOCKED_PACKAGES.contains(cleanPkg)) return false;
+            if (DEFAULT_KIDS_WHITELIST.contains(cleanPkg)) return true;
+            return context != null && getCustomKidsAllowlist(context).contains(cleanPkg);
+        }
+
+        if (PROFILE_GUEST.equals(active)) {
+            if (GUEST_WHITELIST.contains(cleanPkg)) return true;
+            return context != null && getCustomGuestAllowlist(context).contains(cleanPkg);
+        }
+
+        return false;
     }
 
     public static boolean isAppAllowedForProfile(String profile, String packageName) {
-        if (packageName == null) return true;
+        // A missing package is never a launchable app. Do not fail open on malformed input.
+        if (packageName == null || packageName.trim().isEmpty()) return false;
+        String cleanPkg = packageName.trim();
         if (profile == null || PROFILE_PERSONAL.equals(profile)) {
             return true; // Personal has no restrictions
         }
 
         if (PROFILE_KIDS.equals(profile)) {
-            if (KIDS_BLOCKED_PACKAGES.contains(packageName)) return false;
-            if (DEFAULT_KIDS_WHITELIST.contains(packageName)) return true;
-            // Allow games or educational content
-            return packageName.contains("kids") || packageName.contains("disney") || packageName.contains("cartoon");
+            if (KIDS_BLOCKED_PACKAGES.contains(cleanPkg)) return false;
+            // Kids Mode is a strict package allowlist. Substring checks (e.g. "kids",
+            // "disney", or "cartoon") can accidentally trust unrelated or malicious packages.
+            return DEFAULT_KIDS_WHITELIST.contains(cleanPkg);
         }
 
         if (PROFILE_GUEST.equals(profile)) {
-            // Guest mode only allows media/streaming apps and Live TV
-            if ("com.android.tv.settings".equals(packageName)) return false;
-            if ("com.phlox.tvwebbrowser".equals(packageName)) return false;
-            return GUEST_WHITELIST.contains(packageName) || packageName.contains("video") || packageName.contains("tv");
+            // Guest Mode is also allowlist-only; unknown packages stay hidden/blocked.
+            return GUEST_WHITELIST.contains(cleanPkg);
         }
 
-        return true;
+        // An unrecognized profile identifier must not silently receive unrestricted access.
+        return false;
     }
 
     public static boolean isSettingsAllowed(Context context) {

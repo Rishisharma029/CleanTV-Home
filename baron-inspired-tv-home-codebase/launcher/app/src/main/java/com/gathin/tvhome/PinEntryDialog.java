@@ -22,7 +22,18 @@ public final class PinEntryDialog {
         void onVerified();
     }
 
+    private static int failedAttempts = 0;
+    private static long lockoutUntilMs = 0L;
+
     private PinEntryDialog() {}
+
+    public static boolean isLockedOut() {
+        return System.currentTimeMillis() < lockoutUntilMs;
+    }
+
+    public static long getRemainingLockoutSeconds() {
+        return Math.max(0, (lockoutUntilMs - System.currentTimeMillis() + 999) / 1000);
+    }
 
     public static void show(Activity activity, String title, String subtitle, OnPinVerifiedListener listener) {
         if (activity == null || activity.isFinishing()) return;
@@ -66,16 +77,37 @@ public final class PinEntryDialog {
         };
 
         Runnable checkPin = () -> {
+            if (isLockedOut()) {
+                if (tvError != null) {
+                    tvError.setText("Locked for " + getRemainingLockoutSeconds() + "s. Please wait.");
+                    tvError.setVisibility(View.VISIBLE);
+                }
+                pinBuilder.setLength(0);
+                updateDots.run();
+                return;
+            }
             if (pinBuilder.length() == 4) {
                 if (ProfileManager.verifyPin(activity, pinBuilder.toString())) {
+                    failedAttempts = 0;
+                    lockoutUntilMs = 0L;
                     dialog.dismiss();
                     if (listener != null) {
                         listener.onVerified();
                     }
                 } else {
-                    if (tvError != null) {
-                        tvError.setText("Incorrect PIN. Try again.");
-                        tvError.setVisibility(View.VISIBLE);
+                    failedAttempts++;
+                    if (failedAttempts >= 5) {
+                        lockoutUntilMs = System.currentTimeMillis() + 30000L;
+                        failedAttempts = 0;
+                        if (tvError != null) {
+                            tvError.setText("Too many failed attempts. Locked for 30s.");
+                            tvError.setVisibility(View.VISIBLE);
+                        }
+                    } else {
+                        if (tvError != null) {
+                            tvError.setText("Incorrect PIN. (" + (5 - failedAttempts) + " attempts left)");
+                            tvError.setVisibility(View.VISIBLE);
+                        }
                     }
                     pinBuilder.setLength(0);
                     updateDots.run();
@@ -84,6 +116,13 @@ public final class PinEntryDialog {
         };
 
         View.OnClickListener numClick = v -> {
+            if (isLockedOut()) {
+                if (tvError != null) {
+                    tvError.setText("Locked for " + getRemainingLockoutSeconds() + "s. Please wait.");
+                    tvError.setVisibility(View.VISIBLE);
+                }
+                return;
+            }
             if (v instanceof Button && pinBuilder.length() < 4) {
                 String digit = ((Button) v).getText().toString();
                 pinBuilder.append(digit);
@@ -131,6 +170,13 @@ public final class PinEntryDialog {
         // Allow entering PIN via physical keyboard digits
         dialog.setOnKeyListener((d, keyCode, event) -> {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (isLockedOut()) {
+                    if (tvError != null) {
+                        tvError.setText("Locked for " + getRemainingLockoutSeconds() + "s. Please wait.");
+                        tvError.setVisibility(View.VISIBLE);
+                    }
+                    return true;
+                }
                 if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
                     int digit = keyCode - KeyEvent.KEYCODE_0;
                     if (pinBuilder.length() < 4) {

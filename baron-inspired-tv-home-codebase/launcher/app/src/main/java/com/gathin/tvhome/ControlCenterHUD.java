@@ -1154,6 +1154,18 @@ public final class ControlCenterHUD {
 
             btnLauncher.setOnClickListener(v -> {
 
+                if (ProfileManager.isKidsMode(activity)) {
+                    PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access settings", () -> {
+                        dismiss();
+                        activity.startActivity(new Intent(activity, LauncherSettingsActivity.class));
+                    });
+                    return;
+                }
+                if (ProfileManager.isGuestMode(activity)) {
+                    Toast.makeText(activity, "Settings disabled in Guest Mode", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
                 dismiss();
 
                 activity.startActivity(new Intent(activity, LauncherSettingsActivity.class));
@@ -1171,6 +1183,18 @@ public final class ControlCenterHUD {
             applyCardFocusEffect(btnSystem);
 
             btnSystem.setOnClickListener(v -> {
+
+                if (ProfileManager.isKidsMode(activity)) {
+                    PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access system settings", () -> {
+                        dismiss();
+                        activity.startActivity(new Intent(Settings.ACTION_SETTINGS));
+                    });
+                    return;
+                }
+                if (ProfileManager.isGuestMode(activity)) {
+                    Toast.makeText(activity, "Settings disabled in Guest Mode", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
                 dismiss();
 
@@ -1207,6 +1231,18 @@ public final class ControlCenterHUD {
             applyCardFocusEffect(cardAddonHub);
 
             cardAddonHub.setOnClickListener(v -> {
+
+                if (ProfileManager.isKidsMode(activity)) {
+                    PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access Add-on Hub", () -> {
+                        dismiss();
+                        AddonHubDialog.show(activity);
+                    });
+                    return;
+                }
+                if (ProfileManager.isGuestMode(activity)) {
+                    Toast.makeText(activity, "Add-on Hub disabled in Guest Mode", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
                 dismiss();
 
@@ -1279,6 +1315,18 @@ public final class ControlCenterHUD {
             }
 
             cardDebloater.setOnClickListener(v -> {
+
+                if (ProfileManager.isKidsMode(activity)) {
+                    PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access TV Debloater", () -> {
+                        dismiss();
+                        DebloaterDialog.show(activity);
+                    });
+                    return;
+                }
+                if (ProfileManager.isGuestMode(activity)) {
+                    Toast.makeText(activity, "TV Debloater disabled in Guest Mode", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
                 dismiss();
 

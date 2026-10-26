@@ -54,6 +54,7 @@ flowchart TD
             DebloatEngine["DebloaterEngine (Universal 150+ OEM Auto-Detection)"]
             ShelfEngine["TopShelfManager (TvContract & Live Previews)"]
             WebRemote["WebRemoteServer (Async HTTP + WebSockets :8080)"]
+            FamilyNote["FamilyNoteManager & DrawingCanvasView (Live Phone-to-TV Note)"]
         end
 
         subgraph UI["tvOS Glass UI Presentation"]
@@ -347,6 +348,17 @@ graph LR
 
 ---
 
+---
+
+## ✏️ Family Live Note: Real-Time Phone-to-TV Drawing Canvas
+
+CleanTV Home includes an interactive drawing canvas that lets family members draw or write notes on their smartphone web remote and watch them appear live on the TV screen:
+
+* **Hardware-Accelerated Glow Ink**: Custom `DrawingCanvasView` on the TV renders anti-aliased strokes with smooth quadratic Bezier midpoints and dual-pass ambient glow.
+* **Resolution Independence**: Touch coordinates are normalized $([0.0, 1.0])$, ensuring accurate proportions across any smartphone screen and 1080p/4K TV displays.
+* **Instant Sync & Palette**: 7 vibrant colors (White, Yellow, Orange, Coral/Pink, Purple, Cyan, Green), 3 brush thicknesses, instant 1-tap clear, and persistence across launcher restarts.
+* **Direct TV Interaction**: Click the floating glass note card with the TV remote OK button to clear the note or display the pairing QR code.
+
 ## 🛠️ Repository Layout
 
 ```text
@@ -374,7 +386,9 @@ graph LR
 │       ├── TexturePool.java          # 15MB bounded LRU memory recycler
 │       ├── EventBroadcastEngine.java # Zero-polling hardware event listener
 │       ├── TopShelfManager.java      # Dynamic 16:9 preview cards
-│       └── WebRemoteServer.java      # Async HTTP & WebSocket mobile remote
+│       ├── WebRemoteServer.java      # Async HTTP & WebSocket mobile remote
+│       ├── FamilyNoteManager.java    # Real-time note sync engine & persistence
+│       └── DrawingCanvasView.java    # Hardware-accelerated dual-pass glow canvas
 └── LICENSE                   # MIT License
 ```
 

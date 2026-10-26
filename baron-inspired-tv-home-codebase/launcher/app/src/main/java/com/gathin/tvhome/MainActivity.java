@@ -192,6 +192,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView btnWifi;
     private TextView btnAudio;
     private final AudioOutputManager.AudioOutputListener audioListener = (mode, name) -> runOnUiThread(this::updateAudioButton);
+    private View noteCard;
+    private DrawingCanvasView tvDrawingCanvas;
+    private final FamilyNoteManager.NoteChangeListener noteChangeListener = strokes -> runOnUiThread(this::updateNoteCardState);
     private final ProfileManager.ProfileChangeListener profileListener = new ProfileManager.ProfileChangeListener() {
         @Override
         public void onProfileChanged(String newProfile) {
@@ -768,6 +771,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         SleepTimerManager.init(this);
         GameModeManager.applyWindowMode(this);
+        noteCard = findViewById(R.id.noteCard);
+        tvDrawingCanvas = findViewById(R.id.tvDrawingCanvas);
+        FamilyNoteManager.load(this);
+        FamilyNoteManager.registerListener(noteChangeListener);
+        updateNoteCardState();
+        if (noteCard != null) {
+            noteCard.setOnClickListener(v -> showNoteActionDialog());
+        }
         WebRemoteServer.start(this);
         btnInputs = findViewById(R.id.btnInputs);
         btnAudio = findViewById(R.id.btnAudio);
@@ -1351,6 +1362,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onDestroy();
         AudioOutputManager.unregisterListener(audioListener);
         ProfileManager.unregisterListener(profileListener);
+        FamilyNoteManager.unregisterListener(noteChangeListener);
         WebRemoteServer.stop();
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
@@ -3843,6 +3855,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     public void showWebRemoteDialog() {
         WebRemoteDialog.show(this);
+    }
+
+    private void updateNoteCardState() {
+        if (noteCard != null) {
+            boolean hasContent = FamilyNoteManager.hasContent();
+            noteCard.setVisibility(hasContent ? View.VISIBLE : View.GONE);
+        }
+        if (tvDrawingCanvas != null) {
+            tvDrawingCanvas.invalidate();
+        }
+    }
+
+    private void showNoteActionDialog() {
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Family Live Note")
+                .setMessage("Clear note or pair phone to leave a new note?")
+                .setPositiveButton("Clear Note", (dialog, which) -> {
+                    FamilyNoteManager.clear(this);
+                    updateNoteCardState();
+                })
+                .setNeutralButton("Pair Phone", (dialog, which) -> {
+                    WebRemoteDialog.show(this);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     public void showProfilePicker() {

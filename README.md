@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>The Apple TV-inspired, lightning-fast, ad-free Home Launcher & Universal 150+ TV Auto-Debloater for Android TV & Google TV.</strong><br>
-  <em>Multi-Profile & Kids Guard · 150+ TV Auto-Debloater · 60–120 FPS Pure RenderThread · 15 MB Texture Pool · Zero Polling</em>
+  <em>Multi-Profile & Kids Guard · 150+ TV Auto-Debloater · RenderThread Optimized · 15 MB Texture Pool · Event-Driven Architecture</em>
 </p>
 
 <p align="center">
@@ -25,10 +25,10 @@
 Most modern Android TVs and Google TVs (Sony Bravia, TCL, Xiaomi PatchWall, Realme, OnePlus, Hisense, Fire TV, Chromecast) are plagued by **unskippable video ads, sponsored banner rows, auto-installing bloatware, and heavy analytics daemons** that consume RAM and make the TV interface sluggish.
 
 **CleanTV Home** completely restores your TV experience:
-* 🍎 **Apple TV Experience**: Pure black background, dynamic ambient glow tailored to your focused app, fluid 60–120 FPS glass highlight navigation, and zero distractions.
+* 🍎 **Apple TV Experience**: Pure black background, dynamic ambient glow tailored to your focused app, fluid glass highlight navigation targeting display refresh rates, and zero distractions.
 * 🛡️ **Multi-Profile & Kids Guard Mode**: Instant profile switcher between **Personal Profile**, PIN-protected **Kids Guard Mode** with automatic bedtime screen limits, and super-clean **Guest / Cinema Mode**.
 * ⚡ **Universal 150+ TV Auto-Debloater**: Auto-detects device board properties across Sony, TCL, Xiaomi, Realme, OnePlus, Hisense, and Fire TV with a **Safe 1-Click Preview** reporting freed RAM and saved wakeups.
-* 🎮 **60–120 FPS on 1GB RAM TVs**: Hardware-accelerated RenderThread pipeline, zero polling with `EventBroadcastEngine`, and bounded 15 MB bitmap pooling preventing garbage collection pauses.
+* 🎮 **Smooth Navigation on 1GB RAM TVs**: Hardware-accelerated RenderThread pipeline, push-based `EventBroadcastEngine`, and bounded 15 MB bitmap pooling designed to reduce allocation churn and mitigate frame drops on memory-constrained devices.
 * 📺 **Dynamic Top Shelf & 2D Remote Flow**: 16:9 interactive glance cards for *Continue Watching* and connected HDMI inputs with symmetrical 2D DPAD navigation across Dock $\leftrightarrow$ Shelf $\leftrightarrow$ Top Bar.
 * 📱 **Mobile Web Remote & Control Center HUD**: Instant smartphone control via QR code, full virtual D-pad, live media controls, and quick-toggle Control Center HUD.
 
@@ -112,16 +112,16 @@ stateDiagram-v2
     KidsGuardMode --> BedtimeLockout: Screen Time Exceeded (9:00 PM)
     BedtimeLockout --> KidsGuardMode: Next Morning / PIN Override
     PersonalProfile --> GuestCinemaMode: Select "Cinema Mode"
-    GuestCinemaMode --> PersonalProfile: Select "Personal"
+    GuestCinemaMode --> PersonalProfile: Enter 4-Digit Parent PIN
 ```
 
 ### Key Profile Capabilities
 1. **Personal Profile**: Full dock customization, custom wallpapers, in-place app reordering, and direct system settings access.
 2. **Kids Guard Mode**:
-   - PIN-protected switching (default parent PIN: `1234`, customizable in-app).
+   - Parent PIN protection (first-time setup required; securely hashed with salt via PBKDF2; no insecure default PINs).
    - Automatically filters out browsers, play stores, and unauthorized streaming apps.
    - Enforces automatic bedtime lockout dialogs preventing late-night binge watching.
-3. **Guest / Cinema Mode**: Super minimal single-dock interface hiding administrative actions.
+3. **Guest / Cinema Mode**: Minimalist single-dock media interface hiding administrative controls; exiting back to Personal Mode requires parent PIN verification.
 
 ---
 
@@ -219,9 +219,9 @@ flowchart TD
 
 ---
 
-## ⚡ Performance Engine: 60–120 FPS on 1GB RAM TVs
+## ⚡ Performance Architecture: Low-Memory & Render Optimization
 
-Entry-level smart TVs often have only 1 GB of RAM and low-power quad-core MediaTek or Amlogic processors. CleanTV Home is engineered specifically to prevent the stutter and Out-Of-Memory (OOM) crashes common in heavy web-view launchers.
+Entry-level smart TVs often have only 1 GB of RAM and low-power quad-core MediaTek or Amlogic processors. CleanTV Home is engineered specifically to optimize resource usage on entry-level Android TV hardware, helping prevent stutter and Out-Of-Memory (OOM) crashes common in heavy web-view launchers (device performance targets are subject to local hardware and refresh rate capabilities).
 
 ```mermaid
 flowchart TD
@@ -243,9 +243,9 @@ flowchart TD
         I["ConnectivityManager Push Callbacks"]
     end
 
-    C -->|"Guaranteed 60 to 120 FPS"| TV["CleanTV Home (Silky 60-120 FPS)"]
-    F -->|"Zero GC Pauses"| TV
-    I -->|"0% Idle CPU Overhead"| TV
+    C -->|"Hardware Refresh Target"| TV["CleanTV Home (RenderThread Pipeline)"]
+    F -->|"Reduced Allocation Churn"| TV
+    I -->|"Push-Based Event Standby"| TV
 ```
 
 ---

@@ -257,18 +257,25 @@ public final class WebRemoteServer {
                 String pin = extractQueryParam(uri, "pin");
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 boolean success = false;
-                if (act != null && target != null) {
-                    if (ProfileManager.isKidsMode(act) && !ProfileManager.PROFILE_KIDS.equals(target)) {
+                boolean isValidTarget = target != null && ProfileManager.isValidProfile(target);
+
+                if (act != null && isValidTarget) {
+                    String current = ProfileManager.getActiveProfile(act);
+                    if (ProfileManager.requiresAuthenticationForSwitch(current, target)) {
+                        // Leaving Kids Mode or leaving Guest Mode for Personal requires parent PIN
                         if (ProfileManager.verifyPin(act, pin)) {
                             ProfileManager.switchProfile(act, target);
                             success = true;
                         }
+                    } else if (ProfileManager.PROFILE_KIDS.equals(target) && !ProfileManager.isPinConfigured(act)) {
+                        // Kids Mode cannot be activated without PIN configured
+                        success = false;
                     } else {
                         ProfileManager.switchProfile(act, target);
                         success = true;
                     }
                 }
-                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"profile\":\"" + (target != null ? target : "") + "\"}");
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"profile\":\"" + (target != null && isValidTarget ? target : "") + "\"}");
             } else if (uri.startsWith("/api/dock")) {
                 List<MainActivity.AppEntryInfo> apps = fetchAppsFromMain(true);
                 StringBuilder sb = new StringBuilder("[");

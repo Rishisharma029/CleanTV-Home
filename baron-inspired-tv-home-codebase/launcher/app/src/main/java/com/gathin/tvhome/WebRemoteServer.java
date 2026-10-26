@@ -459,6 +459,35 @@ public final class WebRemoteServer {
                     }
                 }
                 sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}");
+            } else if (uri.startsWith("/api/canvas/stroke")) {
+                String lenHeader = headers.get("content-length");
+                int contentLength = lenHeader != null ? Integer.parseInt(lenHeader.trim()) : 0;
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                boolean ok = false;
+                if (contentLength > 0 && contentLength < 1000000) {
+                    byte[] buf = new byte[contentLength];
+                    int total = 0;
+                    while (total < contentLength) {
+                        int read = in.read(buf, total, contentLength - total);
+                        if (read == -1) break;
+                        total += read;
+                    }
+                    String body = new String(buf, 0, total, StandardCharsets.UTF_8);
+                    FamilyNoteManager.Stroke stroke = FamilyNoteManager.parseSingleStrokeJson(body);
+                    if (stroke != null) {
+                        FamilyNoteManager.addStroke(act, stroke);
+                        ok = true;
+                    }
+                }
+                sendJson(out, "{\"status\":\"" + (ok ? "ok" : "error") + "\"}");
+            } else if (uri.startsWith("/api/canvas/clear")) {
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                FamilyNoteManager.clear(act);
+                sendJson(out, "{\"status\":\"ok\"}");
+            } else if (uri.startsWith("/api/canvas/state")) {
+                List<FamilyNoteManager.Stroke> strokes = FamilyNoteManager.getStrokes();
+                String json = FamilyNoteManager.serializeToJson(strokes);
+                sendJson(out, json);
             } else if (uri.startsWith("/api/upload")) {
                 // Sideload APK directly from PC / Mobile browser over Wi-Fi
                 String fileName = extractQueryParam(uri, "name");
@@ -674,8 +703,19 @@ public final class WebRemoteServer {
                 "    .title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }\n" +
                 "    .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981; }\n" +
                 "    .subtitle { font-size: 11px; color: #64748b; font-weight: 500; }\n" +
-                "    .tabs { display: flex; width: 100%; max-width: 400px; background: rgba(30, 41, 59, 0.6); border-radius: 14px; padding: 4px; margin-bottom: 14px; gap: 3px; border: 1px solid rgba(255,255,255,0.06); }\n" +
-                "    .tab-btn { flex: 1; background: transparent; border: none; color: #94a3b8; padding: 9px 0; font-size: 11px; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; gap: 4px; }\n" +
+                "    .tabs { display: flex; width: 100%; max-width: 400px; background: rgba(30, 41, 59, 0.6); border-radius: 14px; padding: 4px; margin-bottom: 14px; gap: 3px; border: 1px solid rgba(255,255,255,0.06); overflow-x: auto; scrollbar-width: none; }\n" +
+                "    .tabs::-webkit-scrollbar { display: none; }\n" +
+                "    .tab-btn { flex: 1 0 auto; background: transparent; border: none; color: #94a3b8; padding: 9px 8px; font-size: 11px; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }\n" +
+                "    .note-canvas-wrapper { width: 100%; position: relative; margin-bottom: 14px; }\n" +
+                "    .canvas-box { width: 100%; height: 260px; background: #0b1120; border-radius: 18px; border: 1px solid rgba(255,255,255,0.12); box-shadow: inset 0 2px 10px rgba(0,0,0,0.5); touch-action: none; display: block; cursor: crosshair; }\n" +
+                "    .palette-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 0 4px; }\n" +
+                "    .color-swatch { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; outline: none; }\n" +
+                "    .color-swatch:active { transform: scale(0.9); }\n" +
+                "    .color-swatch.selected { border-color: #fff; transform: scale(1.15); box-shadow: 0 0 10px rgba(255,255,255,0.4); }\n" +
+                "    .note-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }\n" +
+                "    .width-picker { display: flex; gap: 6px; background: rgba(15, 23, 42, 0.8); padding: 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }\n" +
+                "    .width-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: pointer; }\n" +
+                "    .width-btn.active { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }\n" +
                 "    .tab-btn.active { background: #38bdf8; color: #0b0f19; font-weight: 700; box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35); }\n" +
                 "    .tab-content { width: 100%; max-width: 400px; }\n" +
                 "    .card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 14px; margin-bottom: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }\n" +
@@ -862,6 +902,7 @@ public final class WebRemoteServer {
                 "      if (tab === 'apps') loadApps();\n" +
                 "      if (tab === 'dock') loadDock();\n" +
                 "      if (tab === 'addons') loadAddons();\n" +
+                "      if (tab === 'note') { if (!noteCanvasInitialized) setTimeout(initNoteCanvas, 50); else loadNoteState(); }\n" +
                 "      if (tab === 'debloat') loadDebloat();\n" +
                 "    }\n" +
                 "    let allApps = [];\n" +
@@ -1080,6 +1121,122 @@ public final class WebRemoteServer {
                 "        showToast('Debloated ' + (res.count || 0) + ' OEM packages!');\n" +
                 "        loadDebloat();\n" +
                 "      }).catch(()=>{});\n" +
+                "    }\n" +
+                "    let currentNoteColor = '#FFFFFF';\n" +
+                "    let currentStrokeWidth = 6;\n" +
+                "    let isDrawing = false;\n" +
+                "    let currentPoints = [];\n" +
+                "    let noteCanvasInitialized = false;\n" +
+                "    function initNoteCanvas() {\n" +
+                "      const canvas = document.getElementById('noteCanvas');\n" +
+                "      if (!canvas) return;\n" +
+                "      const rect = canvas.getBoundingClientRect();\n" +
+                "      const dpr = window.devicePixelRatio || 1;\n" +
+                "      canvas.width = rect.width * dpr;\n" +
+                "      canvas.height = rect.height * dpr;\n" +
+                "      const ctx = canvas.getContext('2d');\n" +
+                "      ctx.scale(dpr, dpr);\n" +
+                "      ctx.lineCap = 'round';\n" +
+                "      ctx.lineJoin = 'round';\n" +
+                "      function getPoint(e) {\n" +
+                "        const r = canvas.getBoundingClientRect();\n" +
+                "        const clientX = e.touches ? e.touches[0].clientX : e.clientX;\n" +
+                "        const clientY = e.touches ? e.touches[0].clientY : e.clientY;\n" +
+                "        return { x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height };\n" +
+                "      }\n" +
+                "      function startDraw(e) {\n" +
+                "        e.preventDefault();\n" +
+                "        isDrawing = true;\n" +
+                "        currentPoints = [];\n" +
+                "        currentPoints.push(getPoint(e));\n" +
+                "      }\n" +
+                "      function moveDraw(e) {\n" +
+                "        if (!isDrawing) return;\n" +
+                "        e.preventDefault();\n" +
+                "        const pt = getPoint(e);\n" +
+                "        currentPoints.push(pt);\n" +
+                "        if (currentPoints.length >= 2) {\n" +
+                "          const p1 = currentPoints[currentPoints.length - 2];\n" +
+                "          const p2 = currentPoints[currentPoints.length - 1];\n" +
+                "          const r = canvas.getBoundingClientRect();\n" +
+                "          ctx.strokeStyle = currentNoteColor;\n" +
+                "          ctx.lineWidth = currentStrokeWidth;\n" +
+                "          ctx.beginPath();\n" +
+                "          ctx.moveTo(p1.x * r.width, p1.y * r.height);\n" +
+                "          ctx.lineTo(p2.x * r.width, p2.y * r.height);\n" +
+                "          ctx.stroke();\n" +
+                "        }\n" +
+                "      }\n" +
+                "      function endDraw(e) {\n" +
+                "        if (!isDrawing) return;\n" +
+                "        e.preventDefault();\n" +
+                "        isDrawing = false;\n" +
+                "        if (currentPoints.length >= 2) {\n" +
+                "          const strokeData = { color: currentNoteColor, width: currentStrokeWidth, points: currentPoints };\n" +
+                "          haptic();\n" +
+                "          fetch('/api/canvas/stroke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(strokeData) }).catch(()=>{});\n" +
+                "        }\n" +
+                "        currentPoints = [];\n" +
+                "      }\n" +
+                "      canvas.addEventListener('touchstart', startDraw, { passive: false });\n" +
+                "      canvas.addEventListener('touchmove', moveDraw, { passive: false });\n" +
+                "      canvas.addEventListener('touchend', endDraw, { passive: false });\n" +
+                "      canvas.addEventListener('touchcancel', endDraw, { passive: false });\n" +
+                "      canvas.addEventListener('mousedown', startDraw);\n" +
+                "      window.addEventListener('mousemove', moveDraw);\n" +
+                "      window.addEventListener('mouseup', endDraw);\n" +
+                "      noteCanvasInitialized = true;\n" +
+                "      loadNoteState();\n" +
+                "    }\n" +
+                "    function loadNoteState() {\n" +
+                "      fetch('/api/canvas/state').then(r => r.json()).then(strokes => { redrawNoteCanvas(strokes); }).catch(()=>{});\n" +
+                "    }\n" +
+                "    function redrawNoteCanvas(strokes) {\n" +
+                "      const canvas = document.getElementById('noteCanvas');\n" +
+                "      if (!canvas) return;\n" +
+                "      const ctx = canvas.getContext('2d');\n" +
+                "      const r = canvas.getBoundingClientRect();\n" +
+                "      ctx.save();\n" +
+                "      ctx.setTransform(1, 0, 0, 1, 0, 0);\n" +
+                "      ctx.clearRect(0, 0, canvas.width, canvas.height);\n" +
+                "      ctx.restore();\n" +
+                "      if (!strokes || !Array.isArray(strokes)) return;\n" +
+                "      strokes.forEach(s => {\n" +
+                "        if (!s.points || s.points.length < 2) return;\n" +
+                "        ctx.strokeStyle = s.color || '#FFFFFF';\n" +
+                "        ctx.lineWidth = s.width || 6;\n" +
+                "        ctx.beginPath();\n" +
+                "        ctx.moveTo(s.points[0].x * r.width, s.points[0].y * r.height);\n" +
+                "        for (let i = 1; i < s.points.length; i++) {\n" +
+                "          ctx.lineTo(s.points[i].x * r.width, s.points[i].y * r.height);\n" +
+                "        }\n" +
+                "        ctx.stroke();\n" +
+                "      });\n" +
+                "    }\n" +
+                "    function setColor(c, btn) {\n" +
+                "      haptic();\n" +
+                "      currentNoteColor = c;\n" +
+                "      document.querySelectorAll('.color-swatch').forEach(b => b.classList.remove('selected'));\n" +
+                "      if (btn) btn.classList.add('selected');\n" +
+                "    }\n" +
+                "    function setStrokeWidth(w, btn) {\n" +
+                "      haptic();\n" +
+                "      currentStrokeWidth = w;\n" +
+                "      document.querySelectorAll('.width-btn').forEach(b => b.classList.remove('active'));\n" +
+                "      if (btn) btn.classList.add('active');\n" +
+                "    }\n" +
+                "    function clearNote() {\n" +
+                "      haptic();\n" +
+                "      const canvas = document.getElementById('noteCanvas');\n" +
+                "      if (canvas) {\n" +
+                "        const ctx = canvas.getContext('2d');\n" +
+                "        ctx.save();\n" +
+                "        ctx.setTransform(1, 0, 0, 1, 0, 0);\n" +
+                "        ctx.clearRect(0, 0, canvas.width, canvas.height);\n" +
+                "        ctx.restore();\n" +
+                "      }\n" +
+                "      showToast('Note cleared on TV');\n" +
+                "      fetch('/api/canvas/clear', { method: 'POST' }).catch(()=>{});\n" +
                 "    }\n" +
                 "    function runRestoreDebloat() {\n" +
                 "      haptic();\n" +

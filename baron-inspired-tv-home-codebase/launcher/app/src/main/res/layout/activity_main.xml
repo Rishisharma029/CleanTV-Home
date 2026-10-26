@@ -535,6 +535,63 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Family Live Note floating glass card widget -->
+    <LinearLayout
+        android:id="@+id/noteCard"
+        android:layout_width="230dp"
+        android:layout_height="210dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="72dp"
+        android:layout_marginEnd="68dp"
+        android:background="@drawable/glass_canvas_bg"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:focusable="true"
+        android:clickable="true"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp">
+
+            <View
+                android:id="@+id/noteLiveDot"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/dot_live"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="LEAVE A NOTE"
+                android:textColor="#99FFFFFF"
+                android:textSize="10sp"
+                android:fontFamily="@string/font_medium"
+                android:letterSpacing="0.1" />
+
+            <TextView
+                android:id="@+id/noteActionHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OK to clear"
+                android:textColor="#66FFFFFF"
+                android:textSize="9sp"
+                android:fontFamily="@string/font_medium" />
+        </LinearLayout>
+
+        <com.gathin.tvhome.DrawingCanvasView
+            android:id="@+id/tvDrawingCanvas"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+
     <!-- The single floating glass highlight that springs between tiles. -->
     <com.gathin.tvhome.GlassView
         android:id="@+id/glass"

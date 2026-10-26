@@ -97,12 +97,21 @@ public class DebloaterAndProfileTest {
         assertFalse(ProfileManager.verifyPin(null, ""));
         assertFalse(ProfileManager.verifyPin(null, null));
 
-        // Package filtering in Kids mode
+        // Curated Kids allowlist packages
         assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.google.android.youtube.tvkids"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.google.android.youtube.googletvkids"));
         assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.disney.disneyplus"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.netflix.ninja"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "org.pbskids.video"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "org.pbskids.games"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.nick.kids"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.android.tv"));
+
+        // Explicitly blocked and lookalike packages in Kids mode
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.android.vending"));
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.android.tv.settings"));
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.phlox.tvwebbrowser"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.android.chrome"));
 
         // A strict Kids allowlist must reject ordinary YouTube and unlisted packages.
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.google.android.youtube.tv"));
@@ -116,14 +125,23 @@ public class DebloaterAndProfileTest {
 
         // Guest Mode also rejects package-name lookalikes; only exact curated packages pass.
         assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "org.videolan.vlc"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "com.google.android.youtube.tv"));
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "com.netflix.ninja"));
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "com.example.tvhelper"));
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "com.example.video"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, null));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, ""));
 
         // Unknown profile identifiers must fail closed.
         assertFalse(ProfileManager.isAppAllowedForProfile("unknown-profile", "com.disney.disneyplus"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(null, null));
 
         // All allowed in Personal mode
         assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_PERSONAL, "com.android.vending"));
         assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_PERSONAL, "com.android.tv.settings"));
+
+        // Rate limiting initial state
+        assertFalse(PinEntryDialog.isLockedOut());
+        assertEquals(0, PinEntryDialog.getRemainingLockoutSeconds());
     }
 }

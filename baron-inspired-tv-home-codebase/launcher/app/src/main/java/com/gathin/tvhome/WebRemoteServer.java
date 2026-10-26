@@ -296,6 +296,11 @@ public final class WebRemoteServer {
                 sb.append("]");
                 sendJson(out, sb.toString());
             } else if (uri.startsWith("/api/reorder")) {
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                if (act != null && !ProfileManager.isPersonalMode(act)) {
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Reordering disabled in non-personal profile\"}");
+                    return;
+                }
                 int from = extractQueryParamInt(uri, "from", -1);
                 int to = extractQueryParamInt(uri, "to", -1);
                 boolean success = false;
@@ -303,7 +308,6 @@ public final class WebRemoteServer {
                     Handler h = getMainHandler();
                     if (h != null) {
                         h.post(() -> {
-                            Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                             if (act instanceof MainActivity) {
                                 ((MainActivity) act).reorderDockSlot(from, to);
                             }
@@ -315,13 +319,22 @@ public final class WebRemoteServer {
             } else if (uri.startsWith("/api/launch")) {
                 String pkg = extractQueryParam(uri, "pkg");
                 boolean success = false;
-                if (pkg != null && !pkg.isEmpty()) {
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                if (act != null && pkg != null && !pkg.isEmpty()) {
+                    if (ProfileManager.isBedtimeLimitReached(act)) {
+                        sendJson(out, "{\"status\":\"bedtime_limit_reached\",\"pkg\":\"" + escapeJson(pkg) + "\"}");
+                        return;
+                    }
+                    if (!ProfileManager.isAppAllowed(act, pkg)) {
+                        sendJson(out, "{\"status\":\"blocked\",\"pkg\":\"" + escapeJson(pkg) + "\"}");
+                        return;
+                    }
                     Handler h = getMainHandler();
                     if (h != null) {
                         h.post(() -> {
-                            Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
-                            if (act instanceof MainActivity) {
-                                ((MainActivity) act).launchAppByPackage(pkg);
+                            Activity a = currentActivityRef != null ? currentActivityRef.get() : null;
+                            if (a instanceof MainActivity) {
+                                ((MainActivity) a).launchAppByPackage(pkg);
                             }
                         });
                         success = true;
@@ -329,11 +342,15 @@ public final class WebRemoteServer {
                 }
                 sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"pkg\":\"" + (pkg != null ? pkg : "") + "\"}");
             } else if (uri.startsWith("/api/addons/install")) {
+                Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                if (act != null && !ProfileManager.isPersonalMode(act)) {
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Addon installation disabled in non-personal profile\"}");
+                    return;
+                }
                 String id = extractQueryParam(uri, "id");
                 AddonCatalog.AddonItem item = AddonCatalog.findById(id);
                 boolean started = false;
                 if (item != null) {
-                    Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                     if (act != null) {
                         AddonCatalog.downloadAndInstall(act, item, null);
                         started = true;
@@ -398,8 +415,12 @@ public final class WebRemoteServer {
                 sb.append("]}");
                 sendJson(out, sb.toString());
             } else if (uri.startsWith("/api/debloat/apply")) {
-                String pkg = extractQueryParam(uri, "pkg");
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                if (act != null && !ProfileManager.isPersonalMode(act)) {
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Debloater disabled in non-personal profile\"}");
+                    return;
+                }
+                String pkg = extractQueryParam(uri, "pkg");
                 int count = 0;
                 boolean success = false;
                 if (act != null) {
@@ -413,8 +434,12 @@ public final class WebRemoteServer {
                 }
                 sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}");
             } else if (uri.startsWith("/api/debloat/restore")) {
-                String pkg = extractQueryParam(uri, "pkg");
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+                if (act != null && !ProfileManager.isPersonalMode(act)) {
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Debloater disabled in non-personal profile\"}");
+                    return;
+                }
+                String pkg = extractQueryParam(uri, "pkg");
                 int count = 0;
                 boolean success = false;
                 if (act != null) {

@@ -45,9 +45,7 @@ public final class ProfileManager {
             "com.netflix.ninja",                // Netflix (Kids profile inside)
             "org.pbskids.video",                // PBS Kids Video
             "com.nick.kids",                    // Nickelodeon
-            "com.google.android.play.games",    // Play Games
-            "com.android.tv",                   // Live TV
-            "com.google.android.youtube.tv"     // YouTube (Fallback if kids app absent)
+            "com.android.tv"                   // Live TV
     ));
 
     // Explicitly blocked packages in Kids Mode
@@ -218,26 +216,26 @@ public final class ProfileManager {
     }
 
     public static boolean isAppAllowedForProfile(String profile, String packageName) {
-        if (packageName == null) return true;
+        // A missing package is never a launchable app. Do not fail open on malformed input.
+        if (packageName == null || packageName.trim().isEmpty()) return false;
         if (profile == null || PROFILE_PERSONAL.equals(profile)) {
             return true; // Personal has no restrictions
         }
 
         if (PROFILE_KIDS.equals(profile)) {
             if (KIDS_BLOCKED_PACKAGES.contains(packageName)) return false;
-            if (DEFAULT_KIDS_WHITELIST.contains(packageName)) return true;
-            // Allow games or educational content
-            return packageName.contains("kids") || packageName.contains("disney") || packageName.contains("cartoon");
+            // Kids Mode is a strict package allowlist. Substring checks (e.g. "kids",
+            // "disney", or "cartoon") can accidentally trust unrelated or malicious packages.
+            return DEFAULT_KIDS_WHITELIST.contains(packageName);
         }
 
         if (PROFILE_GUEST.equals(profile)) {
-            // Guest mode only allows media/streaming apps and Live TV
-            if ("com.android.tv.settings".equals(packageName)) return false;
-            if ("com.phlox.tvwebbrowser".equals(packageName)) return false;
-            return GUEST_WHITELIST.contains(packageName) || packageName.contains("video") || packageName.contains("tv");
+            // Guest Mode is also allowlist-only; unknown packages stay hidden/blocked.
+            return GUEST_WHITELIST.contains(packageName);
         }
 
-        return true;
+        // An unrecognized profile identifier must not silently receive unrestricted access.
+        return false;
     }
 
     public static boolean isSettingsAllowed(Context context) {

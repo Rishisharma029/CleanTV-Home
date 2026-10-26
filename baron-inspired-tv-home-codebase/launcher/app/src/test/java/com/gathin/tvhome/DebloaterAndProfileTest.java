@@ -104,6 +104,24 @@ public class DebloaterAndProfileTest {
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.android.tv.settings"));
         assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.phlox.tvwebbrowser"));
 
+        // A strict Kids allowlist must reject ordinary YouTube and unlisted packages.
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.google.android.youtube.tv"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.google.android.play.games"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.example.kids.video"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.disney.fake"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.example.cartoon"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "com.example.unknown"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, null));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_KIDS, "   "));
+
+        // Guest Mode also rejects package-name lookalikes; only exact curated packages pass.
+        assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "org.videolan.vlc"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "com.example.tvhelper"));
+        assertFalse(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_GUEST, "com.example.video"));
+
+        // Unknown profile identifiers must fail closed.
+        assertFalse(ProfileManager.isAppAllowedForProfile("unknown-profile", "com.disney.disneyplus"));
+
         // All allowed in Personal mode
         assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_PERSONAL, "com.android.vending"));
         assertTrue(ProfileManager.isAppAllowedForProfile(ProfileManager.PROFILE_PERSONAL, "com.android.tv.settings"));

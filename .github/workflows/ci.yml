@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master, main, day2/* ]
   pull_request:
     branches: [ master, main ]
 
@@ -37,7 +37,7 @@ jobs:
           fi
 
   android-build:
-    name: Build & Verify Android TV Launcher
+    name: Build & Test Android TV Launcher
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -53,10 +53,28 @@ jobs:
         run: |
           find . -name "gradlew" -exec chmod +x {} + || true
 
-      - name: Build Launcher APK
+      - name: Run Unit Tests & Build Launcher APK
         working-directory: baron-inspired-tv-home-codebase/launcher
         run: |
-          ./gradlew assembleDebug --no-daemon -q
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon
+
+      - name: Inspect Test Reports
+        if: always()
+        run: |
+          REPORT_DIR="baron-inspired-tv-home-codebase/launcher/app/build/test-results/testDebugUnitTest"
+          if [ -d "$REPORT_DIR" ]; then
+            echo "=== Test Suites Summary ==="
+            grep -h "<testsuite " "$REPORT_DIR"/*.xml || true
+          else
+            echo "No test results directory found at $REPORT_DIR"
+          fi
+
+      - name: Upload Test Report Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: baron-inspired-tv-home-codebase/launcher/app/build/reports/tests/testDebugUnitTest/
 
       - name: Verify Generated Output
         run: |

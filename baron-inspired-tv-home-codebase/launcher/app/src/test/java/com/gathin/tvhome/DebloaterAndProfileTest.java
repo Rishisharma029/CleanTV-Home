@@ -299,4 +299,58 @@ public class DebloaterAndProfileTest {
         // Normal PIN verification should work immediately
         assertTrue(ProfileManager.verifyPin(null, "3690"));
     }
+
+    @Test
+    public void guestModeEscapePathClosedAndUnrecognizedProfilesRejected() {
+        FakeSharedPreferences prefs = new FakeSharedPreferences();
+        ProfileManager.setTestPreferences(prefs);
+
+        // 1. Profile validation
+        assertTrue(ProfileManager.isValidProfile(ProfileManager.PROFILE_PERSONAL));
+        assertTrue(ProfileManager.isValidProfile(ProfileManager.PROFILE_KIDS));
+        assertTrue(ProfileManager.isValidProfile(ProfileManager.PROFILE_GUEST));
+        assertFalse(ProfileManager.isValidProfile(null));
+        assertFalse(ProfileManager.isValidProfile(""));
+        assertFalse(ProfileManager.isValidProfile("admin"));
+        assertFalse(ProfileManager.isValidProfile("root"));
+
+        // 2. Reject switching to unrecognized profiles
+        ProfileManager.switchProfile(null, "unrecognized_mode");
+        assertEquals("Profile must remain Personal when unrecognized profile is passed",
+                ProfileManager.PROFILE_PERSONAL, ProfileManager.getActiveProfile(null));
+
+        // 3. Authentication requirements for profile switches
+        // Kids -> Personal / Guest requires authentication
+        assertTrue(ProfileManager.requiresAuthenticationForSwitch(ProfileManager.PROFILE_KIDS, ProfileManager.PROFILE_PERSONAL));
+        assertTrue(ProfileManager.requiresAuthenticationForSwitch(ProfileManager.PROFILE_KIDS, ProfileManager.PROFILE_GUEST));
+
+        // Guest -> Personal requires authentication (Closing the Guest Mode escape path!)
+        assertTrue("Leaving Guest Mode for Personal must require authentication",
+                ProfileManager.requiresAuthenticationForSwitch(ProfileManager.PROFILE_GUEST, ProfileManager.PROFILE_PERSONAL));
+
+        // Personal -> Guest or Kids does not require authentication to enter
+        assertFalse(ProfileManager.requiresAuthenticationForSwitch(ProfileManager.PROFILE_PERSONAL, ProfileManager.PROFILE_GUEST));
+        assertFalse(ProfileManager.requiresAuthenticationForSwitch(ProfileManager.PROFILE_PERSONAL, ProfileManager.PROFILE_KIDS));
+
+        // Invalid target profiles never pass switch authentication
+        assertFalse(ProfileManager.requiresAuthenticationForSwitch(ProfileManager.PROFILE_GUEST, "fake_profile"));
+
+        // 4. Guest Mode PIN-guarded exit verification
+        ProfileManager.setParentPin(null, "4321");
+        ProfileManager.switchProfile(null, ProfileManager.PROFILE_GUEST);
+        assertTrue(ProfileManager.isGuestMode(null));
+
+        // Attempting to switch without valid PIN check fails authentication
+        assertFalse("Incorrect PIN cannot unlock Personal from Guest Mode",
+                ProfileManager.verifyPin(null, "0000"));
+        assertEquals("Profile must stay in Guest mode on failed auth",
+                ProfileManager.PROFILE_GUEST, ProfileManager.getActiveProfile(null));
+
+        // With valid PIN
+        assertTrue("Correct PIN verifies for Guest -> Personal transition",
+                ProfileManager.verifyPin(null, "4321"));
+        ProfileManager.switchProfile(null, ProfileManager.PROFILE_PERSONAL);
+        assertTrue("Switched to Personal mode after authentication",
+                ProfileManager.isPersonalMode(null));
+    }
 }

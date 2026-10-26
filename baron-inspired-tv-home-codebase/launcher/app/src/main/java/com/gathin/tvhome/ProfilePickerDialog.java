@@ -77,7 +77,7 @@ public final class ProfilePickerDialog {
                 dialog.dismiss();
                 return;
             }
-            if (ProfileManager.isKidsMode(activity)) {
+            if (ProfileManager.requiresAuthenticationForSwitch(currentProfile, ProfileManager.PROFILE_PERSONAL)) {
                 if (!ProfileManager.isPinConfigured(activity)) {
                     // Safe recovery fallback if PIN is not configured
                     ProfileManager.switchProfile(activity, ProfileManager.PROFILE_PERSONAL);
@@ -85,8 +85,10 @@ public final class ProfilePickerDialog {
                     Toast.makeText(activity, "👤 Switched to Personal Profile", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                // Require Parent PIN to exit kids mode
-                PinEntryDialog.show(activity, "Unlock Personal Profile", "Enter 4-digit PIN to exit Kids Guard Mode", () -> {
+                String subtitle = ProfileManager.isKidsMode(activity)
+                        ? "Enter 4-digit PIN to exit Kids Guard Mode"
+                        : "Enter 4-digit PIN to access Personal Profile";
+                PinEntryDialog.show(activity, "Unlock Personal Profile", subtitle, () -> {
                     ProfileManager.switchProfile(activity, ProfileManager.PROFILE_PERSONAL);
                     dialog.dismiss();
                     Toast.makeText(activity, "👤 Switched to Personal Profile", Toast.LENGTH_SHORT).show();

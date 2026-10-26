@@ -140,6 +140,32 @@ public final class ProfileManager {
         return PROFILE_PERSONAL.equals(getActiveProfile(context));
     }
 
+    public static boolean isValidProfile(String profile) {
+        return PROFILE_PERSONAL.equals(profile)
+                || PROFILE_KIDS.equals(profile)
+                || PROFILE_GUEST.equals(profile);
+    }
+
+    /**
+     * Checks if switching from currentProfile to targetProfile requires parent PIN authentication.
+     * Leaving Kids Mode for any other profile, or leaving Guest Mode for Personal, requires authentication.
+     */
+    public static boolean requiresAuthenticationForSwitch(String currentProfile, String targetProfile) {
+        if (targetProfile == null || !isValidProfile(targetProfile)) {
+            return false;
+        }
+        if (currentProfile == null) {
+            currentProfile = PROFILE_PERSONAL;
+        }
+        if (PROFILE_KIDS.equals(currentProfile) && !PROFILE_KIDS.equals(targetProfile)) {
+            return true;
+        }
+        if (PROFILE_GUEST.equals(currentProfile) && PROFILE_PERSONAL.equals(targetProfile)) {
+            return true;
+        }
+        return false;
+    }
+
     public static String getProfileDisplayName(String profile) {
         switch (profile) {
             case PROFILE_KIDS:
@@ -425,7 +451,7 @@ public final class ProfileManager {
     }
 
     public static void switchProfile(Context context, String targetProfile) {
-        if (targetProfile == null) return;
+        if (targetProfile == null || !isValidProfile(targetProfile)) return;
         String current = getActiveProfile(context);
         if (current.equals(targetProfile)) return;
 

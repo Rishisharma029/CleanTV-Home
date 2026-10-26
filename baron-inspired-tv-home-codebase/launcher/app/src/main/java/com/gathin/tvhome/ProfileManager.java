@@ -7,6 +7,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -14,6 +18,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 /**
  * Multi-Profile & Kids Guard Manager:
@@ -31,15 +38,26 @@ public final class ProfileManager {
 
     private static final String PREFS_NAME = "cleantv_profiles";
     private static final String KEY_CURRENT_PROFILE = "active_profile";
-    private static final String KEY_PARENT_PIN = "parent_pin";
+    private static final String KEY_PARENT_PIN = "parent_pin"; // Legacy plaintext key for migration
+    private static final String KEY_PIN_HASH = "parent_pin_hash";
+    private static final String KEY_PIN_SALT = "parent_pin_salt";
+    private static final String KEY_PIN_FAILED_ATTEMPTS = "parent_pin_failed_attempts";
+    private static final String KEY_PIN_LOCKOUT_UNTIL_MS = "parent_pin_lockout_until_ms";
     private static final String KEY_KIDS_BEDTIME_LIMIT_MIN = "kids_bedtime_limit_min";
     private static final String KEY_KIDS_SESSION_START = "kids_session_start_ms";
     private static final String KEY_KIDS_EXTRA_TIME_MS = "kids_extra_time_ms";
     private static final String KEY_CUSTOM_KIDS_WHITELIST = "custom_kids_whitelist";
     private static final String KEY_CUSTOM_GUEST_WHITELIST = "custom_guest_whitelist";
 
-    public static final String DEFAULT_PIN = "0000";
+    public static final int MAX_FAILED_PIN_ATTEMPTS = 5;
+    public static final long PIN_LOCKOUT_DURATION_MS = 30_000L;
+    public static final long MAX_PIN_LOCKOUT_DURATION_MS = 300_000L; // 5 min safety cap for clock anomalies
     public static final int DEFAULT_KIDS_BEDTIME_MIN = 60; // 1 hour screen limit
+
+    private static final int SALT_BYTES = 16;
+    private static final int PBKDF2_ITERATIONS = 10000;
+    private static final int KEY_LENGTH_BITS = 256;
+    private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
 
     // Curated kids-safe packages whitelist
     private static final Set<String> DEFAULT_KIDS_WHITELIST = new HashSet<>(Arrays.asList(
@@ -81,6 +99,12 @@ public final class ProfileManager {
     private static Handler bedtimeHandler;
     private static final Runnable bedtimeRunnable = ProfileManager::checkBedtimeTimer;
 
+    private static SharedPreferences testPrefs = null;
+
+    public static void setTestPreferences(SharedPreferences prefs) {
+        testPrefs = prefs;
+    }
+
     private ProfileManager() {}
 
     public static synchronized void registerListener(ProfileChangeListener listener) {
@@ -94,6 +118,7 @@ public final class ProfileManager {
     }
 
     private static SharedPreferences getPrefs(Context context) {
+        if (testPrefs != null) return testPrefs;
         if (context == null) return null;
         return context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
@@ -139,29 +164,264 @@ public final class ProfileManager {
         }
     }
 
-    public static String getParentPin(Context context) {
-        SharedPreferences p = getPrefs(context);
-        return p != null ? p.getString(KEY_PARENT_PIN, DEFAULT_PIN) : DEFAULT_PIN;
+    // --- PIN SECURITY & CREDENTIAL STORAGE ---
+
+    private static String bytesToHex(byte[] bytes) {
+        if (bytes == null) return "";
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return new String(hexChars);
     }
 
-    public static void setParentPin(Context context, String newPin) {
-        SharedPreferences p = getPrefs(context);
-        if (p != null && newPin != null && newPin.length() == 4) {
-            p.edit().putString(KEY_PARENT_PIN, newPin).apply();
+    private static byte[] hexToBytes(String hex) {
+        if (hex == null || hex.length() % 2 != 0) return new byte[0];
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    private static byte[] generateSalt() {
+        byte[] salt = new byte[SALT_BYTES];
+        new SecureRandom().nextBytes(salt);
+        return salt;
+    }
+
+    private static byte[] derivePinHash(String pin, byte[] salt) {
+        if (pin == null || salt == null) return null;
+        try {
+            KeySpec spec = new PBEKeySpec(pin.toCharArray(), salt, PBKDF2_ITERATIONS, KEY_LENGTH_BITS);
+            SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+            return factory.generateSecret(spec).getEncoded();
+        } catch (Throwable t) {
+            // Fallback: salted iterated SHA-256
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                md.update(salt);
+                byte[] current = md.digest(pin.getBytes(StandardCharsets.UTF_8));
+                for (int i = 0; i < PBKDF2_ITERATIONS; i++) {
+                    md.reset();
+                    md.update(current);
+                    md.update(salt);
+                    current = md.digest(pin.getBytes(StandardCharsets.UTF_8));
+                }
+                return current;
+            } catch (Throwable t2) {
+                return null;
+            }
         }
     }
 
-    public static boolean verifyPin(Context context, String inputPin) {
-        if (inputPin == null) return false;
-        return getParentPin(context).equals(inputPin.trim());
+    /**
+     * Checks if parent PIN has been configured.
+     * Migrates legacy plaintext PIN if present (purging "0000").
+     */
+    public static boolean isPinConfigured(Context context) {
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return false;
+
+        // Migrate legacy plaintext PIN if present
+        if (p.contains(KEY_PARENT_PIN)) {
+            String legacyPin = p.getString(KEY_PARENT_PIN, null);
+            p.edit().remove(KEY_PARENT_PIN).apply();
+            if (legacyPin != null && !"0000".equals(legacyPin) && legacyPin.matches("\\d{4}")) {
+                setParentPin(context, legacyPin);
+                return true;
+            }
+        }
+
+        String hash = p.getString(KEY_PIN_HASH, null);
+        String salt = p.getString(KEY_PIN_SALT, null);
+        return hash != null && !hash.isEmpty() && salt != null && !salt.isEmpty();
     }
 
+    /**
+     * Sets a new parent PIN by hashing it with a cryptographically secure random salt.
+     * Never stores plaintext PIN in SharedPreferences.
+     */
+    public static boolean setParentPin(Context context, String newPin) {
+        if (newPin == null || !newPin.matches("\\d{4}")) {
+            return false;
+        }
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return false;
+
+        byte[] salt = generateSalt();
+        byte[] hash = derivePinHash(newPin, salt);
+        if (hash == null || hash.length == 0) {
+            return false;
+        }
+
+        p.edit()
+                .putString(KEY_PIN_HASH, bytesToHex(hash))
+                .putString(KEY_PIN_SALT, bytesToHex(salt))
+                .remove(KEY_PARENT_PIN)
+                .putInt(KEY_PIN_FAILED_ATTEMPTS, 0)
+                .putLong(KEY_PIN_LOCKOUT_UNTIL_MS, 0L)
+                .apply();
+        return true;
+    }
+
+    /**
+     * Verifies the input PIN using constant-time hash comparison.
+     * Enforces rate limiting and persistent lockout across app restarts.
+     */
+    public static boolean verifyPin(Context context, String inputPin) {
+        if (inputPin == null || inputPin.length() != 4 || !inputPin.matches("\\d{4}")) {
+            return false;
+        }
+
+        // Refuse immediately if currently locked out
+        if (isPinLockedOut(context)) {
+            return false;
+        }
+
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return false;
+
+        if (!isPinConfigured(context)) {
+            return false;
+        }
+
+        String storedHashHex = p.getString(KEY_PIN_HASH, null);
+        String storedSaltHex = p.getString(KEY_PIN_SALT, null);
+        if (storedHashHex == null || storedSaltHex == null) {
+            return false;
+        }
+
+        byte[] salt = hexToBytes(storedSaltHex);
+        byte[] expectedHash = hexToBytes(storedHashHex);
+        byte[] actualHash = derivePinHash(inputPin.trim(), salt);
+
+        if (actualHash == null || expectedHash.length == 0 || actualHash.length != expectedHash.length) {
+            recordFailedPinAttempt(context);
+            return false;
+        }
+
+        // Constant-time comparison to protect against timing attacks
+        boolean matches = MessageDigest.isEqual(expectedHash, actualHash);
+        if (matches) {
+            resetPinLockout(context);
+            return true;
+        } else {
+            recordFailedPinAttempt(context);
+            return false;
+        }
+    }
+
+    /**
+     * Changes parent PIN, requiring the current PIN for authentication first.
+     */
+    public static boolean changeParentPin(Context context, String currentPin, String newPin) {
+        if (getPrefs(context) == null || newPin == null || !newPin.matches("\\d{4}")) {
+            return false;
+        }
+        if (!isPinConfigured(context)) {
+            return setParentPin(context, newPin);
+        }
+        if (!verifyPin(context, currentPin)) {
+            return false;
+        }
+        return setParentPin(context, newPin);
+    }
+
+    /**
+     * Safe recovery: Device owner in Personal profile can reset PIN if forgotten.
+     * Blocked if currently in Kids or Guest mode.
+     */
+    public static boolean resetParentPinInPersonalMode(Context context, String newPin) {
+        if (getPrefs(context) == null || !isPersonalMode(context)) {
+            return false;
+        }
+        return setParentPin(context, newPin);
+    }
+
+    // --- LOCKOUT & RATE LIMITING PERSISTENCE ---
+
+    public static boolean isPinLockedOut(Context context) {
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return false;
+
+        long lockoutUntil = p.getLong(KEY_PIN_LOCKOUT_UNTIL_MS, 0L);
+        if (lockoutUntil <= 0L) return false;
+
+        long now = System.currentTimeMillis();
+
+        // Clock jump guard: if lockout is unreasonably far in future (> MAX_PIN_LOCKOUT_DURATION_MS)
+        // or clock went back before Unix epoch / yesterday, reset to avoid permanent lockout.
+        if (lockoutUntil > now + MAX_PIN_LOCKOUT_DURATION_MS || lockoutUntil < now - 86400000L) {
+            resetPinLockout(context);
+            return false;
+        }
+
+        if (now < lockoutUntil) {
+            return true;
+        } else {
+            // Lockout period has elapsed; clear it
+            resetPinLockout(context);
+            return false;
+        }
+    }
+
+    public static long getPinLockoutRemainingSeconds(Context context) {
+        if (!isPinLockedOut(context)) return 0;
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return 0;
+        long lockoutUntil = p.getLong(KEY_PIN_LOCKOUT_UNTIL_MS, 0L);
+        long now = System.currentTimeMillis();
+        return Math.max(0, (lockoutUntil - now + 999) / 1000);
+    }
+
+    public static int getFailedPinAttempts(Context context) {
+        SharedPreferences p = getPrefs(context);
+        return p != null ? p.getInt(KEY_PIN_FAILED_ATTEMPTS, 0) : 0;
+    }
+
+    public static void recordFailedPinAttempt(Context context) {
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return;
+
+        int failed = p.getInt(KEY_PIN_FAILED_ATTEMPTS, 0) + 1;
+        SharedPreferences.Editor editor = p.edit();
+        if (failed >= MAX_FAILED_PIN_ATTEMPTS) {
+            editor.putLong(KEY_PIN_LOCKOUT_UNTIL_MS, System.currentTimeMillis() + PIN_LOCKOUT_DURATION_MS);
+            editor.putInt(KEY_PIN_FAILED_ATTEMPTS, 0);
+        } else {
+            editor.putInt(KEY_PIN_FAILED_ATTEMPTS, failed);
+        }
+        editor.apply();
+    }
+
+    public static void resetPinLockout(Context context) {
+        SharedPreferences p = getPrefs(context);
+        if (p != null) {
+            p.edit()
+                    .putInt(KEY_PIN_FAILED_ATTEMPTS, 0)
+                    .putLong(KEY_PIN_LOCKOUT_UNTIL_MS, 0L)
+                    .apply();
+        }
+    }
+
+    // --- BEDTIME & RESTRICTIONS ---
+
     public static int getKidsBedtimeLimitMinutes(Context context) {
-        return getPrefs(context).getInt(KEY_KIDS_BEDTIME_LIMIT_MIN, DEFAULT_KIDS_BEDTIME_MIN);
+        SharedPreferences p = getPrefs(context);
+        return p != null ? p.getInt(KEY_KIDS_BEDTIME_LIMIT_MIN, DEFAULT_KIDS_BEDTIME_MIN) : DEFAULT_KIDS_BEDTIME_MIN;
     }
 
     public static void setKidsBedtimeLimitMinutes(Context context, int minutes) {
-        getPrefs(context).edit().putInt(KEY_KIDS_BEDTIME_LIMIT_MIN, Math.max(10, minutes)).apply();
+        if (getPrefs(context) == null || !isPersonalMode(context)) return;
+        SharedPreferences p = getPrefs(context);
+        if (p != null) {
+            p.edit().putInt(KEY_KIDS_BEDTIME_LIMIT_MIN, Math.max(10, minutes)).apply();
+        }
     }
 
     public static void switchProfile(Context context, String targetProfile) {
@@ -169,7 +429,10 @@ public final class ProfileManager {
         String current = getActiveProfile(context);
         if (current.equals(targetProfile)) return;
 
-        SharedPreferences.Editor editor = getPrefs(context).edit();
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return;
+
+        SharedPreferences.Editor editor = p.edit();
         editor.putString(KEY_CURRENT_PROFILE, targetProfile);
 
         if (PROFILE_KIDS.equals(targetProfile)) {
@@ -186,9 +449,11 @@ public final class ProfileManager {
     }
 
     public static void addExtraKidsTime(Context context, int extraMinutes) {
-        long currentExtra = getPrefs(context).getLong(KEY_KIDS_EXTRA_TIME_MS, 0);
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return;
+        long currentExtra = p.getLong(KEY_KIDS_EXTRA_TIME_MS, 0);
         long added = extraMinutes * 60L * 1000L;
-        getPrefs(context).edit().putLong(KEY_KIDS_EXTRA_TIME_MS, currentExtra + added).apply();
+        p.edit().putLong(KEY_KIDS_EXTRA_TIME_MS, currentExtra + added).apply();
         if (context != null) {
             startBedtimeMonitoring(context);
         }
@@ -200,7 +465,7 @@ public final class ProfileManager {
     }
 
     public static void addCustomKidsPackage(Context context, String packageName) {
-        if (context == null || packageName == null || packageName.trim().isEmpty()) return;
+        if (getPrefs(context) == null || !isPersonalMode(context) || packageName == null || packageName.trim().isEmpty()) return;
         String cleanPkg = packageName.trim();
         if (KIDS_BLOCKED_PACKAGES.contains(cleanPkg)) return;
         Set<String> custom = getCustomKidsAllowlist(context);
@@ -213,7 +478,7 @@ public final class ProfileManager {
     }
 
     public static void removeCustomKidsPackage(Context context, String packageName) {
-        if (context == null || packageName == null) return;
+        if (getPrefs(context) == null || !isPersonalMode(context) || packageName == null) return;
         Set<String> custom = getCustomKidsAllowlist(context);
         if (custom.remove(packageName.trim())) {
             SharedPreferences p = getPrefs(context);
@@ -230,7 +495,7 @@ public final class ProfileManager {
     }
 
     public static void addCustomGuestPackage(Context context, String packageName) {
-        if (context == null || packageName == null || packageName.trim().isEmpty()) return;
+        if (getPrefs(context) == null || !isPersonalMode(context) || packageName == null || packageName.trim().isEmpty()) return;
         Set<String> custom = getCustomGuestAllowlist(context);
         custom.add(packageName.trim());
         SharedPreferences p = getPrefs(context);
@@ -241,7 +506,7 @@ public final class ProfileManager {
     }
 
     public static void removeCustomGuestPackage(Context context, String packageName) {
-        if (context == null || packageName == null) return;
+        if (getPrefs(context) == null || !isPersonalMode(context) || packageName == null) return;
         Set<String> custom = getCustomGuestAllowlist(context);
         if (custom.remove(packageName.trim())) {
             SharedPreferences p = getPrefs(context);
@@ -254,8 +519,10 @@ public final class ProfileManager {
 
     public static long getKidsTimeRemainingMillis(Context context) {
         if (!isKidsMode(context)) return Long.MAX_VALUE;
-        long start = getPrefs(context).getLong(KEY_KIDS_SESSION_START, System.currentTimeMillis());
-        long extra = getPrefs(context).getLong(KEY_KIDS_EXTRA_TIME_MS, 0);
+        SharedPreferences p = getPrefs(context);
+        if (p == null) return 0;
+        long start = p.getLong(KEY_KIDS_SESSION_START, System.currentTimeMillis());
+        long extra = p.getLong(KEY_KIDS_EXTRA_TIME_MS, 0);
         long allowedTotal = (getKidsBedtimeLimitMinutes(context) * 60L * 1000L) + extra;
         long elapsed = System.currentTimeMillis() - start;
         return Math.max(0, allowedTotal - elapsed);
@@ -300,7 +567,6 @@ public final class ProfileManager {
     }
 
     public static boolean isAppAllowedForProfile(String profile, String packageName) {
-        // A missing package is never a launchable app. Do not fail open on malformed input.
         if (packageName == null || packageName.trim().isEmpty()) return false;
         String cleanPkg = packageName.trim();
         if (profile == null || PROFILE_PERSONAL.equals(profile)) {
@@ -309,17 +575,13 @@ public final class ProfileManager {
 
         if (PROFILE_KIDS.equals(profile)) {
             if (KIDS_BLOCKED_PACKAGES.contains(cleanPkg)) return false;
-            // Kids Mode is a strict package allowlist. Substring checks (e.g. "kids",
-            // "disney", or "cartoon") can accidentally trust unrelated or malicious packages.
             return DEFAULT_KIDS_WHITELIST.contains(cleanPkg);
         }
 
         if (PROFILE_GUEST.equals(profile)) {
-            // Guest Mode is also allowlist-only; unknown packages stay hidden/blocked.
             return GUEST_WHITELIST.contains(cleanPkg);
         }
 
-        // An unrecognized profile identifier must not silently receive unrestricted access.
         return false;
     }
 
@@ -336,39 +598,60 @@ public final class ProfileManager {
     }
 
     private static void notifyProfileChanged(String newProfile) {
-        new Handler(Looper.getMainLooper()).post(() -> {
+        try {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                for (ProfileChangeListener l : new ArrayList<>(listeners)) {
+                    try {
+                        l.onProfileChanged(newProfile);
+                    } catch (Throwable ignored) {}
+                }
+            });
+        } catch (Throwable ignored) {
             for (ProfileChangeListener l : new ArrayList<>(listeners)) {
                 try {
                     l.onProfileChanged(newProfile);
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored2) {}
             }
-        });
+        }
     }
 
     private static void notifyBedtimeReached() {
-        new Handler(Looper.getMainLooper()).post(() -> {
+        try {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                for (ProfileChangeListener l : new ArrayList<>(listeners)) {
+                    try {
+                        l.onBedtimeLimitReached();
+                    } catch (Throwable ignored) {}
+                }
+            });
+        } catch (Throwable ignored) {
             for (ProfileChangeListener l : new ArrayList<>(listeners)) {
                 try {
                     l.onBedtimeLimitReached();
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored2) {}
             }
-        });
+        }
     }
 
     private static Context appContextRef;
 
     private static void startBedtimeMonitoring(Context context) {
+        if (context == null) return;
         appContextRef = context.getApplicationContext();
-        if (bedtimeHandler == null) {
-            bedtimeHandler = new Handler(Looper.getMainLooper());
-        }
-        bedtimeHandler.removeCallbacks(bedtimeRunnable);
-        bedtimeHandler.postDelayed(bedtimeRunnable, 15000); // Check every 15 seconds
+        try {
+            if (bedtimeHandler == null) {
+                bedtimeHandler = new Handler(Looper.getMainLooper());
+            }
+            bedtimeHandler.removeCallbacks(bedtimeRunnable);
+            bedtimeHandler.postDelayed(bedtimeRunnable, 15000); // Check every 15 seconds
+        } catch (Throwable ignored) {}
     }
 
     private static void stopBedtimeMonitoring() {
         if (bedtimeHandler != null) {
-            bedtimeHandler.removeCallbacks(bedtimeRunnable);
+            try {
+                bedtimeHandler.removeCallbacks(bedtimeRunnable);
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -379,7 +662,9 @@ public final class ProfileManager {
         if (isBedtimeLimitReached(appContextRef)) {
             notifyBedtimeReached();
         } else if (bedtimeHandler != null) {
-            bedtimeHandler.postDelayed(bedtimeRunnable, 15000);
+            try {
+                bedtimeHandler.postDelayed(bedtimeRunnable, 15000);
+            } catch (Throwable ignored) {}
         }
     }
 }

@@ -2,6 +2,7 @@ package com.gathin.tvhome;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.view.KeyEvent;
@@ -14,7 +15,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 /**
- * 4-Digit Parent PIN verification modal dialog for Kids Mode.
+ * 4-Digit Parent PIN modal dialog for Kids Mode.
+ * Supports both PIN verification and first-time/change PIN setup with confirmation.
  */
 public final class PinEntryDialog {
 
@@ -22,20 +24,46 @@ public final class PinEntryDialog {
         void onVerified();
     }
 
-    private static int failedAttempts = 0;
-    private static long lockoutUntilMs = 0L;
+    public interface OnPinSetListener {
+        void onPinSet();
+    }
 
     private PinEntryDialog() {}
 
     public static boolean isLockedOut() {
-        return System.currentTimeMillis() < lockoutUntilMs;
+        return ProfileManager.isPinLockedOut(null);
+    }
+
+    public static boolean isLockedOut(Context context) {
+        return ProfileManager.isPinLockedOut(context);
     }
 
     public static long getRemainingLockoutSeconds() {
-        return Math.max(0, (lockoutUntilMs - System.currentTimeMillis() + 999) / 1000);
+        return ProfileManager.getPinLockoutRemainingSeconds(null);
     }
 
+    public static long getRemainingLockoutSeconds(Context context) {
+        return ProfileManager.getPinLockoutRemainingSeconds(context);
+    }
+
+    /**
+     * Shows PIN verification dialog.
+     */
     public static void show(Activity activity, String title, String subtitle, OnPinVerifiedListener listener) {
+        showInternal(activity, title, subtitle, false, listener, null);
+    }
+
+    /**
+     * Shows 2-step PIN setup dialog (Enter PIN -> Confirm PIN).
+     */
+    public static void showSetup(Activity activity, String title, String subtitle, OnPinSetListener listener) {
+        showInternal(activity, title, subtitle, true, null, listener);
+    }
+
+    private static void showInternal(Activity activity, String title, String subtitle,
+                                     boolean isSetupMode,
+                                     OnPinVerifiedListener verifiedListener,
+                                     OnPinSetListener setListener) {
         if (activity == null || activity.isFinishing()) return;
 
         Dialog dialog = new Dialog(activity);
@@ -60,10 +88,15 @@ public final class PinEntryDialog {
                 view.findViewById(R.id.pinDot3)
         };
 
-        if (title != null && tvTitle != null) tvTitle.setText(title);
-        if (subtitle != null && tvSubtitle != null) tvSubtitle.setText(subtitle);
+        final String initialTitle = title != null ? title : (isSetupMode ? "Set Parent PIN" : "Parent PIN Required");
+        final String initialSubtitle = subtitle != null ? subtitle : (isSetupMode ? "Create a 4-digit PIN" : "Enter 4-digit PIN");
+
+        if (tvTitle != null) tvTitle.setText(initialTitle);
+        if (tvSubtitle != null) tvSubtitle.setText(initialSubtitle);
 
         StringBuilder pinBuilder = new StringBuilder();
+        final int[] setupStep = new int[]{1}; // 1 = initial entry, 2 = confirmation
+        final String[] firstEnteredPin = new String[1];
 
         Runnable updateDots = () -> {
             int len = pinBuilder.length();
@@ -73,39 +106,82 @@ public final class PinEntryDialog {
                     dots[i].setTextColor(i < len ? 0xFF38BDF8 : 0x88FFFFFF);
                 }
             }
-            if (tvError != null) tvError.setVisibility(View.INVISIBLE);
+            if (tvError != null && tvError.getVisibility() == View.VISIBLE
+                    && !ProfileManager.isPinLockedOut(activity)) {
+                tvError.setVisibility(View.INVISIBLE);
+            }
         };
 
-        Runnable checkPin = () -> {
-            if (isLockedOut()) {
+        // Check initial lockout state
+        if (!isSetupMode && ProfileManager.isPinLockedOut(activity)) {
+            if (tvError != null) {
+                long rem = ProfileManager.getPinLockoutRemainingSeconds(activity);
+                tvError.setText("Locked for " + rem + "s. Please wait.");
+                tvError.setVisibility(View.VISIBLE);
+            }
+        }
+
+        Runnable processPin = () -> {
+            if (!isSetupMode && ProfileManager.isPinLockedOut(activity)) {
                 if (tvError != null) {
-                    tvError.setText("Locked for " + getRemainingLockoutSeconds() + "s. Please wait.");
+                    long rem = ProfileManager.getPinLockoutRemainingSeconds(activity);
+                    tvError.setText("Locked for " + rem + "s. Please wait.");
                     tvError.setVisibility(View.VISIBLE);
                 }
                 pinBuilder.setLength(0);
                 updateDots.run();
                 return;
             }
-            if (pinBuilder.length() == 4) {
-                if (ProfileManager.verifyPin(activity, pinBuilder.toString())) {
-                    failedAttempts = 0;
-                    lockoutUntilMs = 0L;
-                    dialog.dismiss();
-                    if (listener != null) {
-                        listener.onVerified();
-                    }
+
+            if (pinBuilder.length() != 4) return;
+
+            if (isSetupMode) {
+                if (setupStep[0] == 1) {
+                    firstEnteredPin[0] = pinBuilder.toString();
+                    pinBuilder.setLength(0);
+                    setupStep[0] = 2;
+                    if (tvTitle != null) tvTitle.setText("Confirm Parent PIN");
+                    if (tvSubtitle != null) tvSubtitle.setText("Re-enter the 4-digit PIN to confirm");
+                    updateDots.run();
                 } else {
-                    failedAttempts++;
-                    if (failedAttempts >= 5) {
-                        lockoutUntilMs = System.currentTimeMillis() + 30000L;
-                        failedAttempts = 0;
-                        if (tvError != null) {
-                            tvError.setText("Too many failed attempts. Locked for 30s.");
-                            tvError.setVisibility(View.VISIBLE);
+                    String confirmedPin = pinBuilder.toString();
+                    if (confirmedPin.equals(firstEnteredPin[0])) {
+                        ProfileManager.setParentPin(activity, confirmedPin);
+                        dialog.dismiss();
+                        if (setListener != null) {
+                            setListener.onPinSet();
                         }
                     } else {
                         if (tvError != null) {
-                            tvError.setText("Incorrect PIN. (" + (5 - failedAttempts) + " attempts left)");
+                            tvError.setText("PINs did not match. Please try again.");
+                            tvError.setVisibility(View.VISIBLE);
+                        }
+                        setupStep[0] = 1;
+                        firstEnteredPin[0] = null;
+                        pinBuilder.setLength(0);
+                        if (tvTitle != null) tvTitle.setText(initialTitle);
+                        if (tvSubtitle != null) tvSubtitle.setText(initialSubtitle);
+                        updateDots.run();
+                    }
+                }
+            } else {
+                if (ProfileManager.verifyPin(activity, pinBuilder.toString())) {
+                    dialog.dismiss();
+                    if (verifiedListener != null) {
+                        verifiedListener.onVerified();
+                    }
+                } else {
+                    if (ProfileManager.isPinLockedOut(activity)) {
+                        long rem = ProfileManager.getPinLockoutRemainingSeconds(activity);
+                        if (tvError != null) {
+                            tvError.setText("Too many failed attempts. Locked for " + rem + "s.");
+                            tvError.setVisibility(View.VISIBLE);
+                        }
+                    } else {
+                        int failed = ProfileManager.getFailedPinAttempts(activity);
+                        int attemptsLeft = Math.max(1, ProfileManager.MAX_FAILED_PIN_ATTEMPTS - failed);
+                        if (tvError != null) {
+                            tvError.setText("Incorrect PIN. (" + attemptsLeft + " attempts left)");
                             tvError.setVisibility(View.VISIBLE);
                         }
                     }
@@ -116,9 +192,10 @@ public final class PinEntryDialog {
         };
 
         View.OnClickListener numClick = v -> {
-            if (isLockedOut()) {
+            if (!isSetupMode && ProfileManager.isPinLockedOut(activity)) {
                 if (tvError != null) {
-                    tvError.setText("Locked for " + getRemainingLockoutSeconds() + "s. Please wait.");
+                    long rem = ProfileManager.getPinLockoutRemainingSeconds(activity);
+                    tvError.setText("Locked for " + rem + "s. Please wait.");
                     tvError.setVisibility(View.VISIBLE);
                 }
                 return;
@@ -128,7 +205,7 @@ public final class PinEntryDialog {
                 pinBuilder.append(digit);
                 updateDots.run();
                 if (pinBuilder.length() == 4) {
-                    v.postDelayed(checkPin, 150);
+                    v.postDelayed(processPin, 150);
                 }
             }
         };
@@ -167,12 +244,13 @@ public final class PinEntryDialog {
             btnCancel.setOnClickListener(v -> dialog.dismiss());
         }
 
-        // Allow entering PIN via physical keyboard digits
+        // Allow entering PIN via physical keyboard / remote digits
         dialog.setOnKeyListener((d, keyCode, event) -> {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (isLockedOut()) {
+                if (!isSetupMode && ProfileManager.isPinLockedOut(activity)) {
                     if (tvError != null) {
-                        tvError.setText("Locked for " + getRemainingLockoutSeconds() + "s. Please wait.");
+                        long rem = ProfileManager.getPinLockoutRemainingSeconds(activity);
+                        tvError.setText("Locked for " + rem + "s. Please wait.");
                         tvError.setVisibility(View.VISIBLE);
                     }
                     return true;
@@ -183,7 +261,7 @@ public final class PinEntryDialog {
                         pinBuilder.append(digit);
                         updateDots.run();
                         if (pinBuilder.length() == 4) {
-                            view.postDelayed(checkPin, 150);
+                            view.postDelayed(processPin, 150);
                         }
                     }
                     return true;

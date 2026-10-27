@@ -45,6 +45,9 @@ public final class FamilyNoteManager {
         }
 
         public String getColorHex() {
+            if ((color & 0xFF000000) == 0xFF000000) {
+                return String.format(Locale.US, "#%06X", color & 0x00FFFFFF);
+            }
             return String.format(Locale.US, "#%08X", color);
         }
     }
@@ -167,7 +170,10 @@ public final class FamilyNoteManager {
             if (strokeList != null) {
                 for (Stroke s : strokeList) {
                     JSONObject sObj = new JSONObject();
-                    sObj.put("color", String.format(Locale.US, "#%08X", s.color));
+                    String hexColor = ((s.color & 0xFF000000) == 0xFF000000)
+                            ? String.format(Locale.US, "#%06X", s.color & 0x00FFFFFF)
+                            : String.format(Locale.US, "#%08X", s.color);
+                    sObj.put("color", hexColor);
                     sObj.put("width", (double) s.width);
                     JSONArray pts = new JSONArray();
                     for (Point pt : s.points) {

@@ -74,6 +74,30 @@
         <!-- Coocaa OS sources for the Inputs menu (coocaa_sources); see CoocaaSources. -->
         <provider android:authorities="com.skyworth.tv.provider" />
         <provider android:authorities="com.skyworth.tv.sdk.provider" />
+
+        <!-- Google AI Fallback: Voice Assistant & System Assistant -->
+        <intent>
+            <action android:name="android.intent.action.VOICE_ASSIST" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.ASSIST" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SEARCH" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.WEB_SEARCH" />
+        </intent>
+        <!-- Google AI Fallback: Web Browser for Google search URL -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+
+        <!-- Google AI Fallback: Explicit Android TV Assistant & Search Packages -->
+        <package android:name="com.google.android.katniss" />
+        <package android:name="com.google.android.googlequicksearchbox" />
     </queries>
 
     <application

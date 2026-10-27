@@ -7,14 +7,16 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
-import java.net.Inet4Address;
 import java.lang.reflect.Method;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -22,12 +24,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,12 +52,25 @@ public final class WebRemoteServer {
     public static final int DEFAULT_PORT = 8080;
     public static final int FALLBACK_PORT = 8888;
 
+    private static final List<ServerSocket> serverSockets = new CopyOnWriteArrayList<>();
     private static ServerSocket serverSocket;
     private static int activePort = DEFAULT_PORT;
     private static final AtomicBoolean isRunning = new AtomicBoolean(false);
     private static ExecutorService serverExecutor;
     private static WeakReference<Activity> currentActivityRef;
     private static Handler mainHandler;
+
+    private static void logDebug(String msg) {
+        try {
+            android.util.Log.d("WebRemote", msg);
+        } catch (Throwable ignored) {}
+    }
+
+    private static void logError(String msg, Throwable t) {
+        try {
+            android.util.Log.e("WebRemote", msg, t);
+        } catch (Throwable ignored) {}
+    }
 
     private static synchronized Handler getMainHandler() {
         if (mainHandler == null) {
@@ -69,60 +86,138 @@ public final class WebRemoteServer {
 
     private WebRemoteServer() {}
 
+    private static List<ServerSocket> bindSockets(int port) {
+        List<ServerSocket> list = new ArrayList<>();
+
+        // Priority 1: Attempt dual-stack IPv6 bind (::) FIRST so dual-stack kernels accept IPv6 & IPv4 on one socket
+        ServerSocket v6Socket = null;
+        try {
+            v6Socket = new ServerSocket();
+            v6Socket.setReuseAddress(true);
+            v6Socket.bind(new InetSocketAddress(InetAddress.getByName("::"), port), 50);
+            list.add(v6Socket);
+        } catch (Throwable ignored) {
+            if (v6Socket != null && !v6Socket.isClosed()) {
+                try { v6Socket.close(); } catch (Throwable ignored2) {}
+            }
+        }
+
+        // Priority 2: Bind IPv4 0.0.0.0 (succeeds if IPv6 is separate-stack or if IPv6 bind failed)
+        ServerSocket v4Socket = null;
+        try {
+            v4Socket = new ServerSocket();
+            v4Socket.setReuseAddress(true);
+            v4Socket.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), port), 50);
+            list.add(v4Socket);
+        } catch (Throwable t1) {
+            if (v4Socket != null && !v4Socket.isClosed()) {
+                try { v4Socket.close(); } catch (Throwable ignored) {}
+            }
+            if (list.isEmpty()) {
+                // Fallback: Wildcard bind if neither explicit :: nor 0.0.0.0 succeeded
+                try {
+                    v4Socket = new ServerSocket();
+                    v4Socket.setReuseAddress(true);
+                    v4Socket.bind(new InetSocketAddress(port), 50);
+                    list.add(v4Socket);
+                } catch (Throwable t2) {
+                    if (v4Socket != null && !v4Socket.isClosed()) {
+                        try { v4Socket.close(); } catch (Throwable ignored) {}
+                    }
+                }
+            }
+        }
+
+        return list;
+    }
+
     public static synchronized void start(Activity activity) {
         if (activity != null) {
             currentActivityRef = new WeakReference<>(activity);
         }
-        if (isRunning.get() && serverSocket != null && !serverSocket.isClosed()) return;
+        if (isRunning()) {
+            return;
+        }
 
+        stopSockets();
+
+        int targetPort = DEFAULT_PORT;
+        List<ServerSocket> bound = bindSockets(targetPort);
+        if (bound.isEmpty()) {
+            targetPort = FALLBACK_PORT;
+            bound = bindSockets(targetPort);
+        }
+
+        if (bound.isEmpty()) {
+            isRunning.set(false);
+            return;
+        }
+
+        activePort = targetPort;
+        serverSockets.clear();
+        serverSockets.addAll(bound);
+        serverSocket = bound.get(0);
         isRunning.set(true);
+
         if (serverExecutor == null || serverExecutor.isShutdown()) {
             serverExecutor = Executors.newCachedThreadPool();
         }
 
-        serverExecutor.execute(() -> {
-            try {
-                try {
-                    ServerSocket s = new ServerSocket();
-                    s.setReuseAddress(true);
-                    s.bind(new InetSocketAddress(DEFAULT_PORT));
-                    serverSocket = s;
-                    activePort = DEFAULT_PORT;
-                } catch (Throwable t) {
-                    ServerSocket s = new ServerSocket();
-                    s.setReuseAddress(true);
-                    s.bind(new InetSocketAddress(FALLBACK_PORT));
-                    serverSocket = s;
-                    activePort = FALLBACK_PORT;
-                }
-
-                while (isRunning.get() && serverSocket != null && !serverSocket.isClosed()) {
-                    Socket client = serverSocket.accept();
+        for (ServerSocket ss : bound) {
+            serverExecutor.execute(() -> {
+                while (isRunning.get() && !ss.isClosed()) {
                     try {
-                        client.setSoTimeout(5000);
-                    } catch (Throwable ignored) {}
-                    serverExecutor.execute(() -> handleClient(client));
+                        Socket client = ss.accept();
+                        try {
+                            client.setSoTimeout(5000);
+                            client.setTcpNoDelay(true);
+                        } catch (Throwable ignored) {}
+                        try {
+                            if (serverExecutor != null && !serverExecutor.isShutdown()) {
+                                serverExecutor.execute(() -> handleClient(client));
+                            } else {
+                                try { client.close(); } catch (Throwable ignored) {}
+                            }
+                        } catch (Throwable poolRejected) {
+                            try { client.close(); } catch (Throwable ignored) {}
+                        }
+                    } catch (Throwable t) {
+                        break;
+                    }
                 }
-            } catch (Throwable ignored) {
-            } finally {
-                isRunning.set(false);
-            }
-        });
+            });
+        }
     }
 
     public static synchronized void stop() {
         isRunning.set(false);
-        try {
-            if (serverSocket != null) serverSocket.close();
-        } catch (Throwable ignored) {}
+        stopSockets();
         if (serverExecutor != null) {
             serverExecutor.shutdownNow();
             serverExecutor = null;
         }
     }
 
+    private static void stopSockets() {
+        for (ServerSocket ss : serverSockets) {
+            try {
+                ss.close();
+            } catch (Throwable ignored) {}
+        }
+        serverSockets.clear();
+        serverSocket = null;
+    }
+
     public static boolean isRunning() {
-        return isRunning.get();
+        if (!isRunning.get() || serverSockets.isEmpty()) {
+            return false;
+        }
+        for (ServerSocket ss : serverSockets) {
+            if (ss != null && !ss.isClosed()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static int getActivePort() {
@@ -157,27 +252,160 @@ public final class WebRemoteServer {
                 return overrideIp.trim();
             }
 
+            // Priority 1: Check active network routing via ConnectivityManager
             if (context != null) {
-                WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-                if (wm != null && wm.getConnectionInfo() != null) {
-                    int ipInt = wm.getConnectionInfo().getIpAddress();
-                    if (ipInt != 0) {
-                        return String.format(Locale.US, "%d.%d.%d.%d",
-                                (ipInt & 0xff),
-                                (ipInt >> 8 & 0xff),
-                                (ipInt >> 16 & 0xff),
-                                (ipInt >> 24 & 0xff));
+                try {
+                    android.net.ConnectivityManager cm = (android.net.ConnectivityManager)
+                            context.getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+                    if (cm != null) {
+                        List<android.net.Network> candidateNets = new ArrayList<>();
+                        android.net.Network activeNet = cm.getActiveNetwork();
+                        if (activeNet != null) {
+                            candidateNets.add(activeNet);
+                        }
+                        android.net.Network[] allNets = cm.getAllNetworks();
+                        if (allNets != null) {
+                            for (android.net.Network n : allNets) {
+                                if (n != null && !candidateNets.contains(n)) {
+                                    candidateNets.add(n);
+                                }
+                            }
+                        }
+
+                        for (android.net.Network net : candidateNets) {
+                            android.net.LinkProperties lp = cm.getLinkProperties(net);
+                            if (lp != null) {
+                                String ifaceName = lp.getInterfaceName() != null ? lp.getInterfaceName().toLowerCase(Locale.US) : "";
+                                // Avoid tunnel, VPN, dummy, or virtual interfaces
+                                boolean isVirtual = ifaceName.contains("tun") || ifaceName.contains("tap")
+                                        || ifaceName.contains("vpn") || ifaceName.contains("dummy")
+                                        || ifaceName.contains("p2p") || ifaceName.contains("rmnet")
+                                        || ifaceName.contains("gre") || ifaceName.contains("ip6tnl");
+                                if (!isVirtual) {
+                                    for (android.net.LinkAddress la : lp.getLinkAddresses()) {
+                                        InetAddress addr = la.getAddress();
+                                        if (addr instanceof Inet4Address && !addr.isLoopbackAddress() && !addr.isAnyLocalAddress()) {
+                                            String host = addr.getHostAddress();
+                                            if (host != null && !host.startsWith("127.") && !host.startsWith("169.254.") && !"0.0.0.0".equals(host)) {
+                                                // Avoid returning emulator NAT IP if physical interface is available
+                                                if (!"10.0.2.15".equals(host)) {
+                                                    return host;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
+                } catch (Throwable ignored) {}
+            }
+
+            // Priority 2: Iterate physical network interfaces
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            if (interfaces != null) {
+                String bestIp = null;
+                int bestScore = -1;
+
+                while (interfaces.hasMoreElements()) {
+                    NetworkInterface intf = interfaces.nextElement();
+                    try {
+                        if (intf.isLoopback()) {
+                            continue;
+                        }
+                    } catch (Throwable ignored) {}
+
+                    boolean isUp = true;
+                    try {
+                        isUp = intf.isUp();
+                        if (!isUp) {
+                            // Interface is definitively down
+                            continue;
+                        }
+                    } catch (Throwable ignored) {
+                        // SIOCGIFFLAGS permission denied on Android TV SELinux - do NOT discard interface
+                        isUp = false;
+                    }
+
+                    String name = intf.getName() != null ? intf.getName().toLowerCase(Locale.US) : "";
+                    String displayName = intf.getDisplayName() != null ? intf.getDisplayName().toLowerCase(Locale.US) : "";
+                    String combined = name + " " + displayName;
+
+                    // Filter out loopback, virtual, container, and tunnel interfaces
+                    if (combined.contains("dummy") || combined.contains("sit") || combined.contains("tun")
+                            || combined.contains("tap") || combined.contains("p2p") || combined.contains("rmnet")
+                            || combined.contains("virbr") || combined.contains("vbox") || combined.contains("docker")
+                            || combined.contains("vethernet") || combined.contains("hyper-v") || combined.contains("wsl")
+                            || combined.contains("vmware") || combined.contains("gre") || combined.contains("ip6tnl")
+                            || name.startsWith("lo")) {
+                        continue;
+                    }
+
+                    int ifaceScore = 10;
+                    if (combined.contains("wlan") || combined.contains("wi-fi") || combined.contains("wifi") || combined.contains("wireless") || name.startsWith("wl")) {
+                        ifaceScore = 100; // Wi-Fi preferred
+                    } else if (combined.contains("eth") || combined.contains("ethernet") || combined.contains("gigabit") || name.startsWith("en")) {
+                        ifaceScore = 110; // Physical Ethernet preferred
+                    } else if (combined.contains("usb")) {
+                        ifaceScore = 95;  // USB Ethernet adapter
+                    }
+
+                    if (isUp) {
+                        ifaceScore += 20;
+                    }
+
+                    Enumeration<InetAddress> addresses = intf.getInetAddresses();
+                    while (addresses.hasMoreElements()) {
+                        InetAddress addr = addresses.nextElement();
+                        if (addr.isLoopbackAddress() || addr.isAnyLocalAddress() || !(addr instanceof Inet4Address)) {
+                            continue;
+                        }
+
+                        String host = addr.getHostAddress();
+                        if (host == null || host.isEmpty() || host.startsWith("127.") || host.startsWith("169.254.") || "0.0.0.0".equals(host)) {
+                            continue;
+                        }
+
+                        int totalScore = ifaceScore;
+                        if (addr.isSiteLocalAddress()) {
+                            totalScore += 30;
+                        }
+                        if (host.startsWith("192.168.")) {
+                            totalScore += 10; // Common LAN subnet
+                        } else if ("10.0.2.15".equals(host)) {
+                            totalScore -= 40; // Deprioritize emulator NAT IP if physical IP is present
+                        }
+
+                        if (totalScore > bestScore) {
+                            bestScore = totalScore;
+                            bestIp = host;
+                        }
+                    }
+                }
+
+                if (bestIp != null) {
+                    return bestIp;
                 }
             }
-            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
-                NetworkInterface intf = en.nextElement();
-                for (Enumeration<InetAddress> enumIp = intf.getInetAddresses(); enumIp.hasMoreElements();) {
-                    InetAddress addr = enumIp.nextElement();
-                    if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
-                        return addr.getHostAddress();
+
+            // Priority 3: WifiManager fallback
+            if (context != null) {
+                try {
+                    WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                    if (wm != null && wm.getConnectionInfo() != null) {
+                        int ipInt = wm.getConnectionInfo().getIpAddress();
+                        if (ipInt != 0) {
+                            String wifiIp = String.format(Locale.US, "%d.%d.%d.%d",
+                                    (ipInt & 0xff),
+                                    (ipInt >> 8 & 0xff),
+                                    (ipInt >> 16 & 0xff),
+                                    (ipInt >> 24 & 0xff));
+                            if (!wifiIp.startsWith("127.") && !wifiIp.startsWith("169.254.")) {
+                                return wifiIp;
+                            }
+                        }
                     }
-                }
+                } catch (Throwable ignored) {}
             }
         } catch (Throwable ignored) {}
         return "192.168.1.100";
@@ -193,51 +421,134 @@ public final class WebRemoteServer {
         while ((b = in.read()) != -1) {
             if (b == '\n') break;
             if (b != '\r') baos.write(b);
+            if (baos.size() > 8192) {
+                while ((b = in.read()) != -1 && b != '\n') {}
+                break;
+            }
         }
         if (b == -1 && baos.size() == 0) return null;
         return baos.toString(StandardCharsets.UTF_8);
     }
 
+    private static void drainBody(InputStream in, int contentLength) {
+        if (contentLength <= 0 || contentLength > 10 * 1024 * 1024) return;
+        try {
+            long remaining = contentLength;
+            byte[] discard = new byte[1024];
+            while (remaining > 0) {
+                int read = in.read(discard, 0, (int) Math.min(discard.length, remaining));
+                if (read == -1) break;
+                remaining -= read;
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private static void sendCorsPreflight(OutputStream out) throws Exception {
+        String resp = "HTTP/1.1 200 OK\r\n" +
+                "Access-Control-Allow-Origin: *\r\n" +
+                "Access-Control-Allow-Methods: GET, POST, OPTIONS, HEAD\r\n" +
+                "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With\r\n" +
+                "Access-Control-Max-Age: 86400\r\n" +
+                "Content-Length: 0\r\n" +
+                "Connection: close\r\n\r\n";
+        out.write(resp.getBytes(StandardCharsets.US_ASCII));
+        out.flush();
+    }
+
+    private static void sendError(OutputStream out, int code, String msg) {
+        try {
+            String resp = "HTTP/1.1 " + code + " " + msg + "\r\n" +
+                    "Content-Type: text/plain; charset=utf-8\r\n" +
+                    "Content-Length: " + msg.length() + "\r\n" +
+                    "Connection: close\r\n\r\n" +
+                    msg;
+            out.write(resp.getBytes(StandardCharsets.US_ASCII));
+            out.flush();
+        } catch (Throwable ignored) {}
+    }
+
     private static void handleClient(Socket socket) {
         try (socket;
-             InputStream in = socket.getInputStream();
-             OutputStream out = socket.getOutputStream()) {
+             InputStream in = new BufferedInputStream(socket.getInputStream(), 8192);
+             OutputStream out = new BufferedOutputStream(socket.getOutputStream(), 8192)) {
 
-            String requestLine = readHeaderLine(in);
-            if (requestLine == null || requestLine.isEmpty()) return;
+            String requestLine;
+            int emptyLineCount = 0;
+            do {
+                requestLine = readHeaderLine(in);
+                if (requestLine == null) return;
+                emptyLineCount++;
+                if (emptyLineCount > 16) return;
+            } while (requestLine.trim().isEmpty());
 
-            String[] parts = requestLine.split(" ");
-            if (parts.length < 2) return;
+            String[] parts = requestLine.trim().split("\\s+");
+            if (parts.length < 2) {
+                sendError(out, 400, "Bad Request");
+                return;
+            }
+            String method = parts[0].toUpperCase(Locale.US);
             String uri = parts[1];
+            boolean isHead = "HEAD".equals(method);
+
+            // Handle absolute-URI from HTTP proxies (e.g. GET http://192.168.1.50:8080/api/status HTTP/1.1)
+            if (uri.regionMatches(true, 0, "http://", 0, 7) || uri.regionMatches(true, 0, "https://", 0, 8)) {
+                int slashIdx = uri.indexOf('/', uri.indexOf("//") + 2);
+                if (slashIdx != -1) {
+                    uri = uri.substring(slashIdx);
+                } else {
+                    uri = "/";
+                }
+            }
+            logDebug("--> " + method + " " + uri);
 
             // Parse headers
             Map<String, String> headers = new HashMap<>();
             String headerLine;
             while ((headerLine = readHeaderLine(in)) != null && !headerLine.isEmpty()) {
-                int colon = headerLine.indexOf(':');
-                if (colon > 0) {
-                    headers.put(headerLine.substring(0, colon).trim().toLowerCase(Locale.US),
-                                headerLine.substring(colon + 1).trim());
+                if (headers.size() < 100) {
+                    int colon = headerLine.indexOf(':');
+                    if (colon > 0) {
+                        headers.put(headerLine.substring(0, colon).trim().toLowerCase(Locale.US),
+                                    headerLine.substring(colon + 1).trim());
+                    }
                 }
             }
 
+            int contentLength = 0;
+            String lenHeader = headers.get("content-length");
+            if (lenHeader != null) {
+                try {
+                    contentLength = Math.max(0, Integer.parseInt(lenHeader.trim()));
+                } catch (Throwable ignored) {}
+            }
+
+            // Fast-path CORS preflight
+            if ("OPTIONS".equals(method)) {
+                drainBody(in, contentLength);
+                sendCorsPreflight(out);
+            } else
+
             if (uri.startsWith("/api/key")) {
+                drainBody(in, contentLength);
                 int code = extractQueryParamInt(uri, "code", -1);
                 if (code > 0) {
                     dispatchKeyEvent(code);
                 }
-                sendJson(out, "{\"status\":\"ok\",\"action\":\"key\",\"code\":" + code + "}");
+                sendJson(out, "{\"status\":\"ok\",\"action\":\"key\",\"code\":" + code + "}", isHead);
             } else if (uri.startsWith("/api/type")) {
+                drainBody(in, contentLength);
                 String text = extractQueryParam(uri, "text");
                 if (text != null && !text.isEmpty()) {
                     dispatchTextInput(text);
                 }
-                sendJson(out, "{\"status\":\"ok\",\"action\":\"type\"}");
+                sendJson(out, "{\"status\":\"ok\",\"action\":\"type\"}", isHead);
             } else if (uri.startsWith("/api/action")) {
+                drainBody(in, contentLength);
                 String cmd = extractQueryParam(uri, "cmd");
                 executeAction(cmd);
-                sendJson(out, "{\"status\":\"ok\",\"action\":\"" + (cmd != null ? cmd : "") + "\"}");
+                sendJson(out, "{\"status\":\"ok\",\"action\":\"" + (cmd != null ? cmd : "") + "\"}", isHead);
             } else if (uri.startsWith("/api/status")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 boolean gameMode = act != null && GameModeManager.isGameModeEnabled(act);
                 int audioMode = act != null ? AudioOutputManager.getCurrentMode(act) : 0;
@@ -251,8 +562,9 @@ public final class WebRemoteServer {
                 String json = String.format(Locale.US,
                         "{\"gameMode\":%b,\"audioMode\":\"%s\",\"sleepTimer\":\"%s\",\"profile\":\"%s\",\"profileName\":\"%s\",\"profileIcon\":\"%s\",\"kidsTime\":\"%s\"}",
                         gameMode, audioName, sleepTimer, profile, escapeJson(profileName), escapeJson(profileIcon), kidsTime);
-                sendJson(out, json);
+                sendJson(out, json, isHead);
             } else if (uri.startsWith("/api/profile")) {
+                drainBody(in, contentLength);
                 String target = extractQueryParam(uri, "name");
                 String pin = extractQueryParam(uri, "pin");
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
@@ -275,8 +587,9 @@ public final class WebRemoteServer {
                         success = true;
                     }
                 }
-                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"profile\":\"" + (target != null && isValidTarget ? target : "") + "\"}");
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"profile\":\"" + (target != null && isValidTarget ? target : "") + "\"}", isHead);
             } else if (uri.startsWith("/api/dock")) {
+                drainBody(in, contentLength);
                 List<MainActivity.AppEntryInfo> apps = fetchAppsFromMain(true);
                 StringBuilder sb = new StringBuilder("[");
                 for (int i = 0; i < apps.size(); i++) {
@@ -288,8 +601,9 @@ public final class WebRemoteServer {
                       .append("\"}");
                 }
                 sb.append("]");
-                sendJson(out, sb.toString());
+                sendJson(out, sb.toString(), isHead);
             } else if (uri.startsWith("/api/apps")) {
+                drainBody(in, contentLength);
                 List<MainActivity.AppEntryInfo> apps = fetchAppsFromMain(false);
                 StringBuilder sb = new StringBuilder("[");
                 for (int i = 0; i < apps.size(); i++) {
@@ -301,11 +615,12 @@ public final class WebRemoteServer {
                       .append("\"}");
                 }
                 sb.append("]");
-                sendJson(out, sb.toString());
+                sendJson(out, sb.toString(), isHead);
             } else if (uri.startsWith("/api/reorder")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 if (act != null && !ProfileManager.isPersonalMode(act)) {
-                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Reordering disabled in non-personal profile\"}");
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Reordering disabled in non-personal profile\"}", isHead);
                     return;
                 }
                 int from = extractQueryParamInt(uri, "from", -1);
@@ -322,18 +637,19 @@ public final class WebRemoteServer {
                         success = true;
                     }
                 }
-                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"from\":" + from + ",\"to\":" + to + "}");
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"from\":" + from + ",\"to\":" + to + "}", isHead);
             } else if (uri.startsWith("/api/launch")) {
+                drainBody(in, contentLength);
                 String pkg = extractQueryParam(uri, "pkg");
                 boolean success = false;
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 if (act != null && pkg != null && !pkg.isEmpty()) {
                     if (ProfileManager.isBedtimeLimitReached(act)) {
-                        sendJson(out, "{\"status\":\"bedtime_limit_reached\",\"pkg\":\"" + escapeJson(pkg) + "\"}");
+                        sendJson(out, "{\"status\":\"bedtime_limit_reached\",\"pkg\":\"" + escapeJson(pkg) + "\"}", isHead);
                         return;
                     }
                     if (!ProfileManager.isAppAllowed(act, pkg)) {
-                        sendJson(out, "{\"status\":\"blocked\",\"pkg\":\"" + escapeJson(pkg) + "\"}");
+                        sendJson(out, "{\"status\":\"blocked\",\"pkg\":\"" + escapeJson(pkg) + "\"}", isHead);
                         return;
                     }
                     Handler h = getMainHandler();
@@ -347,11 +663,12 @@ public final class WebRemoteServer {
                         success = true;
                     }
                 }
-                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"pkg\":\"" + (pkg != null ? pkg : "") + "\"}");
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"pkg\":\"" + (pkg != null ? pkg : "") + "\"}", isHead);
             } else if (uri.startsWith("/api/addons/install")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 if (act != null && !ProfileManager.isPersonalMode(act)) {
-                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Addon installation disabled in non-personal profile\"}");
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Addon installation disabled in non-personal profile\"}", isHead);
                     return;
                 }
                 String id = extractQueryParam(uri, "id");
@@ -363,8 +680,9 @@ public final class WebRemoteServer {
                         started = true;
                     }
                 }
-                sendJson(out, "{\"status\":\"" + (started ? "ok" : "error") + "\",\"id\":\"" + (id != null ? id : "") + "\"}");
+                sendJson(out, "{\"status\":\"" + (started ? "ok" : "error") + "\",\"id\":\"" + (id != null ? id : "") + "\"}", isHead);
             } else if (uri.startsWith("/api/smarthome")) {
+                drainBody(in, contentLength);
                 String action = extractQueryParam(uri, "action");
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 if (action != null && act != null) {
@@ -372,8 +690,9 @@ public final class WebRemoteServer {
                 }
                 boolean lights = act != null && SmartHomeManager.getLastLightState(act);
                 String cam = act != null ? SmartHomeManager.getCameraUrl(act) : "";
-                sendJson(out, "{\"status\":\"ok\",\"action\":\"" + (action != null ? action : "") + "\",\"lights\":" + lights + ",\"camera\":\"" + escapeJson(cam) + "\"}");
+                sendJson(out, "{\"status\":\"ok\",\"action\":\"" + (action != null ? action : "") + "\",\"lights\":" + lights + ",\"camera\":\"" + escapeJson(cam) + "\"}", isHead);
             } else if (uri.startsWith("/api/addons")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 List<AddonCatalog.AddonItem> list = AddonCatalog.getCatalog();
                 StringBuilder sb = new StringBuilder("[");
@@ -390,8 +709,9 @@ public final class WebRemoteServer {
                       .append("}");
                 }
                 sb.append("]");
-                sendJson(out, sb.toString());
+                sendJson(out, sb.toString(), isHead);
             } else if (uri.startsWith("/api/debloat/scan")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 DebloaterEngine.DebloaterPreview preview = DebloaterEngine.getDebloaterPreview(act);
                 List<DebloaterEngine.DebloatItem> items = DebloaterEngine.scanDebloatCandidates(act);
@@ -420,11 +740,12 @@ public final class WebRemoteServer {
                       .append("}");
                 }
                 sb.append("]}");
-                sendJson(out, sb.toString());
+                sendJson(out, sb.toString(), isHead);
             } else if (uri.startsWith("/api/debloat/apply")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 if (act != null && !ProfileManager.isPersonalMode(act)) {
-                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Debloater disabled in non-personal profile\"}");
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Debloater disabled in non-personal profile\"}", isHead);
                     return;
                 }
                 String pkg = extractQueryParam(uri, "pkg");
@@ -439,11 +760,12 @@ public final class WebRemoteServer {
                         success = count > 0;
                     }
                 }
-                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}");
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}", isHead);
             } else if (uri.startsWith("/api/debloat/restore")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 if (act != null && !ProfileManager.isPersonalMode(act)) {
-                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Debloater disabled in non-personal profile\"}");
+                    sendJson(out, "{\"status\":\"forbidden\",\"error\":\"Debloater disabled in non-personal profile\"}", isHead);
                     return;
                 }
                 String pkg = extractQueryParam(uri, "pkg");
@@ -458,10 +780,8 @@ public final class WebRemoteServer {
                         success = count > 0;
                     }
                 }
-                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}");
+                sendJson(out, "{\"status\":\"" + (success ? "ok" : "error") + "\",\"count\":" + count + "}", isHead);
             } else if (uri.startsWith("/api/canvas/stroke")) {
-                String lenHeader = headers.get("content-length");
-                int contentLength = lenHeader != null ? Integer.parseInt(lenHeader.trim()) : 0;
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 boolean ok = false;
                 if (contentLength > 0 && contentLength < 1000000) {
@@ -472,31 +792,39 @@ public final class WebRemoteServer {
                         if (read == -1) break;
                         total += read;
                     }
-                    String body = new String(buf, 0, total, StandardCharsets.UTF_8);
-                    FamilyNoteManager.Stroke stroke = FamilyNoteManager.parseSingleStrokeJson(body);
-                    if (stroke != null) {
-                        FamilyNoteManager.addStroke(act, stroke);
-                        ok = true;
+                    if (total == contentLength) {
+                        String body = new String(buf, 0, total, StandardCharsets.UTF_8);
+                        FamilyNoteManager.Stroke stroke = FamilyNoteManager.parseSingleStrokeJson(body);
+                        if (stroke != null) {
+                            FamilyNoteManager.addStroke(act, stroke);
+                            ok = true;
+                        }
+                    } else {
+                        drainBody(in, contentLength - total);
                     }
+                } else if (contentLength > 0) {
+                    drainBody(in, contentLength);
                 }
-                sendJson(out, "{\"status\":\"" + (ok ? "ok" : "error") + "\"}");
+                sendJson(out, "{\"status\":\"" + (ok ? "ok" : "error") + "\"}", isHead);
             } else if (uri.startsWith("/api/canvas/clear")) {
+                drainBody(in, contentLength);
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 FamilyNoteManager.clear(act);
-                sendJson(out, "{\"status\":\"ok\"}");
+                sendJson(out, "{\"status\":\"ok\"}", isHead);
             } else if (uri.startsWith("/api/canvas/state")) {
+                drainBody(in, contentLength);
                 List<FamilyNoteManager.Stroke> strokes = FamilyNoteManager.getStrokes();
                 String json = FamilyNoteManager.serializeToJson(strokes);
-                sendJson(out, json);
+                sendJson(out, json, isHead);
             } else if (uri.startsWith("/api/upload")) {
                 // Sideload APK directly from PC / Mobile browser over Wi-Fi
                 String fileName = extractQueryParam(uri, "name");
+                if (fileName != null) {
+                    fileName = new File(fileName).getName(); // Prevent path traversal
+                }
                 if (fileName == null || fileName.isEmpty() || !fileName.endsWith(".apk")) {
                     fileName = "sideload_" + System.currentTimeMillis() + ".apk";
                 }
-                String lenHeader = headers.get("content-length");
-                long contentLength = lenHeader != null ? Long.parseLong(lenHeader) : 0;
-
                 Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
                 if (act != null && contentLength > 0) {
                     File targetDir = act.getExternalCacheDir() != null ? act.getExternalCacheDir() : act.getCacheDir();
@@ -516,15 +844,31 @@ public final class WebRemoteServer {
                     if (h != null) {
                         h.post(() -> AddonCatalog.installApkFile(act, dest));
                     }
-                    sendJson(out, "{\"status\":\"ok\",\"file\":\"" + escapeJson(fileName) + "\"}");
+                    sendJson(out, "{\"status\":\"ok\",\"file\":\"" + escapeJson(fileName) + "\"}", isHead);
                 } else {
-                    sendJson(out, "{\"status\":\"error\",\"message\":\"Missing file content or TV inactive\"}");
+                    drainBody(in, contentLength);
+                    sendJson(out, "{\"status\":\"error\",\"message\":\"Missing file content or TV inactive\"}", isHead);
                 }
             } else {
+                drainBody(in, contentLength);
                 // Serve HTML5 Remote Web App
-                sendHtml(out, buildRemoteHtml());
+                logDebug("Serving HTML...");
+                sendHtml(out, buildRemoteHtml(), isHead);
+                logDebug("HTML sent successfully!");
             }
-        } catch (Throwable ignored) {}
+
+            try {
+                socket.shutdownOutput();
+            } catch (Throwable ignored) {}
+
+            try {
+                socket.setSoTimeout(50);
+                byte[] discard = new byte[512];
+                while (in.read(discard) != -1) {}
+            } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            logError("Error in handleClient", t);
+        }
     }
 
     private static List<MainActivity.AppEntryInfo> fetchAppsFromMain(boolean dockOnly) {
@@ -563,14 +907,18 @@ public final class WebRemoteServer {
     private static void dispatchKeyEvent(int keyCode) {
         try {
             Runtime.getRuntime().exec(new String[]{"input", "keyevent", String.valueOf(keyCode)});
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            logError("Error in dispatchKeyEvent", t);
+        }
     }
 
     private static void dispatchTextInput(String rawText) {
         try {
             String sanitized = rawText.replace(" ", "%s");
             Runtime.getRuntime().exec(new String[]{"input", "text", sanitized});
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            logError("Error in dispatchTextInput", t);
+        }
     }
 
     private static void executeAction(String cmd) {
@@ -626,10 +974,22 @@ public final class WebRemoteServer {
             int qIdx = uri.indexOf('?');
             if (qIdx == -1) return null;
             String query = uri.substring(qIdx + 1);
+            int hashIdx = query.indexOf('#');
+            if (hashIdx != -1) {
+                query = query.substring(0, hashIdx);
+            }
             for (String pair : query.split("&")) {
-                String[] kv = pair.split("=");
-                if (kv.length == 2 && kv[0].equals(param)) {
-                    return URLDecoder.decode(kv[1], "UTF-8");
+                int eq = pair.indexOf('=');
+                if (eq != -1) {
+                    String k = URLDecoder.decode(pair.substring(0, eq), "UTF-8");
+                    if (k.equals(param)) {
+                        return URLDecoder.decode(pair.substring(eq + 1), "UTF-8");
+                    }
+                } else {
+                    String k = URLDecoder.decode(pair, "UTF-8");
+                    if (k.equals(param)) {
+                        return "";
+                    }
                 }
             }
         } catch (Throwable ignored) {}
@@ -664,30 +1024,46 @@ public final class WebRemoteServer {
     }
 
     private static void sendJson(OutputStream out, String json) throws Exception {
+        sendJson(out, json, false);
+    }
+
+    private static void sendJson(OutputStream out, String json, boolean isHead) throws Exception {
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         String header = "HTTP/1.1 200 OK\r\n" +
                 "Content-Type: application/json; charset=utf-8\r\n" +
                 "Access-Control-Allow-Origin: *\r\n" +
+                "Access-Control-Allow-Methods: GET, POST, OPTIONS, HEAD\r\n" +
+                "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With\r\n" +
                 "Content-Length: " + bytes.length + "\r\n" +
                 "Connection: close\r\n\r\n";
         out.write(header.getBytes(StandardCharsets.US_ASCII));
-        out.write(bytes);
+        if (!isHead) {
+            out.write(bytes);
+        }
         out.flush();
     }
 
     private static void sendHtml(OutputStream out, String html) throws Exception {
+        sendHtml(out, html, false);
+    }
+
+    private static void sendHtml(OutputStream out, String html, boolean isHead) throws Exception {
         byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
         String header = "HTTP/1.1 200 OK\r\n" +
                 "Content-Type: text/html; charset=utf-8\r\n" +
                 "Access-Control-Allow-Origin: *\r\n" +
+                "Access-Control-Allow-Methods: GET, POST, OPTIONS, HEAD\r\n" +
+                "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With\r\n" +
                 "Content-Length: " + bytes.length + "\r\n" +
                 "Connection: close\r\n\r\n";
         out.write(header.getBytes(StandardCharsets.US_ASCII));
-        out.write(bytes);
+        if (!isHead) {
+            out.write(bytes);
+        }
         out.flush();
     }
 
-    private static String buildRemoteHtml() {
+    public static String buildRemoteHtml() {
         return "<!DOCTYPE html>\n" +
                 "<html lang=\"en\">\n" +
                 "<head>\n" +
@@ -783,6 +1159,7 @@ public final class WebRemoteServer {
                 "  </div>\n" +
                 "  <div class=\"tabs\">\n" +
                 "    <button class=\"tab-btn active\" id=\"tab-remote\" onclick=\"switchTab('remote')\">🎮 Remote</button>\n" +
+                "    <button class=\"tab-btn\" id=\"tab-note\" onclick=\"switchTab('note')\">✏️ Note</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-apps\" onclick=\"switchTab('apps')\">📱 Apps</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-dock\" onclick=\"switchTab('dock')\">🗂️ Dock</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-addons\" onclick=\"switchTab('addons')\">📦 Add-ons</button>\n" +
@@ -826,6 +1203,29 @@ public final class WebRemoteServer {
                 "      <button class=\"btn-ctrl\" onclick=\"sendAction('profile_picker')\"><span class=\"icon\">&#128101;</span>Profiles</button>\n" +
                 "      <button class=\"btn-ctrl\" onclick=\"sendAction('debloater_dialog')\"><span class=\"icon\">⚡</span>Debloat</button>\n" +
                 "      <button class=\"btn-ctrl\" onclick=\"cycleProfile()\"><span class=\"icon\">&#128118;</span>Kids Pin</button>\n" +
+                "    </div>\n" +
+                "  </div>\n" +
+                "  <div id=\"pane-note\" class=\"tab-content\" style=\"display:none;\">\n" +
+                "    <div class=\"card\">\n" +
+                "      <div class=\"note-canvas-wrapper\">\n" +
+                "        <canvas id=\"noteCanvas\" class=\"canvas-box\"></canvas>\n" +
+                "      </div>\n" +
+                "      <div class=\"palette-row\">\n" +
+                "        <button class=\"color-swatch selected\" style=\"background:#ffffff;\" onclick=\"setColor('#ffffff', this)\"></button>\n" +
+                "        <button class=\"color-swatch\" style=\"background:#38bdf8;\" onclick=\"setColor('#38bdf8', this)\"></button>\n" +
+                "        <button class=\"color-swatch\" style=\"background:#34d399;\" onclick=\"setColor('#34d399', this)\"></button>\n" +
+                "        <button class=\"color-swatch\" style=\"background:#fbbf24;\" onclick=\"setColor('#fbbf24', this)\"></button>\n" +
+                "        <button class=\"color-swatch\" style=\"background:#f87171;\" onclick=\"setColor('#f87171', this)\"></button>\n" +
+                "        <button class=\"color-swatch\" style=\"background:#c084fc;\" onclick=\"setColor('#c084fc', this)\"></button>\n" +
+                "      </div>\n" +
+                "      <div class=\"note-toolbar\">\n" +
+                "        <div class=\"width-picker\">\n" +
+                "          <button class=\"width-btn\" onclick=\"setStrokeWidth(0.008, this)\">S</button>\n" +
+                "          <button class=\"width-btn active\" onclick=\"setStrokeWidth(0.016, this)\">M</button>\n" +
+                "          <button class=\"width-btn\" onclick=\"setStrokeWidth(0.032, this)\">L</button>\n" +
+                "        </div>\n" +
+                "        <button class=\"addon-btn\" style=\"background:rgba(239,68,68,0.2);color:#ef4444;width:auto;padding:6px 14px;\" onclick=\"clearNote()\">🗑️ Clear</button>\n" +
+                "      </div>\n" +
                 "    </div>\n" +
                 "  </div>\n" +
                 "  <div id=\"pane-apps\" class=\"tab-content\" style=\"display:none;\">\n" +
@@ -1123,7 +1523,7 @@ public final class WebRemoteServer {
                 "      }).catch(()=>{});\n" +
                 "    }\n" +
                 "    let currentNoteColor = '#FFFFFF';\n" +
-                "    let currentStrokeWidth = 6;\n" +
+                "    let currentStrokeWidth = 0.016;\n" +
                 "    let isDrawing = false;\n" +
                 "    let currentPoints = [];\n" +
                 "    let noteCanvasInitialized = false;\n" +
@@ -1131,6 +1531,10 @@ public final class WebRemoteServer {
                 "      const canvas = document.getElementById('noteCanvas');\n" +
                 "      if (!canvas) return;\n" +
                 "      const rect = canvas.getBoundingClientRect();\n" +
+                "      if (!rect.width || !rect.height) {\n" +
+                "        setTimeout(initNoteCanvas, 100);\n" +
+                "        return;\n" +
+                "      }\n" +
                 "      const dpr = window.devicePixelRatio || 1;\n" +
                 "      canvas.width = rect.width * dpr;\n" +
                 "      canvas.height = rect.height * dpr;\n" +
@@ -1140,9 +1544,9 @@ public final class WebRemoteServer {
                 "      ctx.lineJoin = 'round';\n" +
                 "      function getPoint(e) {\n" +
                 "        const r = canvas.getBoundingClientRect();\n" +
-                "        const clientX = e.touches ? e.touches[0].clientX : e.clientX;\n" +
-                "        const clientY = e.touches ? e.touches[0].clientY : e.clientY;\n" +
-                "        return { x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height };\n" +
+                "        const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0].clientX : e.clientX);\n" +
+                "        const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : (e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0].clientY : e.clientY);\n" +
+                "        return { x: Math.max(0, Math.min(1, (clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (clientY - r.top) / r.height)) };\n" +
                 "      }\n" +
                 "      function startDraw(e) {\n" +
                 "        e.preventDefault();\n" +
@@ -1159,8 +1563,9 @@ public final class WebRemoteServer {
                 "          const p1 = currentPoints[currentPoints.length - 2];\n" +
                 "          const p2 = currentPoints[currentPoints.length - 1];\n" +
                 "          const r = canvas.getBoundingClientRect();\n" +
+                "          const minDim = Math.min(r.width, r.height);\n" +
                 "          ctx.strokeStyle = currentNoteColor;\n" +
-                "          ctx.lineWidth = currentStrokeWidth;\n" +
+                "          ctx.lineWidth = Math.max(2, currentStrokeWidth * minDim);\n" +
                 "          ctx.beginPath();\n" +
                 "          ctx.moveTo(p1.x * r.width, p1.y * r.height);\n" +
                 "          ctx.lineTo(p2.x * r.width, p2.y * r.height);\n" +
@@ -1171,7 +1576,17 @@ public final class WebRemoteServer {
                 "        if (!isDrawing) return;\n" +
                 "        e.preventDefault();\n" +
                 "        isDrawing = false;\n" +
-                "        if (currentPoints.length >= 2) {\n" +
+                "        if (currentPoints.length === 1) {\n" +
+                "          const r = canvas.getBoundingClientRect();\n" +
+                "          const minDim = Math.min(r.width, r.height);\n" +
+                "          const pt = currentPoints[0];\n" +
+                "          const radius = Math.max(2, (currentStrokeWidth * minDim) / 2);\n" +
+                "          ctx.fillStyle = currentNoteColor;\n" +
+                "          ctx.beginPath();\n" +
+                "          ctx.arc(pt.x * r.width, pt.y * r.height, radius, 0, Math.PI * 2);\n" +
+                "          ctx.fill();\n" +
+                "        }\n" +
+                "        if (currentPoints.length >= 1) {\n" +
                 "          const strokeData = { color: currentNoteColor, width: currentStrokeWidth, points: currentPoints };\n" +
                 "          haptic();\n" +
                 "          fetch('/api/canvas/stroke', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(strokeData) }).catch(()=>{});\n" +
@@ -1185,30 +1600,60 @@ public final class WebRemoteServer {
                 "      canvas.addEventListener('mousedown', startDraw);\n" +
                 "      window.addEventListener('mousemove', moveDraw);\n" +
                 "      window.addEventListener('mouseup', endDraw);\n" +
+                "      if (!noteCanvasInitialized) {\n" +
+                "        window.addEventListener('resize', () => {\n" +
+                "          if (noteCanvasInitialized) {\n" +
+                "            const r = canvas.getBoundingClientRect();\n" +
+                "            if (r.width > 0 && r.height > 0) {\n" +
+                "              const d = window.devicePixelRatio || 1;\n" +
+                "              canvas.width = r.width * d;\n" +
+                "              canvas.height = r.height * d;\n" +
+                "              const c = canvas.getContext('2d');\n" +
+                "              c.scale(d, d);\n" +
+                "              c.lineCap = 'round';\n" +
+                "              c.lineJoin = 'round';\n" +
+                "              loadNoteState();\n" +
+                "            }\n" +
+                "          }\n" +
+                "        });\n" +
+                "      }\n" +
                 "      noteCanvasInitialized = true;\n" +
                 "      loadNoteState();\n" +
                 "    }\n" +
                 "    function loadNoteState() {\n" +
-                "      fetch('/api/canvas/state').then(r => r.json()).then(strokes => { redrawNoteCanvas(strokes); }).catch(()=>{});\n" +
+                "      fetch('/api/canvas/state').then(r => r.json()).then(data => {\n" +
+                "        const strokes = (data && data.strokes) ? data.strokes : (Array.isArray(data) ? data : []);\n" +
+                "        redrawNoteCanvas(strokes);\n" +
+                "      }).catch(()=>{});\n" +
                 "    }\n" +
                 "    function redrawNoteCanvas(strokes) {\n" +
                 "      const canvas = document.getElementById('noteCanvas');\n" +
                 "      if (!canvas) return;\n" +
                 "      const ctx = canvas.getContext('2d');\n" +
                 "      const r = canvas.getBoundingClientRect();\n" +
+                "      const minDim = Math.min(r.width, r.height);\n" +
                 "      ctx.save();\n" +
                 "      ctx.setTransform(1, 0, 0, 1, 0, 0);\n" +
                 "      ctx.clearRect(0, 0, canvas.width, canvas.height);\n" +
                 "      ctx.restore();\n" +
                 "      if (!strokes || !Array.isArray(strokes)) return;\n" +
                 "      strokes.forEach(s => {\n" +
-                "        if (!s.points || s.points.length < 2) return;\n" +
+                "        if (!s.points || s.points.length === 0) return;\n" +
+                "        const pts = s.points;\n" +
+                "        const strokeW = s.width ? (s.width > 0.5 ? s.width : Math.max(2, s.width * minDim)) : 4;\n" +
+                "        if (pts.length === 1) {\n" +
+                "          ctx.fillStyle = s.color || '#FFFFFF';\n" +
+                "          ctx.beginPath();\n" +
+                "          ctx.arc(pts[0].x * r.width, pts[0].y * r.height, strokeW / 2, 0, Math.PI * 2);\n" +
+                "          ctx.fill();\n" +
+                "          return;\n" +
+                "        }\n" +
                 "        ctx.strokeStyle = s.color || '#FFFFFF';\n" +
-                "        ctx.lineWidth = s.width || 6;\n" +
+                "        ctx.lineWidth = strokeW;\n" +
                 "        ctx.beginPath();\n" +
-                "        ctx.moveTo(s.points[0].x * r.width, s.points[0].y * r.height);\n" +
-                "        for (let i = 1; i < s.points.length; i++) {\n" +
-                "          ctx.lineTo(s.points[i].x * r.width, s.points[i].y * r.height);\n" +
+                "        ctx.moveTo(pts[0].x * r.width, pts[0].y * r.height);\n" +
+                "        for (let i = 1; i < pts.length; i++) {\n" +
+                "          ctx.lineTo(pts[i].x * r.width, pts[i].y * r.height);\n" +
                 "        }\n" +
                 "        ctx.stroke();\n" +
                 "      });\n" +

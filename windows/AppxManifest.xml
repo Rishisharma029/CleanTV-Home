@@ -11,7 +11,7 @@
             ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>CleanTV Home Desktop Manager</DisplayName>
+    <DisplayName>CleanTV</DisplayName>
     <PublisherDisplayName>Rishi Sharma</PublisherDisplayName>
     <Logo>assets\StoreLogo.png</Logo>
     <Description>The Apple TV-inspired desktop companion for Android TV: 1-click debloater, launcher installer, wireless web remote, and voice AI controller for Windows.</Description>
@@ -31,7 +31,7 @@
     <Application Id="CleanTVDesktop"
                  Executable="CleanTV.exe"
                  EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="CleanTV Home Desktop Manager"
+      <uap:VisualElements DisplayName="CleanTV"
                           Description="CleanTV Home Desktop Manager &amp; TV Companion"
                           BackgroundColor="#0B0F19"
                           Square150x150Logo="assets\Square150x150Logo.png"

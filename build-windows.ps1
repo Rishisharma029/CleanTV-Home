@@ -17,11 +17,14 @@ Write-Host "`n[Step 2/3] Building Store-compliant MSIX package..." -ForegroundCo
 & powershell -ExecutionPolicy Bypass -File (Join-Path $windowsDir "scripts\build-msix.ps1")
 
 # 3. Test & Validate
-Write-Host "`n[Step 3/4] Validating Manifest and MSIX Package..." -ForegroundColor Yellow
+Write-Host "`n[Step 3/5] Validating Manifest and MSIX Package..." -ForegroundColor Yellow
 & node (Join-Path $windowsDir "tests\test-manifest.js")
 
-Write-Host "`n[Step 4/4] Running Real Backend Integration Tests..." -ForegroundColor Yellow
+Write-Host "`n[Step 4/5] Running Node Host Integration Tests..." -ForegroundColor Yellow
 & node (Join-Path $windowsDir "tests\test-backend-integration.js")
+
+Write-Host "`n[Step 5/5] Running Shipped CleanTV.exe C# Backend Tests..." -ForegroundColor Yellow
+& node (Join-Path $windowsDir "tests\test-csharp-backend.js")
 
 Write-Host "`n=======================================================" -ForegroundColor Green
 Write-Host "[SUCCESS] Windows Store MSIX Package is ready!" -ForegroundColor Green

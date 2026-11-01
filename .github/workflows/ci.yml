@@ -80,6 +80,12 @@ jobs:
         run: |
           find baron-inspired-tv-home-codebase/launcher/app/build/outputs/apk/ -name "*.apk" | grep -q "apk"
 
+      - name: Upload Fresh Launcher APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-tv-launcher-apk
+          path: baron-inspired-tv-home-codebase/launcher/app/build/outputs/apk/debug/app-debug.apk
+
   security-scan:
     name: Security & Permissions Scan
     runs-on: ubuntu-latest
@@ -216,6 +222,7 @@ jobs:
   windows-build:
     name: Build & Package Windows Store Application (MSIX)
     runs-on: windows-latest
+    needs: [android-build]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -229,6 +236,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Download Built Launcher APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: clean-tv-launcher-apk
+          path: apks-fresh/
+
+      - name: Sync Fresh APK from Android Build
+        shell: pwsh
+        run: |
+          if (Test-Path "apks-fresh/app-debug.apk") {
+            New-Item -ItemType Directory -Force -Path "apks" | Out-Null
+            Copy-Item -Force "apks-fresh/app-debug.apk" "apks/clean-tv-launcher-latest.apk"
+            $hash = (Get-FileHash "apks/clean-tv-launcher-latest.apk" -Algorithm SHA256).Hash
+            Write-Host "Updated apks/clean-tv-launcher-latest.apk with fresh build artifact." -ForegroundColor Green
+            Write-Host "Fresh APK SHA256: $hash" -ForegroundColor Green
+          } else {
+            Write-Host "Using repository checked-in APK." -ForegroundColor Yellow
+          }
 
       - name: Bundle Official Google Platform Tools (ADB)
         run: |
@@ -246,9 +272,13 @@ jobs:
         run: |
           node windows/tests/test-manifest.js
 
-      - name: Run Windows Backend Integration Tests
+      - name: Run Windows Backend Integration Tests (Node Host)
         run: |
           node windows/tests/test-backend-integration.js
+
+      - name: Run Shipped CleanTV.exe C# Backend Integration Tests
+        run: |
+          node windows/tests/test-csharp-backend.js
 
       - name: Validate MSIX Package Structure via Windows SDK
         shell: pwsh

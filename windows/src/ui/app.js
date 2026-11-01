@@ -88,10 +88,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── Real API Request Helper ────────────────────────────────────────────────
+  function getSessionToken() {
+    const meta = document.querySelector('meta[name="cleantv-token"]');
+    return meta ? meta.getAttribute('content') : '';
+  }
+
   function api(endpoint, data) {
+    const token = getSessionToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['X-CleanTV-Token'] = token;
+
     return fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify(data || {})
     }).then(r => {
       return r.json().then(j => {
@@ -125,7 +134,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    currentDevice = dev.includes(':') ? dev : `${dev}:5555`;
+    // Only append :5555 if it's an IP address or hostname (contains dots or equals localhost) AND has no port
+    // USB serials (e.g. 0123456789ABCDEF, emulator-5554) must NOT have :5555 appended!
+    let endpoint = dev;
+    if (!dev.includes(':') && (dev.includes('.') || dev.toLowerCase() === 'localhost')) {
+      endpoint = `${dev}:5555`;
+    }
+    currentDevice = endpoint;
+
     setConnectionState(false, `Connecting to ${currentDevice}...`);
     log(`Connecting to ${currentDevice}...`, 'info');
     setButtonLoading(btnConnect, true);
@@ -256,17 +272,20 @@ document.addEventListener('DOMContentLoaded', () => {
         pkgs.forEach(pkg => {
           const item = document.createElement('div');
           item.className = 'pkg-item';
+          item.setAttribute('data-pkg', pkg);
           item.innerHTML = `
             <div>
               <strong style="font-family:monospace;font-size:12px;">${escHtml(pkg)}</strong>
               <div style="font-size:11px;color:#94a3b8;">Preset: ${escHtml(res.file)}</div>
             </div>
-            <span class="pkg-tag">SAFE TO DISABLE</span>
+            <span class="pkg-tag">VERIFIED PRESET</span>
           `;
           packageList.appendChild(item);
         });
       }
       if (statPackages) statPackages.textContent = pkgs.length;
+      const statRam = document.getElementById('statRam');
+      if (statRam) statRam.textContent = `~${pkgs.length * 15} MB`;
     }).catch(err => {
       log('Could not load preset list: ' + err.message, 'warn');
     });

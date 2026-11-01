@@ -9,7 +9,7 @@
     "build:msix": "powershell -ExecutionPolicy Bypass -File scripts/build-msix.ps1",
     "download:adb": "powershell -ExecutionPolicy Bypass -File scripts/download-platform-tools.ps1",
     "package": "npm run build:exe && npm run build:msix",
-    "test": "node tests/test-manifest.js && node tests/test-backend-integration.js"
+    "test": "node tests/test-manifest.js && node tests/test-backend-integration.js && node tests/test-csharp-backend.js"
   },
   "keywords": [
     "cleantv",

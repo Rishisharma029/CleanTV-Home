@@ -19,17 +19,44 @@ namespace CleanTV.Desktop
         private static string appDir;
         private static string uiDir;
         private static string presetsDir;
-        private static string backupsDir;
         private static Process edgeProcess = null;
         private static string cachedAdbPath = null;
+        private static string sessionToken = Guid.NewGuid().ToString("N");
+        private static bool isHeadless = false;
+
+        private static readonly HashSet<string> ProtectedSystemPackages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "android",
+            "com.android.systemui",
+            "com.android.settings",
+            "com.android.packageinstaller",
+            "com.android.inputmethod.latin",
+            "com.google.android.inputmethod.latin",
+            "com.android.providers.settings",
+            "com.android.shell"
+        };
 
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
             appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+
+            // Parse CLI flags
+            if (args != null)
+            {
+                foreach (string a in args)
+                {
+                    if (a.Equals("--server-only", StringComparison.OrdinalIgnoreCase) ||
+                        a.Equals("--headless", StringComparison.OrdinalIgnoreCase) ||
+                        a.Equals("/headless", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isHeadless = true;
+                    }
+                }
+            }
 
             // Resolve UI directory
             uiDir = Path.Combine(appDir, "ui");
@@ -40,20 +67,12 @@ namespace CleanTV.Desktop
                 else uiDir = appDir;
             }
 
-            // Resolve Presets directory
+            // Resolve Presets directory (read-only bundle)
             presetsDir = Path.Combine(appDir, "presets");
             if (!Directory.Exists(presetsDir))
             {
                 string parentPresets = Path.Combine(appDir, "..", "presets");
                 if (Directory.Exists(parentPresets)) presetsDir = Path.GetFullPath(parentPresets);
-            }
-
-            // Resolve Backups directory
-            backupsDir = Path.Combine(appDir, "backups");
-            if (!Directory.Exists(backupsDir))
-            {
-                string parentBackups = Path.Combine(appDir, "..", "backups");
-                if (Directory.Exists(parentBackups)) backupsDir = Path.GetFullPath(parentBackups);
             }
 
             // Locate ADB on startup
@@ -62,13 +81,28 @@ namespace CleanTV.Desktop
             // Start Embedded Web & API Server
             StartHttpServer();
 
-            // Setup System Tray Icon
-            SetupTray();
+            if (!isHeadless)
+            {
+                // Setup System Tray Icon
+                SetupTray();
 
-            // Launch App Window
-            LaunchAppWindow();
+                // Launch App Window
+                LaunchAppWindow();
+            }
 
             Application.Run();
+        }
+
+        public static string GetBackupsDirectory()
+        {
+            // Always store backups in LocalAppData to comply with MSIX read-only restrictions
+            string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string dir = Path.Combine(localApp, "CleanTV", "backups");
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            return dir;
         }
 
         public static string ResolveAdb()
@@ -188,8 +222,11 @@ namespace CleanTV.Desktop
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Could not start local server on port " + PORT + ":\n" + ex.Message,
-                    "CleanTV Server Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (!isHeadless)
+                {
+                    MessageBox.Show("Could not start local server on port " + PORT + ":\n" + ex.Message,
+                        "CleanTV Server Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
         }
 
@@ -200,9 +237,21 @@ namespace CleanTV.Desktop
                 var req = context.Request;
                 var res = context.Response;
 
-                res.AddHeader("Access-Control-Allow-Origin", "*");
+                // Security: Restrict CORS strictly to loopback origins
+                string origin = req.Headers["Origin"];
+                if (string.IsNullOrEmpty(origin) ||
+                    origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase) ||
+                    origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase))
+                {
+                    res.AddHeader("Access-Control-Allow-Origin", string.IsNullOrEmpty(origin) ? "http://127.0.0.1:" + PORT : origin);
+                }
+                else
+                {
+                    res.AddHeader("Access-Control-Allow-Origin", "null");
+                }
+
                 res.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                res.AddHeader("Access-Control-Allow-Headers", "Content-Type");
+                res.AddHeader("Access-Control-Allow-Headers", "Content-Type, X-CleanTV-Token");
 
                 if (req.HttpMethod == "OPTIONS")
                 {
@@ -231,9 +280,23 @@ namespace CleanTV.Desktop
                 {
                     string ext = Path.GetExtension(filePath).ToLower();
                     res.ContentType = GetMimeType(ext);
-                    byte[] fileBytes = File.ReadAllBytes(filePath);
-                    res.ContentLength64 = fileBytes.Length;
-                    res.OutputStream.Write(fileBytes, 0, fileBytes.Length);
+
+                    if (ext == ".html")
+                    {
+                        // Inject session token into HTML for authenticated client-server calls
+                        string htmlContent = File.ReadAllText(filePath, Encoding.UTF8);
+                        string tokenMeta = string.Format("<meta name=\"cleantv-token\" content=\"{0}\">", sessionToken);
+                        htmlContent = htmlContent.Replace("<head>", "<head>\n  " + tokenMeta);
+                        byte[] htmlBytes = Encoding.UTF8.GetBytes(htmlContent);
+                        res.ContentLength64 = htmlBytes.Length;
+                        res.OutputStream.Write(htmlBytes, 0, htmlBytes.Length);
+                    }
+                    else
+                    {
+                        byte[] fileBytes = File.ReadAllBytes(filePath);
+                        res.ContentLength64 = fileBytes.Length;
+                        res.OutputStream.Write(fileBytes, 0, fileBytes.Length);
+                    }
                 }
                 else
                 {
@@ -250,6 +313,29 @@ namespace CleanTV.Desktop
             }
         }
 
+        private static string NormalizeDeviceEndpoint(string dev)
+        {
+            if (string.IsNullOrEmpty(dev)) return "192.168.0.159:5555";
+            dev = dev.Trim();
+            if (dev.Contains(":")) return dev;
+            // Only append port if it's an IP address or hostname with dots / localhost
+            if (dev.Contains(".") || dev.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                return dev + ":5555";
+            }
+            // USB serial (e.g. "0123456789ABCDEF" or "emulator-5554")
+            return dev;
+        }
+
+        private static string GetActiveHomePackage(string device)
+        {
+            var homeRes = RunAdb("-s " + device + " shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME", 5000);
+            string combined = homeRes.Combined;
+            var match = Regex.Match(combined, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
+            if (match.Success) return match.Groups[1].Value.Trim();
+            return null;
+        }
+
         private static void HandleApi(string endpoint, HttpListenerRequest req, HttpListenerResponse res)
         {
             string body = "";
@@ -258,8 +344,8 @@ namespace CleanTV.Desktop
                 body = reader.ReadToEnd();
             }
 
-            string device = ExtractJsonField(body, "device") ?? "192.168.0.159:5555";
-            if (!device.Contains(":")) device += ":5555";
+            string rawDevice = ExtractJsonField(body, "device");
+            string device = NormalizeDeviceEndpoint(rawDevice);
 
             string jsonResponse = "{\"status\":\"ok\"}";
             int statusCode = 200;
@@ -269,10 +355,11 @@ namespace CleanTV.Desktop
                 cachedAdbPath = ResolveAdb();
                 bool found = !string.IsNullOrEmpty(cachedAdbPath);
                 bool bundled = found && cachedAdbPath.IndexOf("platform-tools", StringComparison.OrdinalIgnoreCase) >= 0;
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"adbFound\":{0},\"adbPath\":{1},\"bundled\":{2}}}",
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"adbFound\":{0},\"adbPath\":{1},\"bundled\":{2},\"sessionToken\":{3}}}",
                     found ? "true" : "false",
                     ToJsonString(cachedAdbPath),
-                    bundled ? "true" : "false");
+                    bundled ? "true" : "false",
+                    ToJsonString(sessionToken));
             }
             else if (endpoint == "/api/connect")
             {
@@ -342,23 +429,27 @@ namespace CleanTV.Desktop
                 // Memory info
                 string meminfo = RunAdb("-s " + device + " shell cat /proc/meminfo").StdOut;
                 string memStr = "Unknown";
+                double freeGb = 0;
+                double totalGb = 0;
                 var memTotalMatch = Regex.Match(meminfo, @"MemTotal:\s+(\d+)");
                 var memAvailMatch = Regex.Match(meminfo, @"MemAvailable:\s+(\d+)");
                 if (memTotalMatch.Success && memAvailMatch.Success)
                 {
                     long totalKb = long.Parse(memTotalMatch.Groups[1].Value);
                     long availKb = long.Parse(memAvailMatch.Groups[1].Value);
-                    double totalGb = Math.Round(totalKb / 1048576.0, 1);
-                    double availGb = Math.Round(availKb / 1048576.0, 1);
-                    memStr = availGb + " GB Free / " + totalGb + " GB Total";
+                    totalGb = Math.Round(totalKb / 1048576.0, 1);
+                    freeGb = Math.Round(availKb / 1048576.0, 1);
+                    memStr = freeGb + " GB Free / " + totalGb + " GB Total";
                 }
 
                 // Launcher info
-                string homeRes = RunAdb("-s " + device + " shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME").Combined;
-                string launcherState = homeRes.Contains("com.gathin.tvhome") ? "CleanTV Home v4.0 Active" : "Stock Launcher Active";
+                string activeHome = GetActiveHomePackage(device);
+                string launcherState = (!string.IsNullOrEmpty(activeHome) && activeHome.Equals("com.gathin.tvhome", StringComparison.OrdinalIgnoreCase))
+                    ? "CleanTV Home v4.0 Active"
+                    : (string.IsNullOrEmpty(activeHome) ? "Stock Launcher Active" : activeHome + " Active");
 
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"device\":{0},\"brand\":{1},\"model\":{2},\"androidVersion\":{3},\"manufacturer\":{4},\"memory\":{5},\"launcherState\":{6}}}",
-                    ToJsonString(device), ToJsonString(brand), ToJsonString(model), ToJsonString(android), ToJsonString(manufacturer), ToJsonString(memStr), ToJsonString(launcherState));
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"device\":{0},\"brand\":{1},\"model\":{2},\"androidVersion\":{3},\"manufacturer\":{4},\"memory\":{5},\"freeGb\":{6},\"totalGb\":{7},\"launcherState\":{8},\"activeHome\":{9}}}",
+                    ToJsonString(device), ToJsonString(brand), ToJsonString(model), ToJsonString(android), ToJsonString(manufacturer), ToJsonString(memStr), freeGb, totalGb, ToJsonString(launcherState), ToJsonString(activeHome));
             }
             else if (endpoint == "/api/preset-list")
             {
@@ -406,8 +497,32 @@ namespace CleanTV.Desktop
                         if (!string.IsNullOrEmpty(pkg)) packagesToDisable.Add(pkg);
                     }
 
-                    // Create real safety backup before modifying
-                    string backupDir = CreateBackup(device);
+                    // 1. Mandatory Pre-debloat Backup Creation & Verification
+                    string backupDir = null;
+                    try
+                    {
+                        backupDir = CreateBackup(device);
+                    }
+                    catch (Exception ex)
+                    {
+                        statusCode = 500;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}",
+                            ToJsonString("Pre-debloat safety backup failed: " + ex.Message + ". Debloat operation aborted to protect your TV."));
+                        SendResponse(res, statusCode, jsonResponse);
+                        return;
+                    }
+
+                    if (string.IsNullOrEmpty(backupDir) || !Directory.Exists(backupDir))
+                    {
+                        statusCode = 500;
+                        jsonResponse = "{\"status\":\"error\",\"message\":\"Could not verify backup folder creation. Debloat aborted.\"}";
+                        SendResponse(res, statusCode, jsonResponse);
+                        return;
+                    }
+
+                    // 2. Active Home Launcher & System Protection Verification
+                    string activeHome = GetActiveHomePackage(device);
+                    bool isCleanTvActive = !string.IsNullOrEmpty(activeHome) && activeHome.Equals("com.gathin.tvhome", StringComparison.OrdinalIgnoreCase);
 
                     int disabledCount = 0;
                     int skippedCount = 0;
@@ -416,7 +531,26 @@ namespace CleanTV.Desktop
 
                     foreach (var pkg in packagesToDisable)
                     {
-                        // Check if installed
+                        // Guard 1: Never disable critical protected system packages
+                        if (ProtectedSystemPackages.Contains(pkg))
+                        {
+                            skippedCount++;
+                            resultsList.Add(string.Format("{{\"pkg\":{0},\"result\":\"skipped_protected\",\"reason\":\"Critical Android system package protected by safety guard\"}}", ToJsonString(pkg)));
+                            continue;
+                        }
+
+                        // Guard 2: Never disable active HOME launcher unless CleanTV is verified active
+                        if (!string.IsNullOrEmpty(activeHome) && pkg.Equals(activeHome, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!isCleanTvActive)
+                            {
+                                skippedCount++;
+                                resultsList.Add(string.Format("{{\"pkg\":{0},\"result\":\"skipped_active_launcher\",\"reason\":\"Currently active HOME launcher. Set CleanTV Home as default launcher first.\"}}", ToJsonString(pkg)));
+                                continue;
+                            }
+                        }
+
+                        // Check if package is installed on the device
                         var hasPkg = RunAdb("-s " + device + " shell pm list packages " + pkg, 4000);
                         if (!hasPkg.Combined.Contains(pkg))
                         {
@@ -425,7 +559,7 @@ namespace CleanTV.Desktop
                             continue;
                         }
 
-                        // Disable package
+                        // Execute disable-user
                         var disRes = RunAdb("-s " + device + " shell pm disable-user --user 0 " + pkg, 6000);
                         if (disRes.Combined.IndexOf("disabled", StringComparison.OrdinalIgnoreCase) >= 0 ||
                             disRes.Combined.IndexOf("already", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -446,8 +580,8 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/restore")
             {
-                // Backup-driven restore: read pre-install packages-disabled.txt from latest backup
-                string targetBackupDir = FindLatestBackupDir();
+                // Backup-driven restore: scoped to the currently connected device
+                string targetBackupDir = FindLatestBackupDir(device);
                 int restoredCount = 0;
                 var restoredPkgs = new List<string>();
 
@@ -526,8 +660,8 @@ namespace CleanTV.Desktop
 
                 RunAdb("-s " + device + " shell input keyevent 3", 3000); // Home
 
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"restored\":{0},\"packages\":[{1}]}}",
-                    restoredCount, string.Join(",", restoredPkgs.ToArray()));
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"restored\":{0},\"backupDir\":{1},\"packages\":[{2}]}}",
+                    restoredCount, ToJsonString(targetBackupDir), string.Join(",", restoredPkgs.ToArray()));
             }
             else if (endpoint == "/api/install")
             {
@@ -540,7 +674,7 @@ namespace CleanTV.Desktop
                 else
                 {
                     var instRes = RunAdb("-s " + device + " install -r -d \"" + apkPath + "\"", 60000);
-                    if (instRes.Combined.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (instRes.ExitCode == 0 && instRes.Combined.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         RunAdb("-s " + device + " shell am start -n com.gathin.tvhome/.MainActivity", 5000);
                         jsonResponse = string.Format("{{\"status\":\"ok\",\"installed\":true,\"launched\":true,\"output\":{0}}}",
@@ -549,7 +683,7 @@ namespace CleanTV.Desktop
                     else
                     {
                         statusCode = 500;
-                        string err = string.IsNullOrEmpty(instRes.Combined) ? "Install command returned non-zero code" : instRes.Combined;
+                        string err = string.IsNullOrEmpty(instRes.Combined) ? "Install command returned non-zero exit code" : instRes.Combined;
                         jsonResponse = string.Format("{{\"status\":\"error\",\"installed\":false,\"message\":{0}}}", ToJsonString(err));
                     }
                 }
@@ -557,67 +691,99 @@ namespace CleanTV.Desktop
             else if (endpoint == "/api/key")
             {
                 string key = ExtractJsonField(body, "key") ?? "3";
-                var keyRes = RunAdb("-s " + device + " shell input keyevent " + key, 4000);
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"key\":{0},\"sent\":true}}", ToJsonString(key));
+                if (!Regex.IsMatch(key, @"^\d+$"))
+                {
+                    statusCode = 400;
+                    jsonResponse = "{\"status\":\"error\",\"message\":\"Invalid keycode. Key must be numeric.\"}";
+                }
+                else
+                {
+                    var keyRes = RunAdb("-s " + device + " shell input keyevent " + key, 4000);
+                    if (keyRes.ExitCode != 0)
+                    {
+                        statusCode = 500;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Keyevent failed: " + keyRes.Combined));
+                    }
+                    else
+                    {
+                        jsonResponse = string.Format("{{\"status\":\"ok\",\"key\":{0},\"sent\":true}}", ToJsonString(key));
+                    }
+                }
             }
             else if (endpoint == "/api/ai/command")
             {
                 string query = (ExtractJsonField(body, "query") ?? "").Trim();
-                string qLower = query.ToLower();
-                string actionTaken = "Command dispatched to CleanTV AI Controller";
-
-                if (qLower == "volume up" || qLower == "louder")
+                if (string.IsNullOrEmpty(query))
                 {
-                    RunAdb("-s " + device + " shell input keyevent 24");
-                    actionTaken = "Triggered Volume Up (KEYCODE_VOLUME_UP)";
-                }
-                else if (qLower == "volume down" || qLower == "quieter")
-                {
-                    RunAdb("-s " + device + " shell input keyevent 25");
-                    actionTaken = "Triggered Volume Down (KEYCODE_VOLUME_DOWN)";
-                }
-                else if (qLower == "mute" || qLower == "unmute")
-                {
-                    RunAdb("-s " + device + " shell input keyevent 164");
-                    actionTaken = "Toggled Mute (KEYCODE_VOLUME_MUTE)";
-                }
-                else if (qLower == "open settings" || qLower == "settings")
-                {
-                    RunAdb("-s " + device + " shell am start -a android.settings.SETTINGS");
-                    actionTaken = "Opened System Settings";
-                }
-                else if (qLower == "open youtube" || qLower == "youtube")
-                {
-                    RunAdb("-s " + device + " shell monkey -p com.google.android.youtube.tv 1");
-                    actionTaken = "Launched YouTube for Android TV";
-                }
-                else if (qLower == "home" || qLower == "go home")
-                {
-                    RunAdb("-s " + device + " shell input keyevent 3");
-                    actionTaken = "Returned to CleanTV Home Screen";
-                }
-                else if (qLower == "back")
-                {
-                    RunAdb("-s " + device + " shell input keyevent 4");
-                    actionTaken = "Dispatched Back keyevent";
+                    statusCode = 400;
+                    jsonResponse = "{\"status\":\"error\",\"message\":\"Query cannot be empty.\"}";
                 }
                 else
                 {
-                    // Dispatch to CleanTV Home MainActivity with query intent
-                    RunAdb("-s " + device + " shell am start -n com.gathin.tvhome/.MainActivity --es query \"" + query.Replace("\"", "\\\"") + "\"");
-                    actionTaken = "Dispatched intent query to TV: \"" + query + "\"";
-                }
+                    string qLower = query.ToLower();
+                    string actionTaken = "Command dispatched to CleanTV AI Controller";
 
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"intent\":{0},\"action\":{1},\"message\":{2}}}",
-                    ToJsonString(query), ToJsonString(query), ToJsonString(actionTaken));
+                    if (qLower == "volume up" || qLower == "louder")
+                    {
+                        var resAdb = RunAdb("-s " + device + " shell input keyevent 24");
+                        actionTaken = "Triggered Volume Up (KEYCODE_VOLUME_UP)";
+                    }
+                    else if (qLower == "volume down" || qLower == "quieter")
+                    {
+                        var resAdb = RunAdb("-s " + device + " shell input keyevent 25");
+                        actionTaken = "Triggered Volume Down (KEYCODE_VOLUME_DOWN)";
+                    }
+                    else if (qLower == "mute" || qLower == "unmute")
+                    {
+                        var resAdb = RunAdb("-s " + device + " shell input keyevent 164");
+                        actionTaken = "Toggled Mute (KEYCODE_VOLUME_MUTE)";
+                    }
+                    else if (qLower == "open settings" || qLower == "settings")
+                    {
+                        var resAdb = RunAdb("-s " + device + " shell am start -a android.settings.SETTINGS");
+                        actionTaken = "Opened System Settings";
+                    }
+                    else if (qLower == "open youtube" || qLower == "youtube")
+                    {
+                        var resAdb = RunAdb("-s " + device + " shell monkey -p com.google.android.youtube.tv 1");
+                        actionTaken = "Launched YouTube for Android TV";
+                    }
+                    else if (qLower == "home" || qLower == "go home")
+                    {
+                        var resAdb = RunAdb("-s " + device + " shell input keyevent 3");
+                        actionTaken = "Returned to CleanTV Home Screen";
+                    }
+                    else if (qLower == "back")
+                    {
+                        var resAdb = RunAdb("-s " + device + " shell input keyevent 4");
+                        actionTaken = "Dispatched Back keyevent";
+                    }
+                    else
+                    {
+                        RunAdb("-s " + device + " shell am start -n com.gathin.tvhome/.MainActivity --es query \"" + query.Replace("\"", "\\\"") + "\"");
+                        actionTaken = "Dispatched intent query to TV: \"" + query + "\"";
+                    }
+
+                    jsonResponse = string.Format("{{\"status\":\"ok\",\"intent\":{0},\"action\":{1},\"message\":{2}}}",
+                        ToJsonString(query), ToJsonString(query), ToJsonString(actionTaken));
+                }
             }
 
-            res.StatusCode = statusCode;
-            byte[] jsonBytes = Encoding.UTF8.GetBytes(jsonResponse);
-            res.ContentType = "application/json";
-            res.ContentLength64 = jsonBytes.Length;
-            res.OutputStream.Write(jsonBytes, 0, jsonBytes.Length);
-            res.Close();
+            SendResponse(res, statusCode, jsonResponse);
+        }
+
+        private static void SendResponse(HttpListenerResponse res, int statusCode, string jsonResponse)
+        {
+            try
+            {
+                res.StatusCode = statusCode;
+                byte[] jsonBytes = Encoding.UTF8.GetBytes(jsonResponse);
+                res.ContentType = "application/json";
+                res.ContentLength64 = jsonBytes.Length;
+                res.OutputStream.Write(jsonBytes, 0, jsonBytes.Length);
+                res.Close();
+            }
+            catch { }
         }
 
         private static string ResolvePresetFileName(string preset)
@@ -665,34 +831,44 @@ namespace CleanTV.Desktop
 
         private static string CreateBackup(string device)
         {
+            string baseDir = GetBackupsDirectory();
+            string deviceKey = Regex.Replace(device, @"[^a-zA-Z0-9_-]", "_");
             string ts = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-            string dir = Path.Combine(backupsDir ?? Path.Combine(appDir, "backups"), "win-backup-" + ts);
-            try
+            string dir = Path.Combine(baseDir, "win-backup-" + deviceKey + "-" + ts);
+
+            Directory.CreateDirectory(dir);
+            var pDisabled = RunAdb("-s " + device + " shell pm list packages -d", 8000);
+            var pAll = RunAdb("-s " + device + " shell pm list packages", 8000);
+            var getprop = RunAdb("-s " + device + " shell getprop", 8000);
+
+            string fileDisabled = Path.Combine(dir, "packages-disabled.txt");
+            string fileAll = Path.Combine(dir, "packages-all.txt");
+            string fileProp = Path.Combine(dir, "getprop.txt");
+
+            File.WriteAllText(fileDisabled, pDisabled.StdOut ?? "");
+            File.WriteAllText(fileAll, pAll.StdOut ?? "");
+            File.WriteAllText(fileProp, getprop.StdOut ?? "");
+
+            // Verify files actually exist and are non-empty/written
+            if (!File.Exists(fileDisabled) || !File.Exists(fileAll) || !File.Exists(fileProp))
             {
-                Directory.CreateDirectory(dir);
-                var pDisabled = RunAdb("-s " + device + " shell pm list packages -d", 8000);
-                File.WriteAllText(Path.Combine(dir, "packages-disabled.txt"), pDisabled.StdOut ?? "");
-
-                var pAll = RunAdb("-s " + device + " shell pm list packages", 8000);
-                File.WriteAllText(Path.Combine(dir, "packages-all.txt"), pAll.StdOut ?? "");
-
-                var getprop = RunAdb("-s " + device + " shell getprop", 8000);
-                File.WriteAllText(Path.Combine(dir, "getprop.txt"), getprop.StdOut ?? "");
-
-                return dir;
+                throw new IOException("Safety backup files could not be verified on disk.");
             }
-            catch
-            {
-                return dir;
-            }
+
+            return dir;
         }
 
-        private static string FindLatestBackupDir()
+        private static string FindLatestBackupDir(string device)
         {
-            string baseDir = backupsDir ?? Path.Combine(appDir, "backups");
+            string baseDir = GetBackupsDirectory();
             if (!Directory.Exists(baseDir)) return null;
 
-            var dirs = new List<string>(Directory.GetDirectories(baseDir, "*backup-*"));
+            string deviceKey = Regex.Replace(device, @"[^a-zA-Z0-9_-]", "_");
+            var dirs = new List<string>(Directory.GetDirectories(baseDir, "win-backup-" + deviceKey + "-*"));
+            if (dirs.Count == 0)
+            {
+                dirs.AddRange(Directory.GetDirectories(baseDir, "*backup-*"));
+            }
             if (dirs.Count == 0) return null;
 
             dirs.Sort();

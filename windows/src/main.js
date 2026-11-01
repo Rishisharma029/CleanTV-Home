@@ -150,28 +150,61 @@ function loadPreset(presetName) {
 
 // ─── Backup/Restore helpers ──────────────────────────────────────────────────
 
-const BACKUP_DIR = path.join(ROOT_DIR, 'backups');
+const LOCAL_APP_DATA = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+const BACKUP_DIR = path.join(LOCAL_APP_DATA, 'CleanTV', 'backups');
+
+const PROTECTED_SYSTEM_PACKAGES = [
+  'android',
+  'com.android.systemui',
+  'com.android.settings',
+  'com.android.packageinstaller',
+  'com.android.inputmethod.latin',
+  'com.google.android.inputmethod.latin',
+  'com.android.providers.settings',
+  'com.android.shell'
+];
+
+function sanitizeDeviceKey(dev) {
+  return String(dev || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
 
 function createBackup(device, callback) {
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const dir = path.join(BACKUP_DIR, 'win-backup-' + ts);
+  const devKey = sanitizeDeviceKey(device);
+  const dir = path.join(BACKUP_DIR, `win-backup-${devKey}-${ts}`);
   fs.mkdirSync(dir, { recursive: true });
 
   adbExec(['-s', device, 'shell', 'pm', 'list', 'packages'], (err, stdout) => {
-    if (!err) fs.writeFileSync(path.join(dir, 'packages-all.txt'), stdout);
+    if (!err) fs.writeFileSync(path.join(dir, 'packages-all.txt'), stdout || '');
   }, 8000);
 
   adbExec(['-s', device, 'shell', 'pm', 'list', 'packages', '-d'], (err, stdout) => {
-    if (!err) fs.writeFileSync(path.join(dir, 'packages-disabled.txt'), stdout);
-    callback(null, dir, ts);
+    if (!err) fs.writeFileSync(path.join(dir, 'packages-disabled.txt'), stdout || '');
+    adbExec(['-s', device, 'shell', 'getprop'], (err2, stdout2) => {
+      if (!err2) fs.writeFileSync(path.join(dir, 'getprop.txt'), stdout2 || '');
+      // Verify files
+      const fDis = path.join(dir, 'packages-disabled.txt');
+      const fAll = path.join(dir, 'packages-all.txt');
+      if (fs.existsSync(fDis) && fs.existsSync(fAll)) {
+        callback(null, dir, ts);
+      } else {
+        callback(new Error('Failed to verify safety backup files on disk'));
+      }
+    }, 8000);
   }, 8000);
 }
 
-function findLatestBackup(prefix) {
+function findLatestBackup(device) {
   if (!fs.existsSync(BACKUP_DIR)) return null;
-  const dirs = fs.readdirSync(BACKUP_DIR)
-    .filter(d => d.startsWith(prefix || 'win-backup-'))
+  const devKey = sanitizeDeviceKey(device);
+  let dirs = fs.readdirSync(BACKUP_DIR)
+    .filter(d => d.startsWith(`win-backup-${devKey}-`))
     .sort().reverse();
+  if (dirs.length === 0) {
+    dirs = fs.readdirSync(BACKUP_DIR)
+      .filter(d => d.startsWith('win-backup-'))
+      .sort().reverse();
+  }
   return dirs.length ? path.join(BACKUP_DIR, dirs[0]) : null;
 }
 
@@ -312,40 +345,68 @@ const server = http.createServer((req, res) => {
       }
 
       // Create backup first
-      createBackup(device, (_, backupDir) => {
-        let disabled = 0, skipped = 0, failed = 0;
-        const results = [];
-        let remaining = packages.length;
+      createBackup(device, (errBackup, backupDir) => {
+        if (errBackup || !backupDir) {
+          return jsonErr(res, 'Pre-debloat safety backup failed: ' + (errBackup ? errBackup.message : 'Unknown error') + '. Debloat aborted to protect TV.');
+        }
 
-        packages.forEach(pkg => {
-          adbIsPackageInstalled(device, pkg, (_, installed) => {
-            if (!installed) {
+        // Query active home launcher
+        adbExec(['-s', device, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errHome, homeOut) => {
+          let activeHome = '';
+          const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
+          if (m) activeHome = m[1].trim();
+          const isCleanTvActive = (activeHome === 'com.gathin.tvhome');
+
+          let disabled = 0, skipped = 0, failed = 0;
+          const results = [];
+          let remaining = packages.length;
+
+          packages.forEach(pkg => {
+            // Guard 1: Protected system packages
+            if (PROTECTED_SYSTEM_PACKAGES.includes(pkg)) {
               skipped++;
-              results.push({ pkg, result: 'not_installed' });
+              results.push({ pkg, result: 'skipped_protected', reason: 'Critical system package protected by safety guard' });
               if (--remaining === 0) finish();
               return;
             }
-            adbDisablePackage(device, pkg, (err, success, output) => {
-              if (success) disabled++;
-              else failed++;
-              results.push({ pkg, result: success ? 'disabled' : 'failed', output });
+
+            // Guard 2: Active home launcher
+            if (activeHome && pkg.toLowerCase() === activeHome.toLowerCase() && !isCleanTvActive) {
+              skipped++;
+              results.push({ pkg, result: 'skipped_active_launcher', reason: 'Currently active HOME launcher. Set CleanTV Home as default launcher first.' });
               if (--remaining === 0) finish();
+              return;
+            }
+
+            adbIsPackageInstalled(device, pkg, (_, installed) => {
+              if (!installed) {
+                skipped++;
+                results.push({ pkg, result: 'not_installed' });
+                if (--remaining === 0) finish();
+                return;
+              }
+              adbDisablePackage(device, pkg, (err, success, output) => {
+                if (success) disabled++;
+                else failed++;
+                results.push({ pkg, result: success ? 'disabled' : 'failed', output });
+                if (--remaining === 0) finish();
+              });
             });
           });
-        });
 
-        function finish() {
-          jsonOk(res, {
-            preset: presetName,
-            presetFile: file,
-            total: packages.length,
-            disabled,
-            skipped,
-            failed,
-            backupDir,
-            results
-          });
-        }
+          function finish() {
+            jsonOk(res, {
+              preset: presetName,
+              presetFile: file,
+              total: packages.length,
+              disabled,
+              skipped,
+              failed,
+              backupDir,
+              results
+            });
+          }
+        });
       });
       return;
     }

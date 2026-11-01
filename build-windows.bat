@@ -29,6 +29,12 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 
+node tests\test-csharp-backend.js
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Shipped CleanTV.exe C# backend tests failed!
+    exit /b %ERRORLEVEL%
+)
+
 echo.
 echo =======================================================
 echo [SUCCESS] Windows Store MSIX Package is ready!

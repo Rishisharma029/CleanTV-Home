@@ -45,6 +45,10 @@ public class ExecutionResult {
         return json;
     }
 
+    public boolean isSuccess() {
+        return "ok".equalsIgnoreCase(status);
+    }
+
     @Override
     public String toString() {
         return "ExecutionResult{" +

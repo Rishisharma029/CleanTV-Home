@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/voiceAiRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:focusable="false">
+
+    <!-- Translucent Frosted Scrim Backdrop (Click outside to dismiss) -->
+    <View
+        android:id="@+id/voiceAiScrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#B3000000"
+        android:clickable="true"
+        android:focusable="false" />
+
+    <!-- Centered Glassmorphic Modal Card -->
+    <LinearLayout
+        android:id="@+id/voiceAiCard"
+        android:layout_width="540dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/voice_ai_card_bg"
+        android:orientation="vertical"
+        android:paddingStart="32dp"
+        android:paddingTop="28dp"
+        android:paddingEnd="32dp"
+        android:paddingBottom="28dp"
+        android:elevation="20dp"
+        android:clickable="true"
+        android:focusable="false"
+        android:clipToPadding="false"
+        android:clipChildren="false">
+
+        <!-- Top Header: Dynamic Status Pill & Provider Tag -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/aiStatusContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:background="@drawable/voice_ai_chip_bg"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:paddingEnd="12dp">
+
+                <!-- Dynamic Status Dot (Color reflects state) -->
+                <View
+                    android:id="@+id/aiStatusDot"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/voice_ai_status_dot" />
+
+                <!-- Dynamic Status Title: LISTENING, THINKING, EXECUTING, ASSISTANT, ERROR -->
+                <TextView
+                    android:id="@+id/aiStatusBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@string/font_medium"
+                    android:letterSpacing="0.12"
+                    android:text="LISTENING"
+                    android:textAllCaps="true"
+                    android:textColor="#FF38BDF8"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/aiHeaderSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@string/font_medium"
+                android:letterSpacing="0.08"
+                android:text="CleanTV Voice AI"
+                android:textAllCaps="true"
+                android:textColor="#66FFFFFF"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Visual Orb / Glowing Indicator Section -->
+        <FrameLayout
+            android:id="@+id/aiOrbContainer"
+            android:layout_width="match_parent"
+            android:layout_height="110dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="12dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <!-- Pulsing Ambient Radial Halo Glow -->
+            <View
+                android:id="@+id/aiOrbOuterGlow"
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:layout_gravity="center"
+                android:background="@drawable/voice_ai_orb_glow"
+                android:alpha="0.45" />
+
+            <!-- Core Floating Glowing Circle -->
+            <View
+                android:id="@+id/aiOrbCore"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="center"
+                android:background="@drawable/voice_ai_orb_core" />
+
+            <!-- State Icon (Mic / Sparkles / Check / Assistant / Warning) -->
+            <ImageView
+                android:id="@+id/aiOrbIcon"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_sparkle"
+                android:tint="#FFFFFFFF" />
+        </FrameLayout>
+
+        <!-- Live Transcribed Query / Spoken Text Display -->
+        <TextView
+            android:id="@+id/aiTranscriptText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:minHeight="36dp"
+            android:textColor="#FFFFFFFF"
+            android:textSize="22sp"
+            android:fontFamily="@string/font_medium"
+            android:letterSpacing="-0.01"
+            android:lineSpacingExtra="4dp"
+            android:text="Listening..."
+            android:ellipsize="end"
+            android:maxLines="3" />
+
+        <!-- Subtitle Action / Explanation / Error Feedback Text -->
+        <TextView
+            android:id="@+id/aiFeedbackText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:textColor="#B3FFFFFF"
+            android:textSize="13sp"
+            android:fontFamily="@string/font_regular"
+            android:letterSpacing="0.02"
+            android:lineSpacingExtra="2dp"
+            android:text="Say a command or ask Google Assistant"
+            android:ellipsize="end"
+            android:maxLines="2" />
+
+        <!-- Execution Action Badge (e.g. "OPEN APP: YouTube", "VOLUME: 50%") -->
+        <LinearLayout
+            android:id="@+id/aiActionBadgeContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
+            android:visibility="gone"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/aiActionBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/voice_ai_chip_bg"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:fontFamily="@string/font_medium"
+                android:letterSpacing="0.06"
+                android:text="LAUNCH APP"
+                android:textColor="#FF34D399"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Inline Keyboard Input Bar (Toggleable on TV) -->
+        <LinearLayout
+            android:id="@+id/aiInputBar"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="14dp"
+            android:visibility="gone"
+            android:background="@drawable/voice_ai_chip_bg"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/aiTextInput"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="Type TV command or ask question..."
+                android:textColorHint="#66FFFFFF"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp"
+                android:fontFamily="@string/font_regular"
+                android:imeOptions="actionGo"
+                android:inputType="text"
+                android:maxLines="1"
+                android:focusable="true"
+                android:clickable="true" />
+
+            <Button
+                android:id="@+id/btnAiTextSubmit"
+                style="@style/TopButton"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="Go"
+                android:textColor="@drawable/pill_text"
+                android:textSize="12sp"
+                android:fontFamily="@string/font_medium"
+                android:focusable="true"
+                android:clickable="true" />
+        </LinearLayout>
+
+        <!-- Quick Voice Suggestion Chips (D-pad Accessible Pills) -->
+        <HorizontalScrollView
+            android:id="@+id/aiSuggestionsScroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:scrollbars="none"
+            android:fadingEdge="horizontal"
+            android:requiresFadingEdge="horizontal"
+            android:fadingEdgeLength="20dp"
+            android:clipToPadding="false"
+            android:focusable="false">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/btnChipYoutube"
+                    style="@style/TopButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="▶ YouTube"
+                    android:textColor="@drawable/pill_text"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnChipYoutube"
+                    android:nextFocusRight="@+id/btnChipSettings"
+                    android:nextFocusUp="@+id/btnChipYoutube"
+                    android:nextFocusDown="@+id/btnVoiceAiCancel" />
+
+                <Button
+                    android:id="@+id/btnChipSettings"
+                    style="@style/TopButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="⚙️ Settings"
+                    android:textColor="@drawable/pill_text"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnChipYoutube"
+                    android:nextFocusRight="@+id/btnChipVolume"
+                    android:nextFocusUp="@+id/btnChipSettings"
+                    android:nextFocusDown="@+id/btnVoiceAiType" />
+
+                <Button
+                    android:id="@+id/btnChipVolume"
+                    style="@style/TopButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="🔊 Volume Up"
+                    android:textColor="@drawable/pill_text"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnChipSettings"
+                    android:nextFocusRight="@+id/btnChipMute"
+                    android:nextFocusUp="@+id/btnChipVolume"
+                    android:nextFocusDown="@+id/btnVoiceAiRetry" />
+
+                <Button
+                    android:id="@+id/btnChipMute"
+                    style="@style/TopButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="🔇 Mute"
+                    android:textColor="@drawable/pill_text"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnChipVolume"
+                    android:nextFocusRight="@+id/btnChipTimer"
+                    android:nextFocusUp="@+id/btnChipMute"
+                    android:nextFocusDown="@+id/btnVoiceAiRetry" />
+
+                <Button
+                    android:id="@+id/btnChipTimer"
+                    style="@style/TopButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="⏱️ Sleep Timer"
+                    android:textColor="@drawable/pill_text"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnChipMute"
+                    android:nextFocusRight="@+id/btnChipGame"
+                    android:nextFocusUp="@+id/btnChipTimer"
+                    android:nextFocusDown="@+id/btnVoiceAiRetry" />
+
+                <Button
+                    android:id="@+id/btnChipGame"
+                    style="@style/TopButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="🎮 Game Mode"
+                    android:textColor="@drawable/pill_text"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnChipTimer"
+                    android:nextFocusRight="@+id/btnChipGoogle"
+                    android:nextFocusUp="@+id/btnChipGame"
+                    android:nextFocusDown="@+id/btnVoiceAiRetry" />
+
+                <Button
+                    android:id="@+id/btnChipGoogle"
+                    style="@style/TopButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:text="💡 Tell a Joke"
+                    android:textColor="@drawable/pill_text"
+                    android:textSize="12sp"
+                    android:fontFamily="@string/font_medium"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnChipGame"
+                    android:nextFocusRight="@+id/btnChipGoogle"
+                    android:nextFocusUp="@+id/btnChipGoogle"
+                    android:nextFocusDown="@+id/btnVoiceAiRetry" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Footer Button Controls (Remote D-pad Accessible) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnVoiceAiCancel"
+                style="@style/TopButton"
+                android:layout_width="110dp"
+                android:layout_height="40dp"
+                android:text="Cancel"
+                android:textColor="@drawable/pill_text"
+                android:textSize="13sp"
+                android:fontFamily="@string/font_medium"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusLeft="@+id/btnVoiceAiCancel"
+                android:nextFocusRight="@+id/btnVoiceAiType"
+                android:nextFocusUp="@+id/btnChipYoutube"
+                android:nextFocusDown="@+id/btnVoiceAiCancel" />
+
+            <Button
+                android:id="@+id/btnVoiceAiType"
+                style="@style/TopButton"
+                android:layout_width="110dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:text="⌨️ Type"
+                android:textColor="@drawable/pill_text"
+                android:textSize="13sp"
+                android:fontFamily="@string/font_medium"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusLeft="@+id/btnVoiceAiCancel"
+                android:nextFocusRight="@+id/btnVoiceAiRetry"
+                android:nextFocusUp="@+id/btnChipSettings"
+                android:nextFocusDown="@+id/btnVoiceAiType" />
+
+            <Button
+                android:id="@+id/btnVoiceAiRetry"
+                style="@style/TopButton"
+                android:layout_width="110dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:text="✨ Listen"
+                android:textColor="@drawable/pill_text"
+                android:textSize="13sp"
+                android:fontFamily="@string/font_medium"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusLeft="@+id/btnVoiceAiType"
+                android:nextFocusRight="@+id/btnVoiceAiRetry"
+                android:nextFocusUp="@+id/btnChipVolume"
+                android:nextFocusDown="@+id/btnVoiceAiRetry" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

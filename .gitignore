@@ -12,6 +12,11 @@ backups/
 *.log
 *.tmp
 *.bak
+*dump*.xml
+*_output.txt
+scratch/
+scratch_ui.xml
+.agents/
 
 # Build artifacts & IDE
 .idea/

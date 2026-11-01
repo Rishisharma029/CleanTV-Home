@@ -252,6 +252,19 @@ public final class AiDriver {
         }
     }
 
+    public static AiExecutionResult execute(Context context, Object tvIntent) {
+        assumeActionExecutorPresent();
+        try {
+            Class<?> cls = Class.forName(EXECUTOR_CLASS);
+            Class<?> intentCls = Class.forName("com.gathin.tvhome.ai.TvIntent");
+            Method m = cls.getMethod("execute", Context.class, intentCls);
+            Object res = m.invoke(null, context, tvIntent);
+            return wrapExecutionResult(res);
+        } catch (Throwable t) {
+            throw new RuntimeException("Failed to invoke TvActionExecutor.execute", t);
+        }
+    }
+
     /**
      * Unpacks ExecutionResult.
      */

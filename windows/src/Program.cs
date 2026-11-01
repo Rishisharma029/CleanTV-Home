@@ -601,6 +601,21 @@ namespace CleanTV.Desktop
                     string activeHomeComp = activeHomeInfo.Component;
                     bool isCleanTvActive = activeHome.Equals("com.gathin.tvhome", StringComparison.OrdinalIgnoreCase);
 
+                    // 3. Immediately persist initial restore metadata into backupDir (MANDATORY write - fails closed if write fails)
+                    try
+                    {
+                        File.WriteAllText(Path.Combine(backupDir, "original-home.txt"), activeHome);
+                        File.WriteAllText(Path.Combine(backupDir, "original-home-component.txt"), activeHomeComp);
+                    }
+                    catch (Exception ex)
+                    {
+                        statusCode = 500;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}",
+                            ToJsonString("Failed to record pre-debloat launcher restore metadata (" + ex.Message + "). Debloat aborted to protect TV."));
+                        SendResponse(res, statusCode, jsonResponse);
+                        return;
+                    }
+
                     int disabledCount = 0;
                     int skippedCount = 0;
                     int failedCount = 0;
@@ -651,11 +666,9 @@ namespace CleanTV.Desktop
                         }
                     }
 
-                    // Record original active launcher and exact debloated package list in backup
+                    // 4. Record exact debloated package list in backup (MANDATORY write - no silent swallow)
                     try
                     {
-                        File.WriteAllText(Path.Combine(backupDir, "original-home.txt"), activeHome ?? "");
-                        File.WriteAllText(Path.Combine(backupDir, "original-home-component.txt"), activeHomeComp ?? "");
                         var debloatedOnly = new List<string>();
                         foreach (var resItem in resultsList)
                         {
@@ -667,7 +680,14 @@ namespace CleanTV.Desktop
                         }
                         File.WriteAllLines(Path.Combine(backupDir, "debloated-packages.txt"), debloatedOnly.ToArray());
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        statusCode = 500;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}",
+                            ToJsonString("Failed to record debloated package list in backup (" + ex.Message + ")."));
+                        SendResponse(res, statusCode, jsonResponse);
+                        return;
+                    }
 
                     jsonResponse = string.Format("{{\"status\":\"ok\",\"preset\":{0},\"total\":{1},\"disabled\":{2},\"skipped\":{3},\"failed\":{4},\"backupDir\":{5},\"results\":[{6}]}}",
                         ToJsonString(preset), packagesToDisable.Count, disabledCount, skippedCount, failedCount, ToJsonString(backupDir), string.Join(",", resultsList.ToArray()));
@@ -775,7 +795,15 @@ namespace CleanTV.Desktop
                     var setHomeRes = RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + originalComponent, 4000);
                     if (setHomeRes.ExitCode == 0 && !setHomeRes.Combined.Contains("Error") && !setHomeRes.Combined.Contains("Exception"))
                     {
-                        homeRestored = true;
+                        // Readback verification: query HOME again to verify active launcher matches
+                        var activeAfter = GetActiveHomeLauncher(device);
+                        if (activeAfter != null && (
+                            (!string.IsNullOrEmpty(activeAfter.Component) && activeAfter.Component.Equals(originalComponent, StringComparison.OrdinalIgnoreCase)) ||
+                            (!string.IsNullOrEmpty(activeAfter.Package) && activeAfter.Package.Equals(originalHome, StringComparison.OrdinalIgnoreCase))
+                        ))
+                        {
+                            homeRestored = true;
+                        }
                     }
                 }
                 else

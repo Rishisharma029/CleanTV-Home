@@ -77,6 +77,8 @@ async function runTests() {
   // Clean mock state
   const stateFile = path.join(os.tmpdir(), 'cleantv_mock_disabled_pkgs.txt');
   try { if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile); } catch (e) {}
+    const homeStateFile = path.join(process.env.TEMP || os.tmpdir(), 'cleantv_mock_active_home.txt');
+    try { if (fs.existsSync(homeStateFile)) fs.unlinkSync(homeStateFile); } catch (e) {}
 
   if (!fs.existsSync(mockAdbExe)) {
     const cscPath = 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe';
@@ -168,6 +170,20 @@ async function runTests() {
     const emptyRestoreRes = await post('/api/restore', { device: 'empty-debloat-device' }, authHeaders);
     assert(emptyRestoreRes.status === 200, 'Restore on device with empty debloated-packages.txt returns HTTP 200');
     assert(emptyRestoreRes.data.restored === 0, 'Does NOT fall back to baseline diff when debloated-packages.txt exists but is empty');
+
+    // Test 8c: Readback verification failure detection
+    // When set-home-activity succeeds but readback returns a mismatched rogue launcher, homeRestored must be false
+    const failedReadbackBackup = path.join(process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE, 'AppData', 'Local'), 'CleanTV', 'backups', 'win-backup-failed-readback-device-20261101-999999');
+    fs.mkdirSync(failedReadbackBackup, { recursive: true });
+    fs.writeFileSync(path.join(failedReadbackBackup, 'packages-all.txt'), 'package:com.mitv.screensaver\npackage:com.mitv.tvhome\n');
+    fs.writeFileSync(path.join(failedReadbackBackup, 'packages-disabled.txt'), '');
+    fs.writeFileSync(path.join(failedReadbackBackup, 'debloated-packages.txt'), '');
+    fs.writeFileSync(path.join(failedReadbackBackup, 'original-home.txt'), 'com.mitv.tvhome');
+    fs.writeFileSync(path.join(failedReadbackBackup, 'original-home-component.txt'), 'com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity');
+
+    const failedReadbackRes = await post('/api/restore', { device: 'failed-readback-device' }, authHeaders);
+    assert(failedReadbackRes.status === 200, 'POST /api/restore on failed-readback-device returns HTTP 200');
+    assert(failedReadbackRes.data.homeRestored === false, 'Readback verification correctly reports homeRestored: false when launcher mismatch detected');
 
     // Test 9: Safe restore rejection when no backup exists for device
     const restoreSafeRes = await post('/api/restore', { device: 'unbacked-mock-tv-999' }, authHeaders);

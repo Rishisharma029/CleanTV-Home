@@ -10,6 +10,7 @@ namespace CleanTV.Tests
         {
             string cmd = string.Join(" ", args);
             string stateFile = Path.Combine(Path.GetTempPath(), "cleantv_mock_disabled_pkgs.txt");
+            string homeStateFile = Path.Combine(Path.GetTempPath(), "cleantv_mock_active_home.txt");
 
             if (cmd.Contains("version"))
             {
@@ -41,6 +42,22 @@ namespace CleanTV.Tests
                 }
             }
 
+            // Test scenario: Readback verification failure simulation
+            if (cmd.Contains("failed-readback-device"))
+            {
+                if (cmd.Contains("cmd package set-home-activity"))
+                {
+                    Console.WriteLine("Success: Home activity set");
+                    return 0;
+                }
+                if (cmd.Contains("resolve-activity"))
+                {
+                    Console.WriteLine("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true");
+                    Console.WriteLine("com.rogue.launcher/.StubActivity");
+                    return 0;
+                }
+            }
+
             // Test scenario: resolver fails, foreground app is YouTube (must NOT be treated as HOME)
             if (cmd.Contains("foreground-app-device"))
             {
@@ -63,13 +80,21 @@ namespace CleanTV.Tests
                 {
                     Console.WriteLine("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true");
                     Console.WriteLine("com.gathin.tvhome/.MainActivity");
+                    return 0;
                 }
-                else
+
+                string activeHome = null;
+                if (File.Exists(homeStateFile))
                 {
-                    // Real-world OEM TV launcher with custom activity class (NOT .MainActivity)
-                    Console.WriteLine("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true");
-                    Console.WriteLine("com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity");
+                    try { activeHome = File.ReadAllText(homeStateFile).Trim(); } catch { }
                 }
+                if (string.IsNullOrEmpty(activeHome))
+                {
+                    activeHome = "com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity";
+                }
+
+                Console.WriteLine("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true");
+                Console.WriteLine(activeHome);
                 return 0;
             }
 
@@ -164,7 +189,7 @@ namespace CleanTV.Tests
                 return 0;
             }
 
-            // Set home activity: require exact activity component (fails if assuming .MainActivity on com.mitv.tvhome)
+            // Set home activity: require exact activity component and persist to state for readback verification
             if (cmd.Contains("cmd package set-home-activity"))
             {
                 string comp = args[args.Length - 1];
@@ -173,6 +198,7 @@ namespace CleanTV.Tests
                     Console.Error.WriteLine("Error: Activity class {.MainActivity} does not exist in target package com.mitv.tvhome");
                     return 1;
                 }
+                try { File.WriteAllText(homeStateFile, comp); } catch { }
                 Console.WriteLine("Success: Home activity set to " + comp);
                 return 0;
             }

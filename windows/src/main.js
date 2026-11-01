@@ -129,6 +129,29 @@ function adbKeyEvent(device, keycode, callback) {
   }, 5000);
 }
 
+function adbResolveHome(device, callback) {
+  // 1. Primary: modern Android (Android 8+)
+  adbExec(['-s', device, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errHome, homeOut) => {
+    const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\/(\.?[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)/);
+    if (m && m[2]) return callback(null, { package: m[1].trim(), component: m[0].trim() });
+
+    const mPkg = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
+    if (mPkg) return callback(null, { package: mPkg[1].trim(), component: `${mPkg[1].trim()}/.MainActivity` });
+
+    // 2. Fallback for older Android (Android 5-7)
+    adbExec(['-s', device, 'shell', 'pm', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errPm, pmOut) => {
+      const m2 = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\/(\.?[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)/);
+      if (m2 && m2[2]) return callback(null, { package: m2[1].trim(), component: m2[0].trim() });
+
+      const m2Pkg = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
+      if (m2Pkg) return callback(null, { package: m2Pkg[1].trim(), component: `${m2Pkg[1].trim()}/.MainActivity` });
+
+      // Fail-closed
+      callback(null, null);
+    });
+  });
+}
+
 // ─── Preset loader ───────────────────────────────────────────────────────────
 // Reads actual OEM preset .txt files from the repo's presets/ directory
 
@@ -393,35 +416,20 @@ const server = http.createServer((req, res) => {
         }
 
         // Query active home launcher (Fail-Closed)
-        const resolveHome = (cb) => {
-          // 1. Primary: modern Android (Android 8+)
-          adbExec(['-s', device, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errHome, homeOut) => {
-            const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\/(\.?[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)/);
-            if (m && m[2]) return cb({ package: m[1].trim(), component: m[0].trim() });
-
-            const mPkg = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
-            if (mPkg) return cb({ package: mPkg[1].trim(), component: `${mPkg[1].trim()}/.MainActivity` });
-
-            // 2. Fallback for older Android (Android 5-7)
-            adbExec(['-s', device, 'shell', 'pm', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errPm, pmOut) => {
-              const m2 = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\/(\.?[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)/);
-              if (m2 && m2[2]) return cb({ package: m2[1].trim(), component: m2[0].trim() });
-
-              const m2Pkg = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
-              if (m2Pkg) return cb({ package: m2Pkg[1].trim(), component: `${m2Pkg[1].trim()}/.MainActivity` });
-
-              // Fail-closed
-              cb(null);
-            });
-          });
-        };
-
-        resolveHome((activeHomeInfo) => {
+        adbResolveHome(device, (errHome, activeHomeInfo) => {
           if (!activeHomeInfo || !activeHomeInfo.package) {
             return jsonErr(res, 'Could not identify the TV\'s active HOME launcher via ADB. Debloating aborted to prevent disabling the TV\'s only working launcher. Please ensure the TV screen is unlocked and responds to ADB.', 500);
           }
           const activeHome = activeHomeInfo.package;
           const activeHomeComponent = activeHomeInfo.component;
+
+          // Mandatory write: persist launcher metadata BEFORE touching any packages
+          try {
+            fs.writeFileSync(path.join(backupDir, 'original-home.txt'), activeHome || '');
+            fs.writeFileSync(path.join(backupDir, 'original-home-component.txt'), activeHomeComponent || '');
+          } catch (e) {
+            return jsonErr(res, 'Failed to persist pre-debloat launcher metadata (' + e.message + '). Debloat aborted to protect TV.', 500);
+          }
 
           const isCleanTvActive = (activeHome === 'com.gathin.tvhome');
 
@@ -464,11 +472,11 @@ const server = http.createServer((req, res) => {
 
           function finish() {
             try {
-              fs.writeFileSync(path.join(backupDir, 'original-home.txt'), activeHome || '');
-              fs.writeFileSync(path.join(backupDir, 'original-home-component.txt'), activeHomeComponent || '');
               const debloatedOnly = results.filter(r => r.result === 'disabled').map(r => r.pkg);
               fs.writeFileSync(path.join(backupDir, 'debloated-packages.txt'), debloatedOnly.join('\n'));
-            } catch (e) {}
+            } catch (e) {
+              return jsonErr(res, 'Failed to record debloated package list in backup (' + e.message + ').', 500);
+            }
 
             jsonOk(res, {
               preset: presetName,
@@ -535,9 +543,20 @@ const server = http.createServer((req, res) => {
           if (origComponent) {
             adbEnablePackage(device, origPkg, () => {
               adbExec(['-s', device, 'shell', 'cmd', 'package', 'set-home-activity', '--user', '0', origComponent], (errSet, setOut) => {
-                const homeSuccess = !errSet && !/Error|Exception/i.test(setOut || '');
-                adbKeyEvent(device, 3, () => {
-                  doneCb(homeSuccess, origComponent);
+                const cmdOk = !errSet && !/Error|Exception/i.test(setOut || '');
+                if (!cmdOk) {
+                  return adbKeyEvent(device, 3, () => doneCb(false, origComponent));
+                }
+
+                // Readback verification: query active HOME launcher again
+                adbResolveHome(device, (errRb, readbackLauncher) => {
+                  const verified = readbackLauncher && (
+                    (readbackLauncher.component && readbackLauncher.component.toLowerCase() === origComponent.toLowerCase()) ||
+                    (readbackLauncher.package && readbackLauncher.package.toLowerCase() === origPkg.toLowerCase())
+                  );
+                  adbKeyEvent(device, 3, () => {
+                    doneCb(Boolean(verified), origComponent);
+                  });
                 });
               });
             });

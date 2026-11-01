@@ -171,4 +171,6 @@
     <string name="catalog_key_removed">Watchmode key removed</string>
     <string name="catalog_key_save">Save</string>
     <string name="catalog_key_clear">Clear</string>
+    <string name="voice_ai">Voice AI</string>
+    <string name="voice_ai_pill">AI</string>
 </resources>

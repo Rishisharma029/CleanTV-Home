@@ -10,10 +10,10 @@ import android.provider.Settings;
 
 /** The standard settings intent, or, when nothing usable answers it, the first vendor settings entry
  *  from settings_fallback_components that is installed (Xiaomi China, TCL / FFALCON, Fire OS). */
-final class SystemSettings {
+public final class SystemSettings {
     private SystemSettings() {}
 
-    static Intent intent(Context context, String action) {
+    public static Intent intent(Context context, String action) {
         PackageManager pm = context.getPackageManager();
         Intent standard = new Intent(action);
         ResolveInfo resolved = pm.resolveActivity(standard, PackageManager.MATCH_DEFAULT_ONLY);
@@ -28,7 +28,7 @@ final class SystemSettings {
      *  when none is. China-market firmware keeps pages the AOSP TV settings has no row for -
      *  Xiaomi's Account & Security, where the ADB switch lives - in the vendor's own settings app;
      *  MainActivity's Settings menu offers it as "Native settings" while one is installed. */
-    static Intent vendorIntent(Context context) {
+    public static Intent vendorIntent(Context context) {
         PackageManager pm = context.getPackageManager();
         for (String value : context.getResources().getStringArray(R.array.settings_fallback_components)) {
             ComponentName component = ComponentName.unflattenFromString(value);
@@ -45,7 +45,7 @@ final class SystemSettings {
     }
 
     /** The TV's App info page for pkg, or null where the firmware has none (CVTE's settings app, #1202). */
-    static Intent appInfo(Context context, String pkg) {
+    public static Intent appInfo(Context context, String pkg) {
         Intent info = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg));
         return context.getPackageManager().resolveActivity(info, PackageManager.MATCH_DEFAULT_ONLY) != null ? info : null;
     }

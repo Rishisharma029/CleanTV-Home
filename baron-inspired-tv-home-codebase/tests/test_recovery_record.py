@@ -100,8 +100,12 @@ class RecoveryRecordTest(unittest.TestCase):
         # tv.py for the transport and the real recovery.py for the logic.
         client = tools / "venv" / "bin" / "python"
         client.parent.mkdir(parents=True)
-        client.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+        client.write_bytes(b'#!/bin/sh\nexec python3 "$@"\n')
         client.chmod(0o755)
+        if sys.platform == "win32":
+            win_client = tools / "venv" / "Scripts" / "python.exe"
+            win_client.parent.mkdir(parents=True, exist_ok=True)
+            win_client.write_bytes(f'@echo off\r\n"{sys.executable}" %*\r\n'.encode("utf-8"))
 
         self.home = self.base / "home"
         self.home.mkdir()
@@ -128,10 +132,17 @@ class RecoveryRecordTest(unittest.TestCase):
         self.state_path.write_text(json.dumps(state))
 
     def run_script(self, script, *args):
-        env = dict(os.environ, TV_HOST="192.168.1.50", HOME=str(self.home),
-                   FAKE_TV_STATE=str(self.state_path))
+        def to_bash(p):
+            p_str = Path(p).as_posix()
+            if len(p_str) >= 2 and p_str[1] == ":":
+                return f"/mnt/{p_str[0].lower()}{p_str[2:]}"
+            return p_str
+        env = dict(os.environ, TV_HOST="192.168.1.50", HOME=to_bash(self.home),
+                   FAKE_TV_STATE=to_bash(self.state_path))
+        script_path = f"tools/{script}"
+        posix_args = [to_bash(a) if isinstance(a, (str, Path)) else a for a in args]
         return subprocess.run(
-            ["bash", str(self.repo / "tools" / script), *args],
+            ["bash", script_path, *posix_args],
             cwd=self.repo, env=env, capture_output=True, text=True, timeout=120,
         )
 

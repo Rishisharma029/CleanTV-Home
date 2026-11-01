@@ -73,6 +73,10 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.gathin.tvhome.ai.TvAppLookup;
+import com.gathin.tvhome.ai.TvAppResolver;
+import com.gathin.tvhome.ai.ui.VoiceAiHUD;
+
 import androidx.annotation.NonNull;
 import androidx.dynamicanimation.animation.FloatPropertyCompat;
 import androidx.dynamicanimation.animation.SpringAnimation;
@@ -154,6 +158,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private final List<TopShelfManager.ShelfItem> activeShelfItems = new ArrayList<>();
     private Runnable topShelfRunnable;
     private ControlCenterHUD controlCenterHud;
+    private VoiceAiHUD voiceAiHud;
     private long settingsDownTimestamp = 0;
     private boolean settingsLongPressTriggered = false;
     /** Cinematic top shelf (config.xml, cinematic_home): the focused dock app's artwork behind a larger shelf. */
@@ -483,6 +488,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
         controlCenterHud = new ControlCenterHUD(this, root);
+        voiceAiHud = new VoiceAiHUD(this, root);
         // root fills the window with an opaque colour (Config keeps background_color opaque), so the window's own
         // black under it is a second full-screen fill on every frame for nothing. The starting window still uses
         // the theme's background, so launch looks the same.
@@ -803,9 +809,39 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
                 }
             });
-            btnProfile.setOnKeyListener(topBarKeyListener);
+            btnProfile.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                        ProfilePickerDialog.show(this);
+                        return true;
+                    }
+                }
+                return topBarKeyListener.onKey(v, keyCode, event);
+            });
             updateProfileButton();
             ProfileManager.registerListener(profileListener);
+        }
+
+        View btnVoiceAiHome = findViewById(R.id.btnVoiceAiHome);
+        if (btnVoiceAiHome != null) {
+            btnVoiceAiHome.setOnClickListener(v -> showVoiceAiHud());
+            btnVoiceAiHome.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(120).start();
+                    v.playSoundEffect(SoundEffectConstants.CLICK);
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                }
+            });
+            btnVoiceAiHome.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                        showVoiceAiHud();
+                        return true;
+                    }
+                }
+                return topBarKeyListener.onKey(v, keyCode, event);
+            });
         }
 
         View btnControlCenter = findViewById(R.id.btnControlCenter);
@@ -864,7 +900,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnLibraryTop.setVisibility(cfg.libraryButton && cfg.appLibrary ? View.VISIBLE : View.GONE);
 
         // Bind unified top bar D-pad key navigation to all top controls
-        View[] topBarControls = new View[]{btnProfile, btnInputs, btnAudio, btnStorage, btnWifi, btnReorder, btnLibraryTop, btnControlCenter, btnSettings};
+        View[] topBarControls = new View[]{btnProfile, btnVoiceAiHome, btnInputs, btnAudio, btnStorage, btnWifi, btnReorder, btnLibraryTop, btnControlCenter, btnSettings};
         for (View b : topBarControls) {
             if (b != null) b.setOnKeyListener(topBarKeyListener);
         }
@@ -1024,6 +1060,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onNewIntent(intent);
         if (intent != null && intent.getBooleanExtra("control_center", false)) {
             showControlCenter();
+            return;
+        }
+        if (intent != null && intent.getBooleanExtra("voice_ai", false)) {
+            String q = intent.getStringExtra("voice_ai_query");
+            if (voiceAiHud != null) {
+                if (q != null && !q.trim().isEmpty()) {
+                    voiceAiHud.show(q);
+                } else {
+                    voiceAiHud.show();
+                }
+            }
             return;
         }
         if (openLauncherSettingsIfAsked(intent)) return;
@@ -1432,6 +1479,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (voiceAiHud != null && voiceAiHud.isShowing()) {
+            if (voiceAiHud.dispatchKeyEvent(event)) return true;
+        }
+        if (isVoiceAssistKey(event.getKeyCode())) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                showVoiceAiHud();
+            }
+            return true;
+        }
         if (controlCenterHud != null && controlCenterHud.isShowing()) {
             if (controlCenterHud.dispatchKeyEvent(event)) return true;
         }
@@ -1803,6 +1859,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public void onBackPressed() {
+        if (voiceAiHud != null && voiceAiHud.isShowing()) {
+            voiceAiHud.dismiss();
+            return;
+        }
         if (controlCenterHud != null && controlCenterHud.isShowing()) {
             controlCenterHud.dismiss();
             return;
@@ -1987,6 +2047,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (prof != null && prof.getVisibility() == View.VISIBLE && prof.isFocusable()) {
             list.add(prof);
         }
+        View aiHome = findViewById(R.id.btnVoiceAiHome);
+        if (aiHome != null && aiHome.getVisibility() == View.VISIBLE && aiHome.isFocusable()) {
+            list.add(aiHome);
+        }
         ViewGroup bar = findViewById(R.id.topButtons);
         if (bar != null) {
             for (int i = 0; i < bar.getChildCount(); i++) {
@@ -2013,6 +2077,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private final View.OnKeyListener topBarKeyListener = (v, keyCode, event) -> {
         if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            v.performClick();
+            v.playSoundEffect(SoundEffectConstants.CLICK);
+            return true;
+        }
 
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
             return true;
@@ -3847,6 +3917,48 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      *  for ACCESS_TV_SOURCE). */
     public void showControlCenter() {
         if (controlCenterHud != null) controlCenterHud.show();
+    }
+
+    public void showVoiceAiHud() {
+        android.util.Log.i("CleanTvAI", "MainActivity.showVoiceAiHud() called, voiceAiHud=" + voiceAiHud);
+        if (voiceAiHud != null) voiceAiHud.show();
+    }
+
+    public void showVoiceAi() {
+        showVoiceAiHud();
+    }
+
+    public VoiceAiHUD getVoiceAiHud() {
+        return voiceAiHud;
+    }
+
+    public static boolean isVoiceAssistKey(int keyCode) {
+        return keyCode == VoiceAiHUD.KEYCODE_VOICE_ASSIST // 231
+                || keyCode == VoiceAiHUD.KEYCODE_SEARCH   // 84
+                || keyCode == VoiceAiHUD.KEYCODE_ASSIST;  // 219
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (isVoiceAssistKey(keyCode)) {
+            showVoiceAiHud();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    public TvAppLookup getAppLookup() {
+        TvAppResolver resolver = new TvAppResolver();
+        if (adapter != null) {
+            for (int i = 0; i < adapter.appCount(); i++) {
+                String pkg = adapter.packageAt(i);
+                String label = adapter.labelAt(i);
+                if (pkg != null && !pkg.isEmpty()) {
+                    resolver.addApp(pkg, label);
+                }
+            }
+        }
+        return resolver;
     }
 
     public void showAddonHub() {

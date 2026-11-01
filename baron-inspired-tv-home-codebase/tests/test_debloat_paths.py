@@ -68,7 +68,7 @@ class DebloatPathsTest(unittest.TestCase):
         env.update(CAPTURE=str(capture), HOME=str(home))
         # The fake tv.py reads its stdin, so an inherited terminal would leave it waiting.
         result = subprocess.run(
-            ["bash", str(script_path), argument], cwd=cwd, env=env,
+            ["bash", Path(script_path).as_posix(), Path(argument).as_posix()], cwd=cwd, env=env,
             capture_output=True, text=True, stdin=subprocess.DEVNULL,
         )
         return result, capture

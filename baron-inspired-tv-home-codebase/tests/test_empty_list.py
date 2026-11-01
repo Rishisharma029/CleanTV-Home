@@ -150,7 +150,7 @@ class EmptyListTest(unittest.TestCase):
         env = dict(os.environ, TV_HOST="192.168.1.50", HOME=str(self.home),
                    FAKE_TV_STATE=str(self.state_path))
         if entry == "sh":
-            argv = ["bash", str(self.tools / "disable.sh"), str(self.list_path)]
+            argv = ["bash", (self.tools / "disable.sh").as_posix(), self.list_path.as_posix()]
         else:
             argv = [PWSH, "-NoProfile", "-File", str(self.tools / "disable.ps1"),
                     "-TvHost", "192.168.1.50", str(self.list_path)]

@@ -158,7 +158,7 @@ class HomeGuardTest(unittest.TestCase):
         env = dict(os.environ, TV_HOST="192.168.1.50", HOME=str(self.home),
                    FAKE_TV_STATE=str(self.state_path), **(extra_env or {}))
         if entry == "sh":
-            argv = ["bash", str(self.tools / "disable.sh"), str(list_path or self.list_path)]
+            argv = ["bash", (self.tools / "disable.sh").as_posix(), (list_path or self.list_path).as_posix()]
         else:
             argv = [PWSH, "-NoProfile", "-File", str(self.tools / "disable.ps1"),
                     "-TvHost", "192.168.1.50", str(list_path or self.list_path)]

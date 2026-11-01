@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CleanTV Home Desktop Manager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="window-shell">
+    <!-- Top Acrylic Title Bar -->
+    <header class="titlebar">
+      <div class="app-branding">
+        <div class="app-icon">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38BDF8" stroke-width="2">
+            <rect x="2" y="7" width="20" height="13" rx="2"></rect>
+            <path d="M17 2l-5 5-5-5"></path>
+          </svg>
+        </div>
+        <span class="app-title">CleanTV Home Desktop Manager</span>
+        <span class="app-version">v4.0.0 · Windows Store Edition</span>
+      </div>
+      <div class="device-pill" id="deviceStatusPill">
+        <span class="status-dot disconnected" id="statusDot"></span>
+        <span class="status-text" id="statusText">Scanning Devices...</span>
+      </div>
+    </header>
+
+    <!-- Main Navigation & Sidebar -->
+    <div class="main-body">
+      <nav class="sidebar">
+        <button class="nav-item active" data-tab="tab-connect">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          <span>Connect</span>
+        </button>
+        <button class="nav-item" data-tab="tab-launcher">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+          <span>CleanTV APK</span>
+        </button>
+        <button class="nav-item" data-tab="tab-debloater">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          <span>TV Debloater</span>
+        </button>
+        <button class="nav-item" data-tab="tab-remote">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"></rect><circle cx="12" cy="8" r="3"></circle><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="12" y1="17" x2="12" y2="17.01"></line></svg>
+          <span>Virtual Remote</span>
+        </button>
+        <button class="nav-item" data-tab="tab-ai">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+          <span>Voice & AI</span>
+        </button>
+      </nav>
+
+      <!-- Content Views -->
+      <main class="content-viewport">
+        <!-- Tab 1: Connect -->
+        <section class="tab-pane active" id="tab-connect">
+          <div class="glass-card header-card">
+            <h2>Wireless Android TV Connection</h2>
+            <p>Connect CleanTV Desktop Manager to your Android TV or Google TV over ADB via Wi-Fi or USB.</p>
+            <div class="connect-form">
+              <input type="text" id="tvIpInput" class="input-text" placeholder="192.168.0.159:5555" value="192.168.0.159:5555">
+              <button class="btn btn-primary" id="btnConnect">Connect to TV</button>
+              <button class="btn btn-secondary" id="btnScan">Auto-Scan</button>
+              <button class="btn btn-secondary" id="btnEmu">Connect Emulator</button>
+            </div>
+          </div>
+
+          <div class="grid-two">
+            <div class="glass-card">
+              <h3>Active Device Information</h3>
+              <ul class="info-list" id="deviceInfoList">
+                <li><span class="label">Device Name:</span> <span class="val" id="infoDeviceName">Realme Smart TV / Android TV</span></li>
+                <li><span class="label">ADB Status:</span> <span class="val" id="infoAdbStatus">Online (Port 5555)</span></li>
+                <li><span class="label">Launcher State:</span> <span class="val" id="infoLauncherState">CleanTV Home v4.0 Active</span></li>
+                <li><span class="label">Memory Status:</span> <span class="val" id="infoMemory">1.7 GB Free / 2.0 GB Total</span></li>
+              </ul>
+            </div>
+            <div class="glass-card">
+              <h3>Quick Actions</h3>
+              <div class="action-buttons-stack">
+                <button class="btn btn-ghost" id="btnPingTv">⚡ Ping & Verify Connection</button>
+                <button class="btn btn-ghost" id="btnWakeTv">📺 Wake TV Screen</button>
+                <button class="btn btn-ghost" id="btnOpenWebRemote">🌐 Open Browser Web Remote</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2: CleanTV APK -->
+        <section class="tab-pane" id="tab-launcher">
+          <div class="glass-card">
+            <h2>Deploy & Update CleanTV Home Launcher</h2>
+            <p>Push the latest compiled build (with Voice AI HUD, Apple TV-styled Glass Dock, and Kids Guard) to your TV.</p>
+            
+            <div class="apk-card">
+              <div class="apk-meta">
+                <div class="badge">LATEST APK</div>
+                <h3>clean-tv-launcher-latest.apk</h3>
+                <p>Pure Java 17 · SDK 34 · RenderThread 60-120 FPS Engine · On-Device AI Controller</p>
+              </div>
+              <button class="btn btn-primary btn-large" id="btnDeployApk">🚀 Push & Update TV Now</button>
+            </div>
+
+            <div class="install-progress-box" id="installProgressBox" style="display:none;">
+              <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+              <p class="progress-label" id="progressLabel">Streaming APK over ADB...</p>
+            </div>
+
+            <div class="callout-note">
+              <strong>100% Reversible Guarantee:</strong> CleanTV does not root or overwrite system firmware. You can restore your stock TV launcher anytime in 1 click from the Debloater tab.
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 3: TV Debloater -->
+        <section class="tab-pane" id="tab-debloater">
+          <div class="glass-card">
+            <div class="header-flex">
+              <div>
+                <h2>Universal 150+ TV Auto-Debloater</h2>
+                <p>Select your TV manufacturer to review and safely disable vendor bloatware, telemetry, and background ad miners.</p>
+              </div>
+              <div class="preset-selector">
+                <select id="presetSelect" class="dropdown">
+                  <option value="realme">Realme TV (Anoki, AI PONT, Homwee)</option>
+                  <option value="sony">Sony Bravia (Samba TV, Recommendations)</option>
+                  <option value="xiaomi">Xiaomi / Mi TV / PatchWall</option>
+                  <option value="tcl">TCL Android TV (TCL Channel, Telemetry)</option>
+                  <option value="oneplus">OnePlus TV (OxygenPlay, Services)</option>
+                  <option value="firetv">Amazon Fire TV (Amazon Ads, Shopper)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="debloat-stats-bar">
+              <div class="stat"><span class="num" id="statPackages">14</span><span class="desc">Bloatware Items</span></div>
+              <div class="stat"><span class="num" id="statRam">~185 MB</span><span class="desc">RAM Saved</span></div>
+              <div class="stat"><span class="num" id="statSafety">100% SAFE</span><span class="desc">Non-Destructive</span></div>
+            </div>
+
+            <div class="package-list" id="packageList">
+              <!-- Dynamically populated -->
+            </div>
+
+            <div class="debloat-action-footer">
+              <button class="btn btn-danger" id="btnRunDebloat">⚡ 1-Click Safe Debloat</button>
+              <button class="btn btn-secondary" id="btnRunRestore">🔄 Factory Restore All</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 4: Virtual Remote -->
+        <section class="tab-pane" id="tab-remote">
+          <div class="remote-layout">
+            <div class="remote-device">
+              <div class="remote-top">
+                <button class="remote-btn round" data-key="26">⚡ Power</button>
+                <button class="remote-btn round" data-key="82">☰ Menu</button>
+              </div>
+
+              <!-- D-pad Circle -->
+              <div class="dpad-wheel">
+                <button class="dpad-dir dpad-up" data-key="19">▲</button>
+                <button class="dpad-dir dpad-left" data-key="21">◀</button>
+                <button class="dpad-center" data-key="23">OK</button>
+                <button class="dpad-dir dpad-right" data-key="22">▶</button>
+                <button class="dpad-dir dpad-down" data-key="20">▼</button>
+              </div>
+
+              <div class="remote-nav-row">
+                <button class="remote-btn pill" data-key="4">↩ Back</button>
+                <button class="remote-btn pill" data-key="3">🏠 Home</button>
+              </div>
+
+              <div class="remote-nav-row">
+                <button class="remote-btn pill" id="btnRemoteAi">✨ AI HUD</button>
+                <button class="remote-btn pill" id="btnRemoteCc">🎛️ Control</button>
+              </div>
+
+              <div class="volume-slider-group">
+                <button class="remote-btn round" data-key="25">🔉 -</button>
+                <button class="remote-btn round" data-key="164">🔇</button>
+                <button class="remote-btn round" data-key="24">🔊 +</button>
+              </div>
+            </div>
+
+            <div class="glass-card remote-companion">
+              <h3>Live Remote Log</h3>
+              <p>Key events are transmitted over low-latency socket to the TV.</p>
+              <div class="console-box" id="remoteConsole">CleanTV Remote Bridge connected.<br>> Remote Ready.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 5: Voice & AI Controller -->
+        <section class="tab-pane" id="tab-ai">
+          <div class="glass-card">
+            <h2>Personal AI TV Controller</h2>
+            <p>Speak or type TV commands. CleanTV parses the intent locally and controls the TV instantly, falling back to Google Assistant for general knowledge.</p>
+
+            <div class="ai-input-bar">
+              <input type="text" id="aiTextInput" class="input-text" placeholder="Type a TV command, e.g. 'open YouTube', 'volume 40%', 'sleep timer'...">
+              <button class="btn btn-primary" id="btnAiSend">Execute</button>
+            </div>
+
+            <div class="quick-chips-row">
+              <button class="chip" data-cmd="open YouTube">▶ Open YouTube</button>
+              <button class="chip" data-cmd="open settings">⚙️ Open Settings</button>
+              <button class="chip" data-cmd="volume up">🔊 Volume Up</button>
+              <button class="chip" data-cmd="mute">🔇 Mute</button>
+              <button class="chip" data-cmd="screensaver">🖼️ Aerial Screensaver</button>
+              <button class="chip" data-cmd="sleep timer">⏱️ Sleep Timer</button>
+              <button class="chip" data-cmd="who is the president">💡 Ask Assistant</button>
+            </div>
+
+            <div class="ai-execution-card" id="aiExecutionCard">
+              <div class="ai-orb">✨</div>
+              <div class="ai-details">
+                <span class="ai-badge" id="aiIntentBadge">READY</span>
+                <h4 id="aiActionTitle">Awaiting Command</h4>
+                <p id="aiActionSubtitle">Click a suggestion above or type a command.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "name": "cleantv-desktop-manager",
+  "version": "4.0.0",
+  "description": "CleanTV Home Desktop Manager & TV Companion for Windows",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "build:exe": "powershell -ExecutionPolicy Bypass -File scripts/build-exe.ps1",
+    "build:msix": "powershell -ExecutionPolicy Bypass -File scripts/build-msix.ps1",
+    "package": "npm run build:exe && npm run build:msix",
+    "test": "node tests/test-manifest.js"
+  },
+  "keywords": [
+    "cleantv",
+    "android-tv",
+    "windows-store",
+    "msix",
+    "tv-remote",
+    "debloater",
+    "ai-controller"
+  ],
+  "author": "CleanTV Open Source",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.2.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.cleantv.desktop",
+    "productName": "CleanTV Home Desktop Manager",
+    "win": {
+      "target": ["msix", "nsis"],
+      "icon": "assets/Square150x150Logo.png"
+    },
+    "msix": {
+      "identityName": "CleanTV.Home.Manager",
+      "publisher": "CN=CleanTV",
+      "publisherDisplayName": "CleanTV Open Source",
+      "backgroundColor": "#0B0F19"
+    }
+  }
+}

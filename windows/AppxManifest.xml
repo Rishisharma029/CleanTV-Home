@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+         IgnorableNamespaces="uap rescap desktop">
+
+  <Identity Name="CleanTV.Home.Manager"
+            Publisher="CN=CleanTV"
+            Version="4.0.0.0"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>CleanTV Home Desktop Manager</DisplayName>
+    <PublisherDisplayName>CleanTV Open Source</PublisherDisplayName>
+    <Logo>assets\StoreLogo.png</Logo>
+    <Description>The Apple TV-inspired desktop companion for Android TV: 1-click debloater, launcher installer, wireless web remote, and voice AI controller for Windows.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+                        MinVersion="10.0.17763.0"
+                        MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application Id="CleanTVDesktop"
+                 Executable="CleanTV.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="CleanTV Home Desktop Manager"
+                          Description="CleanTV Home Desktop Manager &amp; TV Companion"
+                          BackgroundColor="#0B0F19"
+                          Square150x150Logo="assets\Square150x150Logo.png"
+                          Square44x44Logo="assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="assets\Wide310x150Logo.png"
+                         Square310x310Logo="assets\Square310x310Logo.png"
+                         ShortName="CleanTV">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="assets\SplashScreen.png"
+                          BackgroundColor="#0B0F19" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

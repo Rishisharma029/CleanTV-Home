@@ -91,7 +91,7 @@ class CorePackagesTest(unittest.TestCase):
                                "com.google.android.overlay.modules.ext.services\n")
             env = dict(os.environ, TV_HOST="192.168.1.50", FORCE_HOME="1", FORCE_SETUPWRAITH="1",
                        TVINPUT_ALLOW="1")
-            result = subprocess.run(["bash", str(tools / "disable.sh"), str(listing)], cwd=repo, env=env,
+            result = subprocess.run(["bash", (tools / "disable.sh").as_posix(), listing.as_posix()], cwd=repo, env=env,
                                     capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=60)
             self.assertEqual(1, result.returncode, result.stdout + result.stderr)
             self.assertIn("#884", result.stderr)

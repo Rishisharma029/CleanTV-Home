@@ -134,7 +134,7 @@ class MinSdkGuardTest(unittest.TestCase):
                    HOME=str(self.home), JAVA_HOME=str(self.base / "java"),
                    ANDROID_HOME=str(self.base / "android-sdk"))
         result = subprocess.run(
-            ["bash", str(self.launcher / "build-and-install.sh")],
+            ["bash", (self.launcher / "build-and-install.sh").as_posix()],
             cwd=self.launcher, env=env, capture_output=True, text=True, timeout=180,
         )
         with open(self.state_path) as f:

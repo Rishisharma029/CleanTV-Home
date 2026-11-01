@@ -324,6 +324,10 @@ public final class ControlCenterHUD {
 
         panel = null;
 
+        if (activity != null && activity.getVoiceAiHud() != null && activity.getVoiceAiHud().isShowing()) {
+            return;
+        }
+
         if (previousFocus != null && previousFocus.isAttachedToWindow() && previousFocus.getVisibility() == View.VISIBLE) {
 
             previousFocus.requestFocus();
@@ -392,7 +396,7 @@ public final class ControlCenterHUD {
 
                             || id == R.id.btnCcSystemSettings) {
 
-                        dismiss();
+                        dismissImmediate();
 
                         return true;
 
@@ -852,7 +856,7 @@ public final class ControlCenterHUD {
 
             cardSmartHome.setOnClickListener(v -> {
 
-                dismiss();
+                dismissImmediate();
 
                 SmartHomeHUD.show(activity);
 
@@ -1034,7 +1038,7 @@ public final class ControlCenterHUD {
 
             row.setOnClickListener(v -> {
 
-                dismiss();
+                dismissImmediate();
 
                 activity.openInput(dev.inputId);
 
@@ -1156,7 +1160,7 @@ public final class ControlCenterHUD {
 
                 if (ProfileManager.isKidsMode(activity)) {
                     PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access settings", () -> {
-                        dismiss();
+                        dismissImmediate();
                         activity.startActivity(new Intent(activity, LauncherSettingsActivity.class));
                     });
                     return;
@@ -1166,7 +1170,7 @@ public final class ControlCenterHUD {
                     return;
                 }
 
-                dismiss();
+                dismissImmediate();
 
                 activity.startActivity(new Intent(activity, LauncherSettingsActivity.class));
 
@@ -1186,7 +1190,7 @@ public final class ControlCenterHUD {
 
                 if (ProfileManager.isKidsMode(activity)) {
                     PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access system settings", () -> {
-                        dismiss();
+                        dismissImmediate();
                         activity.startActivity(new Intent(Settings.ACTION_SETTINGS));
                     });
                     return;
@@ -1196,7 +1200,7 @@ public final class ControlCenterHUD {
                     return;
                 }
 
-                dismiss();
+                dismissImmediate();
 
                 activity.startActivity(new Intent(Settings.ACTION_SETTINGS));
 
@@ -1214,7 +1218,7 @@ public final class ControlCenterHUD {
 
             cardAerial.setOnClickListener(v -> {
 
-                dismiss();
+                dismissImmediate();
 
                 activity.startActivity(new Intent(activity, AmbientAerialActivity.class));
 
@@ -1234,7 +1238,7 @@ public final class ControlCenterHUD {
 
                 if (ProfileManager.isKidsMode(activity)) {
                     PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access Add-on Hub", () -> {
-                        dismiss();
+                        dismissImmediate();
                         AddonHubDialog.show(activity);
                     });
                     return;
@@ -1244,7 +1248,7 @@ public final class ControlCenterHUD {
                     return;
                 }
 
-                dismiss();
+                dismissImmediate();
 
                 AddonHubDialog.show(activity);
 
@@ -1318,7 +1322,7 @@ public final class ControlCenterHUD {
 
                 if (ProfileManager.isKidsMode(activity)) {
                     PinEntryDialog.show(activity, "Parent PIN Required", "Enter PIN to access TV Debloater", () -> {
-                        dismiss();
+                        dismissImmediate();
                         DebloaterDialog.show(activity);
                     });
                     return;
@@ -1328,12 +1332,21 @@ public final class ControlCenterHUD {
                     return;
                 }
 
-                dismiss();
+                dismissImmediate();
 
                 DebloaterDialog.show(activity);
 
             });
 
+        }
+
+        View cardVoiceAi = hudRoot.findViewById(R.id.cardVoiceAi);
+        if (cardVoiceAi != null) {
+            applyCardFocusEffect(cardVoiceAi);
+            cardVoiceAi.setOnClickListener(v -> {
+                dismissImmediate();
+                activity.showVoiceAiHud();
+            });
         }
 
     }

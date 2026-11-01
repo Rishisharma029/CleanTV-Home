@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Voice AI HUD Surfaces -->
+    <color name="voice_ai_scrim">#B3000000</color>
+    <color name="voice_ai_card_bg_start">#F0131822</color>
+    <color name="voice_ai_card_bg_end">#F70C0E14</color>
+    <color name="voice_ai_card_stroke">#38FFFFFF</color>
+
+    <!-- State 1: LISTENING (Cyan) -->
+    <color name="voice_ai_listening_primary">#FF06B6D4</color>
+    <color name="voice_ai_listening_glow">#4D06B6D4</color>
+    <color name="voice_ai_listening_badge">#FF38BDF8</color>
+
+    <!-- State 2: PROCESSING (Indigo / Violet) -->
+    <color name="voice_ai_processing_primary">#FF818CF8</color>
+    <color name="voice_ai_processing_glow">#4D818CF8</color>
+    <color name="voice_ai_processing_badge">#FFA78BFA</color>
+
+    <!-- State 3: EXECUTING (Emerald / Mint) -->
+    <color name="voice_ai_executing_primary">#FF10B981</color>
+    <color name="voice_ai_executing_glow">#4D10B981</color>
+    <color name="voice_ai_executing_badge">#FF34D399</color>
+
+    <!-- State 4: FALLBACK (Google Blue) -->
+    <color name="voice_ai_fallback_primary">#FF4285F4</color>
+    <color name="voice_ai_fallback_glow">#4D4285F4</color>
+    <color name="voice_ai_fallback_badge">#FF60A5FA</color>
+
+    <!-- State 5: ERROR (Amber / Red) -->
+    <color name="voice_ai_error_primary">#FFEF4444</color>
+    <color name="voice_ai_error_glow">#4DEF4444</color>
+    <color name="voice_ai_error_badge">#FFF87171</color>
+</resources>

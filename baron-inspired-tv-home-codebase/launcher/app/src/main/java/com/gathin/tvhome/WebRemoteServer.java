@@ -7,6 +7,13 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
+import com.gathin.tvhome.ai.ExecutionResult;
+import com.gathin.tvhome.ai.TvActionExecutor;
+import com.gathin.tvhome.ai.TvIntent;
+import com.gathin.tvhome.ai.TvAppLookup;
+import com.gathin.tvhome.ai.TvAppResolver;
+import com.gathin.tvhome.ai.TvIntentClassifier;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -816,6 +823,11 @@ public final class WebRemoteServer {
                 List<FamilyNoteManager.Stroke> strokes = FamilyNoteManager.getStrokes();
                 String json = FamilyNoteManager.serializeToJson(strokes);
                 sendJson(out, json, isHead);
+            } else if (uri.startsWith("/api/ai/command")) {
+                drainBody(in, contentLength);
+                String query = extractQueryParam(uri, "q");
+                String aiJson = executeAiCommand(query);
+                sendJson(out, aiJson, isHead);
             } else if (uri.startsWith("/api/upload")) {
                 // Sideload APK directly from PC / Mobile browser over Wi-Fi
                 String fileName = extractQueryParam(uri, "name");
@@ -954,6 +966,9 @@ public final class WebRemoteServer {
                         case "sleeptimer":
                             SleepTimerManager.cycleNext(main);
                             break;
+                        case "voice_ai":
+                            main.showVoiceAiHud();
+                            break;
                         case "webremote_dialog":
                             WebRemoteDialog.show(main);
                             break;
@@ -969,6 +984,70 @@ public final class WebRemoteServer {
         }
     }
 
+
+    /**
+     * Executes an AI command query: classifies the intent locally and either dispatches a TV action
+     * or falls back to the native Google Assistant / Search AI on the TV.
+     *
+     * @param query Natural language command from the user (voice or text).
+     * @return JSON response string with status, action taken, and a user-facing message.
+     */
+    static String executeAiCommand(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return "{\"status\":\"error\",\"message\":\"No command provided.\",\"action\":\"none\",\"query\":\"\",\"isFallback\":false}";
+        }
+        String trimmedQuery = query.trim();
+        try {
+            Activity act = currentActivityRef != null ? currentActivityRef.get() : null;
+            TvAppLookup lookup = null;
+            if (act instanceof MainActivity) {
+                try {
+                    lookup = ((MainActivity) act).getAppLookup();
+                } catch (Throwable ignored) {}
+            }
+            if (lookup == null) {
+                lookup = new TvAppResolver();
+            }
+
+            TvIntent intent = TvIntentClassifier.classify(trimmedQuery, lookup);
+            if (intent == null) {
+                return new ExecutionResult("error", "none", null, "", "Classification failed", trimmedQuery, false).toJson().toString();
+            }
+
+            AtomicReference<ExecutionResult> resultRef = new AtomicReference<>();
+            CountDownLatch latch = new CountDownLatch(1);
+            Handler h = getMainHandler();
+            if (h != null && act != null) {
+                h.post(() -> {
+                    try {
+                        if (act instanceof MainActivity && ((MainActivity) act).getVoiceAiHud() != null) {
+                            MainActivity main = (MainActivity) act;
+                            main.getVoiceAiHud().show(trimmedQuery);
+                            resultRef.set(main.getVoiceAiHud().getLastResult());
+                        } else {
+                            resultRef.set(TvActionExecutor.execute(act, intent));
+                        }
+                    } catch (Throwable t) {
+                        resultRef.set(new ExecutionResult("error", "none", null, "", "Internal error: " + t.getMessage(), trimmedQuery, false));
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+                try { latch.await(3000, java.util.concurrent.TimeUnit.MILLISECONDS); } catch (InterruptedException ignored) {}
+            } else {
+                resultRef.set(TvActionExecutor.execute(act, intent));
+            }
+
+            ExecutionResult result = resultRef.get();
+            if (result == null) {
+                result = new ExecutionResult("error", "none", null, "", "Execution timed out.", trimmedQuery, false);
+            }
+            return result.toJson().toString();
+        } catch (Throwable t) {
+            logError("AI command error", t);
+            return new ExecutionResult("error", "none", null, "", "AI error: " + t.getMessage(), trimmedQuery, false).toJson().toString();
+        }
+    }
     private static String extractQueryParam(String uri, String param) {
         try {
             int qIdx = uri.indexOf('?');
@@ -1148,6 +1227,21 @@ public final class WebRemoteServer {
                 "    .empty-state { text-align: center; color: #64748b; font-size: 13px; padding: 24px; }\n" +
                 "    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #10b981; color: #042f2e; font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 9999px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s; opacity: 0; pointer-events: none; z-index: 1000; }\n" +
                 "    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }\n" +
+                "    .ai-card { background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(129,140,248,0.08)); border: 1px solid rgba(56,189,248,0.2); border-radius: 20px; padding: 18px; margin-bottom: 14px; }\n" +
+                "    .ai-title { font-size: 15px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }\n" +
+                "    .ai-subtitle { font-size: 11px; color: #64748b; margin-bottom: 14px; }\n" +
+                "    .ai-input-row { display: flex; gap: 8px; margin-bottom: 10px; }\n" +
+                "    .ai-input { flex: 1; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; color: #fff; padding: 12px 14px; font-size: 14px; outline: none; user-select: text; }\n" +
+                "    .ai-input:focus { border-color: #38bdf8; }\n" +
+                "    .btn-ai-send { background: #38bdf8; color: #0f172a; border: none; border-radius: 12px; font-weight: 700; padding: 0 16px; cursor: pointer; font-size: 13px; }\n" +
+                "    .btn-ai-mic { width: 48px; height: 48px; border-radius: 50%; background: rgba(129,140,248,0.2); border: 1px solid rgba(129,140,248,0.4); color: #818cf8; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }\n" +
+                "    .btn-ai-mic.listening { background: rgba(239,68,68,0.25); border-color: #ef4444; color: #ef4444; animation: pulse 1s infinite; }\n" +
+                "    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }\n" +
+                "    .ai-result { background: rgba(15,23,42,0.7); border-radius: 12px; padding: 12px 14px; margin-top: 4px; min-height: 44px; font-size: 13px; color: #cbd5e1; line-height: 1.5; border: 1px solid rgba(255,255,255,0.06); display: none; }\n" +
+                "    .ai-result.visible { display: block; }\n" +
+                "    .ai-result.success { border-color: rgba(16,185,129,0.3); }\n" +
+                "    .ai-result.error { border-color: rgba(239,68,68,0.3); }\n" +
+                "    .ai-fallback-note { font-size: 11px; color: #64748b; margin-top: 8px; text-align: center; }\n" +
                 "  </style>\n" +
                 "</head>\n" +
                 "<body>\n" +
@@ -1164,6 +1258,7 @@ public final class WebRemoteServer {
                 "    <button class=\"tab-btn\" id=\"tab-dock\" onclick=\"switchTab('dock')\">🗂️ Dock</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-addons\" onclick=\"switchTab('addons')\">📦 Add-ons</button>\n" +
                 "    <button class=\"tab-btn\" id=\"tab-debloat\" onclick=\"switchTab('debloat')\">⚡ Debloat</button>\n" +
+                "    <button class=\"tab-btn\" id=\"tab-ai\" onclick=\"switchTab('ai')\">🤖 AI</button>\n" +
                 "  </div>\n" +
                 "  <div id=\"pane-remote\" class=\"tab-content\">\n" +
                 "    <div class=\"card\">\n" +
@@ -1262,6 +1357,19 @@ public final class WebRemoteServer {
                 "    </div>\n" +
                 "    <div style=\"font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px;letter-spacing:0.05em;\">DETECTED OEM BLOATWARE PACKAGES</div>\n" +
                 "    <div id=\"debloatList\"></div>\n" +
+                "  </div>\n" +
+                "  <div id=\"pane-ai\" class=\"tab-content\" style=\"display:none\">\n" +
+                "    <div class=\"ai-card\">\n" +
+                "      <div class=\"ai-title\">🤖 Personal TV AI</div>\n" +
+                "      <div class=\"ai-subtitle\">Say or type a command. Unrecognized queries go to Google AI.</div>\n" +
+                "      <div class=\"ai-input-row\">\n" +
+                "        <input type=\"text\" class=\"ai-input\" id=\"aiInput\" placeholder=\"e.g. open YouTube, volume up, mute...\" autocomplete=\"off\" onkeydown=\"if(event.key==='Enter')sendAiCommand()\">\n" +
+                "        <button class=\"btn-ai-send\" onclick=\"sendAiCommand()\">Send</button>\n" +
+                "        <button class=\"btn-ai-mic\" id=\"aiMicBtn\" onclick=\"toggleAiMic()\" title=\"Voice input\">🎤</button>\n" +
+                "      </div>\n" +
+                "      <div class=\"ai-result\" id=\"aiResult\"></div>\n" +
+                "      <div class=\"ai-fallback-note\">Unrecognized commands automatically fall back to Google AI on the TV.</div>\n" +
+                "    </div>\n" +
                 "  </div>\n" +
                 "  <div id=\"toast\" class=\"toast\"></div>\n" +
                 "  <script>\n" +
@@ -1690,6 +1798,75 @@ public final class WebRemoteServer {
                 "        showToast('Restored ' + (res.count || 0) + ' packages');\n" +
                 "        loadDebloat();\n" +
                 "      }).catch(()=>{});\n" +
+                "    }\n" +
+                "    function sendAiCommand() {\n" +
+                "      var input = document.getElementById('aiInput');\n" +
+                "      var q = input ? input.value.trim() : '';\n" +
+                "      if (!q) return;\n" +
+                "      var res = document.getElementById('aiResult');\n" +
+                "      if (res) {\n" +
+                "        res.className = 'ai-result visible';\n" +
+                "        res.textContent = '⏳ Processing: ' + q;\n" +
+                "      }\n" +
+                "      fetch('/api/ai/command?q=' + encodeURIComponent(q))\n" +
+                "        .then(function(r){ return r.json(); })\n" +
+                "        .then(function(d){\n" +
+                "          if (res) {\n" +
+                "            res.textContent = (d.status === 'ok' ? '✅ ' : '❌ ') + (d.message || d.status);\n" +
+                "            res.className = 'ai-result visible ' + (d.status === 'ok' ? 'success' : 'error');\n" +
+                "          }\n" +
+                "          if (d.status === 'ok' && input) input.value = '';\n" +
+                "          showToast(d.message || 'Done');\n" +
+                "        })\n" +
+                "        .catch(function(e){\n" +
+                "          if (res) {\n" +
+                "            res.className = 'ai-result visible error';\n" +
+                "            res.textContent = '❌ Error: ' + e.message;\n" +
+                "          }\n" +
+                "        });\n" +
+                "    }\n" +
+                "    var aiRecognition = null;\n" +
+                "    function toggleAiMic() {\n" +
+                "      var btn = document.getElementById('aiMicBtn');\n" +
+                "      if (aiRecognition) {\n" +
+                "        aiRecognition.stop();\n" +
+                "        aiRecognition = null;\n" +
+                "        if (btn) btn.classList.remove('listening');\n" +
+                "        return;\n" +
+                "      }\n" +
+                "      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;\n" +
+                "      if (!SR) {\n" +
+                "        showToast('Voice not supported in this browser');\n" +
+                "        return;\n" +
+                "      }\n" +
+                "      aiRecognition = new SR();\n" +
+                "      aiRecognition.lang = 'en-US';\n" +
+                "      aiRecognition.interimResults = false;\n" +
+                "      aiRecognition.maxAlternatives = 1;\n" +
+                "      if (btn) btn.classList.add('listening');\n" +
+                "      aiRecognition.onresult = function(e) {\n" +
+                "        var transcript = e.results[0][0].transcript;\n" +
+                "        var input = document.getElementById('aiInput');\n" +
+                "        if (input) input.value = transcript;\n" +
+                "        if (btn) btn.classList.remove('listening');\n" +
+                "        aiRecognition = null;\n" +
+                "        sendAiCommand();\n" +
+                "      };\n" +
+                "      aiRecognition.onerror = function(e) {\n" +
+                "        if (btn) btn.classList.remove('listening');\n" +
+                "        aiRecognition = null;\n" +
+                "        showToast('Mic error: ' + (e.error || 'unknown'));\n" +
+                "      };\n" +
+                "      aiRecognition.onend = function() {\n" +
+                "        if (btn) btn.classList.remove('listening');\n" +
+                "        aiRecognition = null;\n" +
+                "      };\n" +
+                "      try {\n" +
+                "        aiRecognition.start();\n" +
+                "      } catch(err) {\n" +
+                "        if (btn) btn.classList.remove('listening');\n" +
+                "        aiRecognition = null;\n" +
+                "      }\n" +
                 "    }\n" +
                 "  </script>\n" +
                 "</body>\n" +

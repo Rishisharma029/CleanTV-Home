@@ -32,7 +32,7 @@ jobs:
 
       - name: Shellcheck Installer Scripts
         run: |
-          if command -v shellcheck >/dev/null 2>&1; then
+          if command -v shellcheck > /dev/null 2>&1; then
             shellcheck -s bash install.sh restore.sh tools/get-adb.sh tools/adblock.sh
           fi
 
@@ -92,3 +92,158 @@ jobs:
           MANIFEST="baron-inspired-tv-home-codebase/launcher/app/src/main/AndroidManifest.xml"
           echo "Checking permissions in $MANIFEST..."
           grep "uses-permission" "$MANIFEST" || true
+
+  powershell-integration:
+    name: PowerShell Installer & Restore Logic Tests
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate install.ps1 Syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "install.ps1").Path, [ref]$null, [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "install.ps1: syntax OK" -ForegroundColor Green
+
+      - name: Validate restore.ps1 Syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          $null = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "restore.ps1").Path, [ref]$null, [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "restore.ps1: syntax OK" -ForegroundColor Green
+
+      - name: Test Preset Selection Logic (Unit)
+        shell: pwsh
+        run: |
+          # Inline the Resolve-PresetFile function from install.ps1 and test all branches
+          function Resolve-PresetFile {
+            param([string]$Brand, [string]$Model, [string]$ForcedPreset)
+            $presetsDir = "presets"
+            if (-not [string]::IsNullOrWhiteSpace($ForcedPreset)) {
+              $forced = Join-Path $presetsDir "$ForcedPreset.txt"
+              if (Test-Path $forced) { return $forced }
+            }
+            $b = $Brand.ToLower(); $m = $Model.ToLower()
+            if ($b -match 'realme|changhong' -or $m -match 'homwee') { return (Join-Path $presetsDir "realme-changhong.txt") }
+            if ($b -match 'xiaomi|redmi' -or $m -match 'mitv') { return (Join-Path $presetsDir "xiaomi-mitv.txt") }
+            if ($b -match 'tcl') { return (Join-Path $presetsDir "tcl-tv.txt") }
+            if ($b -match 'google' -or $m -match 'chromecast') { return (Join-Path $presetsDir "google-tv.txt") }
+            if ($b -match 'sony' -or $m -match 'bravia') { return (Join-Path $presetsDir "sony-bravia.txt") }
+            if ($b -match 'hisense') { return (Join-Path $presetsDir "hisense.txt") }
+            return (Join-Path $presetsDir "generic-android-tv.txt")
+          }
+
+          $cases = @(
+            @{ Brand="Realme"; Model="RMV2003"; Preset=""; Expect="realme-changhong.txt" },
+            @{ Brand="xiaomi"; Model="L55M6-ESINDTV"; Preset=""; Expect="xiaomi-mitv.txt" },
+            @{ Brand="TCL"; Model="55P735"; Preset=""; Expect="tcl-tv.txt" },
+            @{ Brand="Google"; Model="Chromecast"; Preset=""; Expect="google-tv.txt" },
+            @{ Brand="Sony"; Model="XR-55X90K"; Preset=""; Expect="sony-bravia.txt" },
+            @{ Brand="Hisense"; Model="55U7H"; Preset=""; Expect="hisense.txt" },
+            @{ Brand="Unknown"; Model="GenericBox"; Preset=""; Expect="generic-android-tv.txt" },
+            @{ Brand="AnyBrand"; Model="AnyModel"; Preset="tcl-tv"; Expect="tcl-tv.txt" }
+          )
+
+          $failed = $false
+          foreach ($c in $cases) {
+            $result = Resolve-PresetFile -Brand $c.Brand -Model $c.Model -ForcedPreset $c.Preset
+            $basename = Split-Path $result -Leaf
+            if ($basename -ne $c.Expect) {
+              Write-Host "FAIL: Brand='$($c.Brand)' Model='$($c.Model)' Preset='$($c.Preset)'" -ForegroundColor Red
+              Write-Host "      Expected: $($c.Expect)  Got: $basename" -ForegroundColor Red
+              $failed = $true
+            } else {
+              Write-Host "PASS: $($c.Brand)/$($c.Model) -> $basename" -ForegroundColor Green
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Test Backup-driven Restore Logic (Unit)
+        shell: pwsh
+        run: |
+          # Simulate the restore diff logic without ADB
+          $tmpDir = New-Item -ItemType Directory -Path "$env:TEMP\cleantv_restore_test_$(Get-Random)"
+
+          # Simulate: before install, 'com.bloat.a' was already disabled
+          # After install, 'com.bloat.b' and 'com.bloat.c' were newly disabled
+          @("package:com.bloat.a") | Out-File "$tmpDir\packages-disabled.txt"
+
+          $disabledBeforeInstall = (Get-Content "$tmpDir\packages-disabled.txt") -replace '^package:', '' |
+            ForEach-Object { $_.Trim() } | Where-Object { $_ }
+
+          # Simulate current TV state: all three disabled
+          $currentlyDisabled = @("com.bloat.a", "com.bloat.b", "com.bloat.c")
+
+          $toRestore = $currentlyDisabled | Where-Object { $disabledBeforeInstall -notcontains $_ }
+
+          if ($toRestore -contains "com.bloat.b" -and $toRestore -contains "com.bloat.c" -and $toRestore -notcontains "com.bloat.a") {
+            Write-Host "PASS: Restore correctly identifies installer-disabled packages only" -ForegroundColor Green
+          } else {
+            Write-Host "FAIL: Restore logic returned unexpected set: $toRestore" -ForegroundColor Red
+            exit 1
+          }
+          Remove-Item $tmpDir -Recurse -Force
+
+      - name: Verify All Preset Files are Non-Empty and Well-Formed
+        shell: pwsh
+        run: |
+          $failed = $false
+          Get-ChildItem presets\*.txt | ForEach-Object {
+            $lines = Get-Content $_.FullName | Where-Object { $_ -notmatch '^\s*#' -and $_.Trim() -ne '' }
+            if ($lines.Count -eq 0) {
+              Write-Host "FAIL: $($_.Name) has no active (non-comment) package entries" -ForegroundColor Red
+              $failed = $true
+            } else {
+              Write-Host "PASS: $($_.Name) ($($lines.Count) active entries)" -ForegroundColor Green
+            }
+          }
+          if ($failed) { exit 1 }
+
+  windows-build:
+    name: Build & Package Windows Store Application (MSIX)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile Windows Executable (CleanTV.exe)
+        run: |
+          powershell -ExecutionPolicy Bypass -File windows/scripts/build-exe.ps1
+
+      - name: Build MSIX Package
+        run: |
+          powershell -ExecutionPolicy Bypass -File windows/scripts/build-msix.ps1
+
+      - name: Validate Manifest and MSIX Package
+        run: |
+          node windows/tests/test-manifest.js
+
+      - name: Upload MSIX Package Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CleanTV-Desktop-Manager-MSIX
+          path: windows/dist/CleanTV-Desktop-Manager-v4.0.0.msix

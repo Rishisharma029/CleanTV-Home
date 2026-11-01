@@ -134,7 +134,7 @@ class ThemePushTest(unittest.TestCase):
         full.update({"TV_HOST": "192.0.2.10", "FAKE_LOG": str(self.log), "FAKE_DIR": str(self.device),
                      "FAKE_STAGE": str(self.stage), "FAKE_CONTENT_LOG": str(self.content_log),
                      "PATH": f"{self.bin}:{full.get('PATH', '')}"}, **env)
-        return subprocess.run(["bash", str(self.tools / "theme.sh"), *args], env=full,
+        return subprocess.run(["bash", (self.tools / "theme.sh").as_posix(), *args], env=full,
                               capture_output=True, text=True, timeout=300)
 
     def shell_commands(self):

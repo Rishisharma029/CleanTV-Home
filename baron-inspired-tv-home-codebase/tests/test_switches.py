@@ -20,7 +20,7 @@ SWITCHES = DOCS / "switches.md"
 # Keys from before screenshots were required. This list only shrinks: once a key has a row in
 # docs/switches.md, take it off here.
 SCREENSHOT_WANTED = {
-    "accent_color", "advanced_effects", "always_show_names", "ambient_glow", "animations",
+    "accent_color", "advanced_effects", "always_show_names", "ambient_glow", "ambient_weather", "animations",
     "app_banners", "app_glow", "app_keys", "app_labels", "app_library", "app_library_selection",
     "background_color", "boot_to_live_tv", "cinematic_art", "cinematic_dots", "cinematic_home",
     "cinematic_scrim", "cinematic_white_focus", "coocaa_sources", "dock_apps", "dock_even_padding",
@@ -33,7 +33,7 @@ SCREENSHOT_WANTED = {
     "settings_fallback_components", "settings_key_keycodes", "shamsi_date",
     "show_home_settings_shortcut", "show_inputs_pill", "show_network_pill", "show_stats",
     "source_panel_action", "source_panel_extra", "source_panel_service", "stock_home_redirect",
-    "tile_menu", "top_menu", "vpn_app", "wallpaper", "wallpaper_captions", "wallpaper_dim",
+    "temperature_unit", "tile_menu", "top_menu", "vpn_app", "wallpaper", "wallpaper_captions", "wallpaper_dim",
     "wallpaper_moods", "wallpaper_order", "wallpaper_true_color", "wifi_label_width",
     "wifi_status_color",
 }

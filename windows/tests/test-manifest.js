@@ -62,8 +62,19 @@ if (fs.existsSync(exePath)) {
 assert(fs.existsSync(DIST_MSIX), `Dist MSIX package exists: ${path.basename(DIST_MSIX)}`);
 if (fs.existsSync(DIST_MSIX)) {
   const stat = fs.statSync(DIST_MSIX);
-  assert(stat.size > 5000, `MSIX package file size is valid (${stat.size} bytes)`);
+  assert(stat.size > 5000000, `MSIX package file size contains complete bundled payload (${stat.size} bytes > 5MB)`);
 }
+
+// 6b. Bundled APK and Platform Tools verification
+const bundledApk = path.join(WINDOWS_DIR, 'apks', 'clean-tv-launcher-latest.apk');
+assert(fs.existsSync(bundledApk), 'Bundled launcher APK exists in windows/apks/');
+if (fs.existsSync(bundledApk)) {
+  const apkStat = fs.statSync(bundledApk);
+  assert(apkStat.size > 1000000, `Launcher APK size is valid (${apkStat.size} bytes)`);
+}
+
+const bundledAdb = path.join(WINDOWS_DIR, 'platform-tools', 'adb.exe');
+assert(fs.existsSync(bundledAdb), 'Bundled adb.exe exists in windows/platform-tools/');
 
 // 7. Preset files: all 7 expected presets must exist and be non-empty
 const requiredPresets = [

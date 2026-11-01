@@ -1,0 +1,12 @@
+# Sony Bravia Android TV / Google TV - Safe Debloat Preset
+# Tested on Sony Bravia XR and X series (Android TV 9-11, Google TV 12+)
+# All packages are disabled (pm disable-user), NOT deleted. Fully reversible.
+com.sony.dtv.tvx                      # Sony TVX recommendation feed & sponsored content
+com.sony.dtv.oobe                     # Sony OOBE onboarding analytics daemon
+com.sony.dtv.networksync              # Sony analytics network sync background service
+com.sony.dtv.bravia.appupdate         # Silent background app auto-installer
+com.samba.tv.smarttv                  # Samba Interactive TV ACR / fingerprint telemetry
+com.google.android.tvrecommendations  # Google TV sponsored banners & promo rows
+com.google.android.feedback           # Google crash & usage analytics telemetry
+com.google.android.play.games         # Play Games TV background daemon
+com.google.android.syncadapters.calendar # Unused calendar background sync

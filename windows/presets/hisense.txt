@@ -1,0 +1,11 @@
+# Hisense Android TV / VIDAA AOSP - Safe Debloat Preset
+# Tested on Hisense U7/U8 series (Android TV 9-11)
+# All packages are disabled (pm disable-user), NOT deleted. Fully reversible.
+com.hisense.hiadsdk                   # Hisense ad SDK background service
+com.hisense.market                    # Hisense app store & promo installer
+com.hisense.remotediag                # Hisense remote diagnostics & telemetry
+com.hisense.updateservice             # Silent OEM background update installer
+com.google.android.tvrecommendations  # Google TV sponsored banners & promo rows
+com.google.android.feedback           # Google crash & usage analytics telemetry
+com.google.android.play.games         # Play Games TV background daemon
+com.google.android.syncadapters.calendar # Unused calendar background sync

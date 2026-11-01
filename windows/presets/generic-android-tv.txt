@@ -1,0 +1,6 @@
+# Generic Android TV / Google TV Ad & Telemetry packages
+# Works across most standard Android TV boxes and smart TVs
+com.google.android.tvrecommendations  # Sponsored rows & recommendation ads
+com.google.android.feedback           # Background crash telemetry
+com.google.android.play.games         # Play Games TV background service
+com.google.android.syncadapters.calendar # Unused TV calendar sync

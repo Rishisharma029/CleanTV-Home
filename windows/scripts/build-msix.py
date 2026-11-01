@@ -77,10 +77,15 @@ def generate_content_types():
   <Default Extension="xml" ContentType="application/vnd.ms-appx.manifest+xml"/>
   <Default Extension="png" ContentType="image/png"/>
   <Default Extension="exe" ContentType="application/x-msdownload"/>
+  <Default Extension="apk" ContentType="application/vnd.android.package-archive"/>
   <Default Extension="html" ContentType="text/html"/>
   <Default Extension="css" ContentType="text/css"/>
   <Default Extension="js" ContentType="application/javascript"/>
   <Default Extension="json" ContentType="application/json"/>
+  <Default Extension="dll" ContentType="application/x-msdownload"/>
+  <Default Extension="txt" ContentType="text/plain"/>
+  <Default Extension="conf" ContentType="text/plain"/>
+  <Default Extension="properties" ContentType="text/plain"/>
   <Override PartName="/AppxBlockMap.xml" ContentType="application/vnd.ms-appx.blockmap+xml"/>
   <Override PartName="/AppxManifest.xml" ContentType="application/vnd.ms-appx.manifest+xml"/>
 </Types>
@@ -111,6 +116,33 @@ def main():
     shutil.copy2(exe_path, staging_dir)
     shutil.copytree(os.path.join(windows_dir, "assets"), os.path.join(staging_dir, "assets"))
     shutil.copytree(os.path.join(windows_dir, "src", "ui"), os.path.join(staging_dir, "ui"))
+
+    # Bundle the launcher APK inside the MSIX (so install works without network)
+    repo_root = os.path.dirname(windows_dir)
+    apk_src = os.path.join(repo_root, "apks", "clean-tv-launcher-latest.apk")
+    if os.path.exists(apk_src):
+        os.makedirs(os.path.join(windows_dir, "apks"), exist_ok=True)
+        shutil.copy2(apk_src, os.path.join(windows_dir, "apks", "clean-tv-launcher-latest.apk"))
+        apks_staging = os.path.join(staging_dir, "apks")
+        os.makedirs(apks_staging, exist_ok=True)
+        shutil.copy2(apk_src, os.path.join(apks_staging, "clean-tv-launcher-latest.apk"))
+        print(f" -> Bundled launcher APK ({os.path.getsize(apk_src):,} bytes)")
+    else:
+        print(" -> WARNING: apks/clean-tv-launcher-latest.apk not found. APK install will require it beside CleanTV.exe.")
+
+    # Bundle platform-tools (adb.exe) if available
+    pt_src = os.path.join(windows_dir, "platform-tools")
+    if os.path.exists(pt_src) and os.path.exists(os.path.join(pt_src, "adb.exe")):
+        shutil.copytree(pt_src, os.path.join(staging_dir, "platform-tools"))
+        print(" -> Bundled platform-tools (adb.exe) - no PATH dependency")
+    else:
+        print(" -> NOTE: platform-tools not bundled. Run scripts/download-platform-tools.ps1 first.")
+
+    # Bundle debloat presets
+    presets_src = os.path.join(repo_root, "presets")
+    if os.path.exists(presets_src):
+        shutil.copytree(presets_src, os.path.join(staging_dir, "presets"))
+        print(f" -> Bundled debloat presets ({len(os.listdir(presets_src))} presets)")
 
     makeappx = find_makeappx()
     if makeappx:
@@ -161,3 +193,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

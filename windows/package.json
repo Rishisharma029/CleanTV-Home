@@ -7,8 +7,9 @@
     "start": "node src/main.js",
     "build:exe": "powershell -ExecutionPolicy Bypass -File scripts/build-exe.ps1",
     "build:msix": "powershell -ExecutionPolicy Bypass -File scripts/build-msix.ps1",
+    "download:adb": "powershell -ExecutionPolicy Bypass -File scripts/download-platform-tools.ps1",
     "package": "npm run build:exe && npm run build:msix",
-    "test": "node tests/test-manifest.js"
+    "test": "node tests/test-manifest.js && node tests/test-backend-integration.js"
   },
   "keywords": [
     "cleantv",

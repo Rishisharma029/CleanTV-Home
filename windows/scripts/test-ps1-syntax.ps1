@@ -1,4 +1,4 @@
-$scripts = @('install.ps1','restore.ps1','windows\scripts\build-exe.ps1','windows\scripts\build-msix.ps1')
+$scripts = @('install.ps1','restore.ps1','windows\scripts\build-exe.ps1','windows\scripts\build-msix.ps1','windows\scripts\download-platform-tools.ps1','windows\scripts\install-msix.ps1')
 $allOk = $true
 foreach ($s in $scripts) {
     $errors = $null

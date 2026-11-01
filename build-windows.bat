@@ -23,6 +23,12 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 
+node tests\test-backend-integration.js
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Backend integration tests failed!
+    exit /b %ERRORLEVEL%
+)
+
 echo.
 echo =======================================================
 echo [SUCCESS] Windows Store MSIX Package is ready!

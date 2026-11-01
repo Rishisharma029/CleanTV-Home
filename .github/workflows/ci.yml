@@ -230,6 +230,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Bundle Official Google Platform Tools (ADB)
+        run: |
+          powershell -ExecutionPolicy Bypass -File windows/scripts/download-platform-tools.ps1
+
       - name: Compile Windows Executable (CleanTV.exe)
         run: |
           powershell -ExecutionPolicy Bypass -File windows/scripts/build-exe.ps1
@@ -241,6 +245,27 @@ jobs:
       - name: Validate Manifest and MSIX Package
         run: |
           node windows/tests/test-manifest.js
+
+      - name: Run Windows Backend Integration Tests
+        run: |
+          node windows/tests/test-backend-integration.js
+
+      - name: Validate MSIX Package Structure via Windows SDK
+        shell: pwsh
+        run: |
+          $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if ($makeappx) {
+            Write-Host "Running Windows SDK makeappx validation with $makeappx..."
+            & $makeappx unpack /p windows/dist/CleanTV-Desktop-Manager-v4.0.0.msix /d test_msix_unpack /nv /l
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "makeappx validation failed"
+              exit 1
+            }
+            Write-Host "MSIX layout and packaging validation PASSED." -ForegroundColor Green
+            Remove-Item -Recurse -Force test_msix_unpack -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "makeappx not found on host; zip validation passed."
+          }
 
       - name: Upload MSIX Package Artifact
         uses: actions/upload-artifact@v4

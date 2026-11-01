@@ -1,0 +1,6 @@
+# TCL Smart TV Ad & Telemetry Bloatware
+# Safe to disable to remove TCL promotional channels and telemetry
+com.tcl.tvmanager                     # TCL system manager promotional push
+com.tcl.adservice                     # TCL background ad service
+com.tcl.useragreement                 # User tracking agreements
+com.google.android.tvrecommendations  # Google TV sponsored banners & recommendations

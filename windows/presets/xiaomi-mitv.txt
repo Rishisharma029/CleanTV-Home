@@ -1,0 +1,9 @@
+# Xiaomi / Redmi / Mi TV PatchWall & Analytics Bloatware
+# Safe to disable to remove heavy PatchWall ads and telemetry
+com.mitv.tvhome                       # Mi TV PatchWall ad-filled launcher
+com.xiaomi.mitv.upgrade               # Aggressive PatchWall background updater
+com.xiaomi.mitv.advertise             # Xiaomi ad service daemon
+com.xiaomi.mitv.payment               # PatchWall payment/store service
+com.xiaomi.mitv.shop                  # Mi Store shopping promo
+com.miui.analytics                    # MIUI analytics & data tracking
+com.google.android.tvrecommendations  # Google TV sponsored banners & recommendations

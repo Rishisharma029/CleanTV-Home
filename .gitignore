@@ -1,5 +1,7 @@
 # Platform Tools & Binaries
 bin/platform-tools/
+windows/platform-tools/
+windows/apks/
 bin/*.zip
 
 # User TV Backups & Snapshots

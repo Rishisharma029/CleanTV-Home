@@ -335,28 +335,63 @@ namespace CleanTV.Desktop
             return dev;
         }
 
-        private static string GetActiveHomePackage(string device)
+        public class HomeLauncherInfo
+        {
+            public string Package;
+            public string Component;
+        }
+
+        private static HomeLauncherInfo GetActiveHomeLauncher(string device)
         {
             // 1. Primary: modern Android (Android 8+) Intent resolution for category HOME
             var homeRes = RunAdb("-s " + device + " shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME", 5000);
             if (homeRes.ExitCode == 0)
             {
-                string combined = homeRes.Combined;
-                var match = Regex.Match(combined, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
-                if (match.Success) return match.Groups[1].Value.Trim();
+                var info = ParseHomeLauncher(homeRes.Combined);
+                if (info != null) return info;
             }
 
             // 2. Fallback for older Android (Android 5-7): pm resolve-activity for Intent category HOME
             var pmRes = RunAdb("-s " + device + " shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME", 5000);
             if (pmRes.ExitCode == 0)
             {
-                string combined = pmRes.Combined;
-                var match = Regex.Match(combined, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
-                if (match.Success) return match.Groups[1].Value.Trim();
+                var info = ParseHomeLauncher(pmRes.Combined);
+                if (info != null) return info;
             }
 
             // Fail-closed: Never fall back to mResumedActivity (which identifies foreground apps like YouTube or Settings, not HOME)
             return null;
+        }
+
+        private static HomeLauncherInfo ParseHomeLauncher(string output)
+        {
+            if (string.IsNullOrEmpty(output)) return null;
+            var matchComp = Regex.Match(output, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/(\.?[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)");
+            if (matchComp.Success && matchComp.Groups[2].Length > 0)
+            {
+                return new HomeLauncherInfo
+                {
+                    Package = matchComp.Groups[1].Value.Trim(),
+                    Component = matchComp.Groups[0].Value.Trim()
+                };
+            }
+            var matchPkg = Regex.Match(output, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
+            if (matchPkg.Success)
+            {
+                string pkg = matchPkg.Groups[1].Value.Trim();
+                return new HomeLauncherInfo
+                {
+                    Package = pkg,
+                    Component = pkg + "/.MainActivity"
+                };
+            }
+            return null;
+        }
+
+        private static string GetActiveHomePackage(string device)
+        {
+            var info = GetActiveHomeLauncher(device);
+            return info != null ? info.Package : null;
         }
 
         private static void HandleApi(string endpoint, HttpListenerRequest req, HttpListenerResponse res)
@@ -552,8 +587,8 @@ namespace CleanTV.Desktop
                     }
 
                     // 2. Active Home Launcher & System Protection Verification (Fail-Closed)
-                    string activeHome = GetActiveHomePackage(device);
-                    if (string.IsNullOrEmpty(activeHome))
+                    var activeHomeInfo = GetActiveHomeLauncher(device);
+                    if (activeHomeInfo == null || string.IsNullOrEmpty(activeHomeInfo.Package))
                     {
                         statusCode = 500;
                         jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}",
@@ -562,6 +597,8 @@ namespace CleanTV.Desktop
                         return;
                     }
 
+                    string activeHome = activeHomeInfo.Package;
+                    string activeHomeComp = activeHomeInfo.Component;
                     bool isCleanTvActive = activeHome.Equals("com.gathin.tvhome", StringComparison.OrdinalIgnoreCase);
 
                     int disabledCount = 0;
@@ -618,6 +655,7 @@ namespace CleanTV.Desktop
                     try
                     {
                         File.WriteAllText(Path.Combine(backupDir, "original-home.txt"), activeHome ?? "");
+                        File.WriteAllText(Path.Combine(backupDir, "original-home-component.txt"), activeHomeComp ?? "");
                         var debloatedOnly = new List<string>();
                         foreach (var resItem in resultsList)
                         {
@@ -707,18 +745,42 @@ namespace CleanTV.Desktop
                     }
                 }
 
-                // Restore original active launcher: read exact recorded original launcher from backup
+                // Restore original active launcher: read exact recorded original component from backup
+                string origCompFile = Path.Combine(targetBackupDir, "original-home-component.txt");
                 string origHomeFile = Path.Combine(targetBackupDir, "original-home.txt");
+                string originalComponent = File.Exists(origCompFile) ? File.ReadAllText(origCompFile).Trim() : null;
                 string originalHome = File.Exists(origHomeFile) ? File.ReadAllText(origHomeFile).Trim() : null;
 
-                if (!string.IsNullOrEmpty(originalHome))
+                if (string.IsNullOrEmpty(originalComponent) && !string.IsNullOrEmpty(originalHome))
+                {
+                    if (originalHome.Contains("/"))
+                    {
+                        originalComponent = originalHome;
+                        originalHome = originalHome.Substring(0, originalHome.IndexOf('/'));
+                    }
+                    else
+                    {
+                        originalComponent = originalHome + "/.MainActivity";
+                    }
+                }
+                else if (!string.IsNullOrEmpty(originalComponent) && string.IsNullOrEmpty(originalHome))
+                {
+                    originalHome = originalComponent.Contains("/") ? originalComponent.Substring(0, originalComponent.IndexOf('/')) : originalComponent;
+                }
+
+                bool homeRestored = false;
+                if (!string.IsNullOrEmpty(originalComponent))
                 {
                     RunAdb("-s " + device + " shell pm enable --user 0 " + originalHome, 4000);
-                    RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + originalHome + "/.MainActivity", 4000);
+                    var setHomeRes = RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + originalComponent, 4000);
+                    if (setHomeRes.ExitCode == 0 && !setHomeRes.Combined.Contains("Error") && !setHomeRes.Combined.Contains("Exception"))
+                    {
+                        homeRestored = true;
+                    }
                 }
                 else
                 {
-                    // Fallback to stock launcher matching device baseline
+                    // Fallback to stock launcher matching device baseline for legacy backups
                     string[] stockLaunchers = new string[] {
                         "com.google.android.tvlauncher",
                         "com.changhong.system.launcher.v2",
@@ -732,7 +794,12 @@ namespace CleanTV.Desktop
                         if (chk.Combined.Contains(sl))
                         {
                             RunAdb("-s " + device + " shell pm enable --user 0 " + sl, 4000);
-                            RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + sl + "/.MainActivity", 4000);
+                            var setRes = RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + sl + "/.MainActivity", 4000);
+                            if (setRes.ExitCode == 0 && !setRes.Combined.Contains("Error") && !setRes.Combined.Contains("Exception"))
+                            {
+                                homeRestored = true;
+                                originalComponent = sl + "/.MainActivity";
+                            }
                             break;
                         }
                     }
@@ -740,8 +807,8 @@ namespace CleanTV.Desktop
 
                 RunAdb("-s " + device + " shell input keyevent 3", 3000); // Home
 
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"restored\":{0},\"backupDir\":{1},\"packages\":[{2}]}}",
-                    restoredCount, ToJsonString(targetBackupDir), string.Join(",", restoredPkgs.ToArray()));
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"restored\":{0},\"backupDir\":{1},\"packages\":[{2}],\"homeRestored\":{3},\"originalComponent\":{4}}}",
+                    restoredCount, ToJsonString(targetBackupDir), string.Join(",", restoredPkgs.ToArray()), homeRestored ? "true" : "false", ToJsonString(originalComponent ?? ""));
             }
             else if (endpoint == "/api/install")
             {

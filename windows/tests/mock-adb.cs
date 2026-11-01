@@ -66,15 +66,16 @@ namespace CleanTV.Tests
                 }
                 else
                 {
+                    // Real-world OEM TV launcher with custom activity class (NOT .MainActivity)
                     Console.WriteLine("priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true");
-                    Console.WriteLine("com.mitv.tvhome/.MainActivity");
+                    Console.WriteLine("com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity");
                 }
                 return 0;
             }
 
             if (cmd.Contains("dumpsys activity activities"))
             {
-                Console.WriteLine("  mResumedActivity: ActivityRecord{12345 u0 com.mitv.tvhome/.MainActivity t12}");
+                Console.WriteLine("  mResumedActivity: ActivityRecord{12345 u0 com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity t12}");
                 return 0;
             }
 
@@ -160,6 +161,19 @@ namespace CleanTV.Tests
             {
                 Console.WriteLine("Performing Streamed Install");
                 Console.WriteLine("Success");
+                return 0;
+            }
+
+            // Set home activity: require exact activity component (fails if assuming .MainActivity on com.mitv.tvhome)
+            if (cmd.Contains("cmd package set-home-activity"))
+            {
+                string comp = args[args.Length - 1];
+                if (comp.Contains(".MainActivity") && comp.Contains("com.mitv.tvhome"))
+                {
+                    Console.Error.WriteLine("Error: Activity class {.MainActivity} does not exist in target package com.mitv.tvhome");
+                    return 1;
+                }
+                Console.WriteLine("Success: Home activity set to " + comp);
                 return 0;
             }
 

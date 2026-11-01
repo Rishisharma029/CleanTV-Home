@@ -173,6 +173,8 @@ async function runTests() {
     assert(fs.existsSync(path.join(backupDir, 'getprop.txt')), 'Backup contains getprop.txt');
     assert(fs.existsSync(path.join(backupDir, 'original-home.txt')), 'Backup recorded original-home.txt');
     assert(fs.readFileSync(path.join(backupDir, 'original-home.txt'), 'utf8').trim() === 'com.mitv.tvhome', 'original-home.txt recorded exact active launcher com.mitv.tvhome');
+    assert(fs.existsSync(path.join(backupDir, 'original-home-component.txt')), 'Backup recorded original-home-component.txt');
+    assert(fs.readFileSync(path.join(backupDir, 'original-home-component.txt'), 'utf8').trim() === 'com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity', 'original-home-component.txt recorded exact full component');
     assert(fs.existsSync(path.join(backupDir, 'debloated-packages.txt')), 'Backup recorded debloated-packages.txt');
 
     // Test 8: Full Successful Backup-and-Restore Cycle
@@ -180,7 +182,21 @@ async function runTests() {
     const restoreRes = await post('/api/restore', { device: 'mock-tv-device' }, authHeaders);
     assert(restoreRes.status === 200, 'POST /api/restore completes with HTTP 200 on controlled test device');
     assert(restoreRes.data && restoreRes.data.restored > 0, `Restore operation successfully re-enabled ${restoreRes.data.restored} package(s)`);
+    assert(restoreRes.data.homeRestored === true, 'Original home component was successfully restored and verified');
+    assert(restoreRes.data.originalComponent === 'com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity', 'Restored exact component com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity without assuming .MainActivity');
     assert(path.resolve(restoreRes.data.backupDir) === path.resolve(backupDir), 'Restore operation used exact device-scoped backup from debloat');
+
+    // Test 8b: Issue A verification - Empty debloated-packages.txt does NOT fall back to baseline diff
+    const emptyBackupDir = path.join(process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE, 'AppData', 'Local'), 'CleanTV', 'backups', 'win-backup-empty-debloat-device-20261101-999999');
+    fs.mkdirSync(emptyBackupDir, { recursive: true });
+    fs.writeFileSync(path.join(emptyBackupDir, 'packages-all.txt'), 'package:com.mitv.screensaver\npackage:com.mitv.tvhome\n');
+    fs.writeFileSync(path.join(emptyBackupDir, 'packages-disabled.txt'), '');
+    fs.writeFileSync(path.join(emptyBackupDir, 'debloated-packages.txt'), '');
+    fs.writeFileSync(path.join(emptyBackupDir, 'original-home-component.txt'), 'com.mitv.tvhome/com.mitv.tvhome.ui.TvHomeActivity');
+
+    const emptyRestoreRes = await post('/api/restore', { device: 'empty-debloat-device' }, authHeaders);
+    assert(emptyRestoreRes.status === 200, 'Restore on device with empty debloated-packages.txt returns HTTP 200');
+    assert(emptyRestoreRes.data.restored === 0, 'Does NOT fall back to baseline diff when debloated-packages.txt exists but is empty');
 
     // Test 9: Restore Safe 404 Rejection on Unbacked Device
     const noBackupRestore = await post('/api/restore', { device: 'unbacked-mock-tv-999' }, authHeaders);

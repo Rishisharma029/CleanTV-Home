@@ -396,13 +396,19 @@ const server = http.createServer((req, res) => {
         const resolveHome = (cb) => {
           // 1. Primary: modern Android (Android 8+)
           adbExec(['-s', device, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errHome, homeOut) => {
-            const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
-            if (m) return cb(m[1].trim());
+            const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\/(\.?[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)/);
+            if (m && m[2]) return cb({ package: m[1].trim(), component: m[0].trim() });
+
+            const mPkg = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
+            if (mPkg) return cb({ package: mPkg[1].trim(), component: `${mPkg[1].trim()}/.MainActivity` });
 
             // 2. Fallback for older Android (Android 5-7)
             adbExec(['-s', device, 'shell', 'pm', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errPm, pmOut) => {
-              const m2 = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
-              if (m2) return cb(m2[1].trim());
+              const m2 = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\/(\.?[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)/);
+              if (m2 && m2[2]) return cb({ package: m2[1].trim(), component: m2[0].trim() });
+
+              const m2Pkg = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
+              if (m2Pkg) return cb({ package: m2Pkg[1].trim(), component: `${m2Pkg[1].trim()}/.MainActivity` });
 
               // Fail-closed
               cb(null);
@@ -410,10 +416,12 @@ const server = http.createServer((req, res) => {
           });
         };
 
-        resolveHome((activeHome) => {
-          if (!activeHome) {
+        resolveHome((activeHomeInfo) => {
+          if (!activeHomeInfo || !activeHomeInfo.package) {
             return jsonErr(res, 'Could not identify the TV\'s active HOME launcher via ADB. Debloating aborted to prevent disabling the TV\'s only working launcher. Please ensure the TV screen is unlocked and responds to ADB.', 500);
           }
+          const activeHome = activeHomeInfo.package;
+          const activeHomeComponent = activeHomeInfo.component;
 
           const isCleanTvActive = (activeHome === 'com.gathin.tvhome');
 
@@ -457,6 +465,7 @@ const server = http.createServer((req, res) => {
           function finish() {
             try {
               fs.writeFileSync(path.join(backupDir, 'original-home.txt'), activeHome || '');
+              fs.writeFileSync(path.join(backupDir, 'original-home-component.txt'), activeHomeComponent || '');
               const debloatedOnly = results.filter(r => r.result === 'disabled').map(r => r.pkg);
               fs.writeFileSync(path.join(backupDir, 'debloated-packages.txt'), debloatedOnly.join('\n'));
             } catch (e) {}
@@ -486,7 +495,8 @@ const server = http.createServer((req, res) => {
 
       const debloatedFile = path.join(backupDir, 'debloated-packages.txt');
       let toRestore = [];
-      if (fs.existsSync(debloatedFile)) {
+      const hasDebloatedFile = fs.existsSync(debloatedFile);
+      if (hasDebloatedFile) {
         toRestore = fs.readFileSync(debloatedFile, 'utf8').split('\n').map(l => l.trim()).filter(Boolean);
       }
 
@@ -500,12 +510,54 @@ const server = http.createServer((req, res) => {
       adbListDisabledPackages(device, (err, currentlyDisabled) => {
         if (err) return jsonErr(res, 'Could not list packages: ' + err.message);
 
-        if (toRestore.length === 0) {
+        // Issue A fix: ONLY fall back to baseline diff if debloated-packages.txt is MISSING (legacy backups)
+        if (!hasDebloatedFile) {
           toRestore = currentlyDisabled.filter(p => !disabledBefore.includes(p));
         }
 
+        const restoreOriginalLauncher = (doneCb) => {
+          const origCompFile = path.join(backupDir, 'original-home-component.txt');
+          const origHomeFile = path.join(backupDir, 'original-home.txt');
+          let origComponent = fs.existsSync(origCompFile) ? fs.readFileSync(origCompFile, 'utf8').trim() : '';
+          let origPkg = fs.existsSync(origHomeFile) ? fs.readFileSync(origHomeFile, 'utf8').trim() : '';
+
+          if (!origComponent && origPkg) {
+            if (origPkg.includes('/')) {
+              origComponent = origPkg;
+              origPkg = origPkg.split('/')[0];
+            } else {
+              origComponent = `${origPkg}/.MainActivity`;
+            }
+          } else if (origComponent && !origPkg) {
+            origPkg = origComponent.split('/')[0];
+          }
+
+          if (origComponent) {
+            adbEnablePackage(device, origPkg, () => {
+              adbExec(['-s', device, 'shell', 'cmd', 'package', 'set-home-activity', '--user', '0', origComponent], (errSet, setOut) => {
+                const homeSuccess = !errSet && !/Error|Exception/i.test(setOut || '');
+                adbKeyEvent(device, 3, () => {
+                  doneCb(homeSuccess, origComponent);
+                });
+              });
+            });
+          } else {
+            doneCb(false, null);
+          }
+        };
+
         if (toRestore.length === 0) {
-          return jsonOk(res, { restored: 0, message: 'Nothing to restore — no installer-disabled packages found.' });
+          return restoreOriginalLauncher((homeRestored, originalComponent) => {
+            jsonOk(res, {
+              restored: 0,
+              total: 0,
+              backupDir,
+              packages: [],
+              homeRestored,
+              originalComponent,
+              message: 'Nothing to restore — no installer-disabled packages found.'
+            });
+          });
         }
 
         let done = 0;
@@ -514,17 +566,16 @@ const server = http.createServer((req, res) => {
           adbEnablePackage(device, pkg, (err2) => {
             if (!err2) restored++;
             if (++done === toRestore.length) {
-              // Restore original home launcher
-              const origHomeFile = path.join(backupDir, 'original-home.txt');
-              if (fs.existsSync(origHomeFile)) {
-                const origHome = fs.readFileSync(origHomeFile, 'utf8').trim();
-                if (origHome) {
-                  adbEnablePackage(device, origHome, () => {
-                    adbExec(['-s', device, 'shell', 'cmd', 'package', 'set-home-activity', '--user', '0', `${origHome}/.MainActivity`], () => {});
-                  });
-                }
-              }
-              jsonOk(res, { restored, total: toRestore.length, backupDir, packages: toRestore });
+              restoreOriginalLauncher((homeRestored, originalComponent) => {
+                jsonOk(res, {
+                  restored,
+                  total: toRestore.length,
+                  backupDir,
+                  packages: toRestore,
+                  homeRestored,
+                  originalComponent
+                });
+              });
             }
           });
         });

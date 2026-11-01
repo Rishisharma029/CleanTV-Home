@@ -85,35 +85,62 @@ async function runTests() {
     assert(htmlRes.body.includes('CleanTV Home Desktop Manager'), 'Served HTML contains correct title');
     assert(htmlRes.body.includes('cleantv-token'), 'Served HTML has injected session security token');
 
+    // Extract session token from <meta name="cleantv-token" content="...">
+    const tokenMatch = htmlRes.body.match(/<meta name="cleantv-token" content="([a-zA-Z0-9_-]+)">/);
+    assert(tokenMatch && tokenMatch[1], 'Successfully extracted session security token from served HTML');
+    const token = tokenMatch ? tokenMatch[1] : '';
+    const authHeaders = { 'X-CleanTV-Token': token };
+
     // 2. CORS validation (evil origins blocked)
     const corsRes = await get('/index.html', { 'Origin': 'http://malicious-website.com' });
     const allowOrigin = corsRes.headers['access-control-allow-origin'];
     assert(allowOrigin === 'null', 'CORS restricts non-loopback origins to null');
 
-    // 3. ADB Status
-    const adbRes = await post('/api/adb-status', {});
-    assert(adbRes.status === 200, 'POST /api/adb-status returns HTTP 200');
-    assert(adbRes.data && adbRes.data.adbFound === true, 'C# backend detects bundled or system ADB');
-    assert(typeof adbRes.data.sessionToken === 'string', 'C# backend provides session token');
+    // 3. Security: Session Token Enforcement (Issue #1 verification)
+    const noTokenRes = await post('/api/adb-status', {});
+    assert(noTokenRes.status === 401, 'POST /api/adb-status without token is rejected with HTTP 401 Unauthorized');
 
-    // 4. Presets loading across all 7 supported configurations
+    const badTokenRes = await post('/api/adb-status', {}, { 'X-CleanTV-Token': 'invalid_forged_token' });
+    assert(badTokenRes.status === 401, 'POST /api/adb-status with invalid token is rejected with HTTP 401 Unauthorized');
+
+    const unauthPresetRes = await post('/api/preset-list', { preset: 'realme' });
+    assert(unauthPresetRes.status === 401, 'POST /api/preset-list without token is rejected with HTTP 401 Unauthorized');
+
+    // 4. Authenticated ADB Status
+    const adbRes = await post('/api/adb-status', {}, authHeaders);
+    assert(adbRes.status === 200, 'POST /api/adb-status with valid token returns HTTP 200');
+    assert(adbRes.data && adbRes.data.adbFound === true, 'C# backend detects bundled or system ADB');
+
+    // 5. Presets loading across all 7 supported configurations
     const presets = ['realme', 'sony', 'xiaomi', 'tcl', 'google', 'hisense', 'generic'];
     for (const p of presets) {
-      const pRes = await post('/api/preset-list', { preset: p });
+      const pRes = await post('/api/preset-list', { preset: p }, authHeaders);
       assert(pRes.status === 200, `POST /api/preset-list [${p}] returns HTTP 200`);
       assert(pRes.data && pRes.data.packages && pRes.data.packages.length > 0, `Preset [${p}] contains active packages (${pRes.data.packages.length})`);
     }
 
-    // 5. Input validation on /api/key (numeric check)
-    const invalidKeyRes = await post('/api/key', { device: '127.0.0.1:5555', key: 'non_numeric' });
+    // 6. Backup Verification & Safety Abort (Issue #2 verification)
+    // When target device ADB commands fail, debloater must abort immediately with HTTP 500
+    const debloatFailRes = await post('/api/debloat', { device: '192.0.2.1:5555', preset: 'generic' }, authHeaders);
+    assert(debloatFailRes.status === 500, 'POST /api/debloat aborts with HTTP 500 when pre-debloat safety backup cannot be verified');
+    assert(debloatFailRes.data && debloatFailRes.data.message && debloatFailRes.data.message.includes('safety backup failed'), 'Debloat failure response explicitly confirms safety backup failure safeguard');
+
+    // 7. Restore Safe Failure without Device Backup (Issue #3 verification)
+    // When no backup exists for this specific device, restore must return 404 rather than fall back to other backups or presets
+    const restoreSafeRes = await post('/api/restore', { device: '192.0.2.99:5555' }, authHeaders);
+    assert(restoreSafeRes.status === 404, 'POST /api/restore safely fails with HTTP 404 when no backup exists for the specific device');
+    assert(restoreSafeRes.data && restoreSafeRes.data.message && restoreSafeRes.data.message.includes('No valid backup found'), 'Restore error message explains missing device backup requirement');
+
+    // 8. Input validation on /api/key (numeric check)
+    const invalidKeyRes = await post('/api/key', { device: '127.0.0.1:5555', key: 'non_numeric' }, authHeaders);
     assert(invalidKeyRes.status === 400, 'POST /api/key rejects non-numeric input with HTTP 400');
 
-    // 6. Input validation on /api/ai/command (empty query check)
-    const emptyAiRes = await post('/api/ai/command', { device: '127.0.0.1:5555', query: '' });
+    // 9. Input validation on /api/ai/command (empty query check)
+    const emptyAiRes = await post('/api/ai/command', { device: '127.0.0.1:5555', query: '' }, authHeaders);
     assert(emptyAiRes.status === 400, 'POST /api/ai/command rejects empty query with HTTP 400');
 
-    // 7. Sideload APK endpoint handles unreachable endpoint safely
-    const instRes = await post('/api/install', { device: '192.0.2.1:5555' });
+    // 10. Sideload APK endpoint handles unreachable endpoint safely
+    const instRes = await post('/api/install', { device: '192.0.2.1:5555' }, authHeaders);
     assert(instRes.status === 404 || instRes.status === 500, 'POST /api/install safely handles unreachable endpoint without crashing');
 
     console.log('\n=======================================');

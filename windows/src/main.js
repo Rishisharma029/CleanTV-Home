@@ -6,6 +6,9 @@ const http    = require('http');
 const fs      = require('fs');
 const path    = require('path');
 const os      = require('os');
+const crypto  = require('crypto');
+
+const sessionToken = crypto.randomBytes(16).toString('hex');
 const { exec, execFile, execFileSync } = require('child_process');
 
 const PORT    = 59822;
@@ -174,22 +177,45 @@ function createBackup(device, callback) {
   const dir = path.join(BACKUP_DIR, `win-backup-${devKey}-${ts}`);
   fs.mkdirSync(dir, { recursive: true });
 
-  adbExec(['-s', device, 'shell', 'pm', 'list', 'packages'], (err, stdout) => {
-    if (!err) fs.writeFileSync(path.join(dir, 'packages-all.txt'), stdout || '');
-  }, 8000);
+  // 1. Strict ADB execution & command output verification
+  adbExec(['-s', device, 'shell', 'pm', 'list', 'packages'], (errAll, stdoutAll) => {
+    if (errAll || !stdoutAll || !stdoutAll.includes('package:')) {
+      try { fs.rmdirSync(dir, { recursive: true }); } catch (e) {}
+      return callback(new Error('Failed to query installed packages via ADB: ' + (errAll ? errAll.message : 'empty package list')));
+    }
 
-  adbExec(['-s', device, 'shell', 'pm', 'list', 'packages', '-d'], (err, stdout) => {
-    if (!err) fs.writeFileSync(path.join(dir, 'packages-disabled.txt'), stdout || '');
-    adbExec(['-s', device, 'shell', 'getprop'], (err2, stdout2) => {
-      if (!err2) fs.writeFileSync(path.join(dir, 'getprop.txt'), stdout2 || '');
-      // Verify files
-      const fDis = path.join(dir, 'packages-disabled.txt');
-      const fAll = path.join(dir, 'packages-all.txt');
-      if (fs.existsSync(fDis) && fs.existsSync(fAll)) {
-        callback(null, dir, ts);
-      } else {
-        callback(new Error('Failed to verify safety backup files on disk'));
+    adbExec(['-s', device, 'shell', 'getprop'], (errProp, stdoutProp) => {
+      if (errProp || !stdoutProp || stdoutProp.length < 20) {
+        try { fs.rmdirSync(dir, { recursive: true }); } catch (e) {}
+        return callback(new Error('Failed to capture system properties via ADB: ' + (errProp ? errProp.message : 'empty getprop')));
       }
+
+      adbExec(['-s', device, 'shell', 'pm', 'list', 'packages', '-d'], (errDis, stdoutDis) => {
+        if (errDis) {
+          try { fs.rmdirSync(dir, { recursive: true }); } catch (e) {}
+          return callback(new Error('Failed to query disabled packages via ADB: ' + errDis.message));
+        }
+
+        const fileAll = path.join(dir, 'packages-all.txt');
+        const fileProp = path.join(dir, 'getprop.txt');
+        const fileDis = path.join(dir, 'packages-disabled.txt');
+
+        fs.writeFileSync(fileAll, stdoutAll || '');
+        fs.writeFileSync(fileProp, stdoutProp || '');
+        fs.writeFileSync(fileDis, stdoutDis || '');
+
+        // 2. Strict file existence and non-zero size verification on disk
+        if (!fs.existsSync(fileAll) || !fs.existsSync(fileProp) || !fs.existsSync(fileDis)) {
+          try { fs.rmdirSync(dir, { recursive: true }); } catch (e) {}
+          return callback(new Error('Safety backup files were not created on disk'));
+        }
+        if (fs.statSync(fileAll).size === 0 || fs.statSync(fileProp).size === 0) {
+          try { fs.rmdirSync(dir, { recursive: true }); } catch (e) {}
+          return callback(new Error('Safety backup files on disk are unexpectedly empty'));
+        }
+
+        callback(null, dir, ts);
+      }, 8000);
     }, 8000);
   }, 8000);
 }
@@ -197,14 +223,10 @@ function createBackup(device, callback) {
 function findLatestBackup(device) {
   if (!fs.existsSync(BACKUP_DIR)) return null;
   const devKey = sanitizeDeviceKey(device);
-  let dirs = fs.readdirSync(BACKUP_DIR)
+  // Scoped strictly to this device. No unsafe fallback to other devices.
+  const dirs = fs.readdirSync(BACKUP_DIR)
     .filter(d => d.startsWith(`win-backup-${devKey}-`))
     .sort().reverse();
-  if (dirs.length === 0) {
-    dirs = fs.readdirSync(BACKUP_DIR)
-      .filter(d => d.startsWith('win-backup-'))
-      .sort().reverse();
-  }
   return dirs.length ? path.join(BACKUP_DIR, dirs[0]) : null;
 }
 
@@ -234,9 +256,14 @@ function parseBody(req, callback) {
 // ─── HTTP Server ─────────────────────────────────────────────────────────────
 
 const server = http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers['origin'];
+  if (!origin || origin.startsWith('http://127.0.0.1:') || origin.startsWith('http://localhost:')) {
+    res.setHeader('Access-Control-Allow-Origin', origin || `http://127.0.0.1:${PORT}`);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'null');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CleanTV-Token');
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
@@ -249,11 +276,23 @@ const server = http.createServer((req, res) => {
       const ext = path.extname(filePath);
       const mimes = { '.html':'text/html','.css':'text/css','.js':'application/javascript','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon' };
       res.writeHead(200, { 'Content-Type': mimes[ext] || 'application/octet-stream' });
-      fs.createReadStream(filePath).pipe(res);
+      if (ext === '.html') {
+        let html = fs.readFileSync(filePath, 'utf8');
+        html = html.replace('<head>', `<head>\n  <meta name="cleantv-token" content="${sessionToken}">`);
+        res.end(html);
+      } else {
+        fs.createReadStream(filePath).pipe(res);
+      }
     } else {
       res.writeHead(404); res.end('Not Found');
     }
     return;
+  }
+
+  // Security: Enforce session token validation on all API endpoints
+  const clientToken = req.headers['x-cleantv-token'];
+  if (!clientToken || clientToken !== sessionToken) {
+    return jsonErr(res, 'Unauthorized: Invalid or missing X-CleanTV-Token session header.', 401);
   }
 
   // ── API Routes ──
@@ -413,9 +452,9 @@ const server = http.createServer((req, res) => {
 
     // POST /api/restore — backup-driven re-enable
     if (url === '/api/restore') {
-      const backupDir = data.backupDir || findLatestBackup('win-backup-');
+      const backupDir = data.backupDir || findLatestBackup(device);
       if (!backupDir || !fs.existsSync(backupDir)) {
-        return jsonErr(res, 'No backup found. Run debloat first to create a backup.', 404);
+        return jsonErr(res, 'No valid backup found for device ' + device + '. CleanTV creates a pre-debloat backup before any modifications; cannot restore without a verified backup for this device.', 404);
       }
 
       const preDisabledFile = path.join(backupDir, 'packages-disabled.txt');

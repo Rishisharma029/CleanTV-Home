@@ -338,6 +338,14 @@ namespace CleanTV.Desktop
 
         private static void HandleApi(string endpoint, HttpListenerRequest req, HttpListenerResponse res)
         {
+            // Security: Enforce session token validation on all API calls
+            string clientToken = req.Headers["X-CleanTV-Token"];
+            if (string.IsNullOrEmpty(clientToken) || !string.Equals(clientToken, sessionToken, StringComparison.Ordinal))
+            {
+                SendResponse(res, 401, "{\"status\":\"error\",\"message\":\"Unauthorized: Invalid or missing X-CleanTV-Token session header.\"}");
+                return;
+            }
+
             string body = "";
             using (var reader = new StreamReader(req.InputStream, req.ContentEncoding))
             {
@@ -580,67 +588,61 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/restore")
             {
-                // Backup-driven restore: scoped to the currently connected device
+                // Backup-driven restore: scoped strictly to the currently connected device
                 string targetBackupDir = FindLatestBackupDir(device);
+
+                if (string.IsNullOrEmpty(targetBackupDir) || !File.Exists(Path.Combine(targetBackupDir, "packages-disabled.txt")))
+                {
+                    statusCode = 404;
+                    jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}",
+                        ToJsonString("No valid backup found for device " + device + ". CleanTV creates a pre-debloat backup before any modifications. Cannot restore without a verified backup for this device."));
+                    SendResponse(res, statusCode, jsonResponse);
+                    return;
+                }
+
+                string preDisabledFile = Path.Combine(targetBackupDir, "packages-disabled.txt");
+                var preDisabled = new HashSet<string>();
+                foreach (var l in File.ReadAllLines(preDisabledFile))
+                {
+                    string p = l.Replace("package:", "").Trim();
+                    if (!string.IsNullOrEmpty(p)) preDisabled.Add(p);
+                }
+
+                // Query currently disabled packages from TV
+                var curDisabledRes = RunAdb("-s " + device + " shell pm list packages -d", 8000);
+                if (curDisabledRes.ExitCode != 0)
+                {
+                    statusCode = 500;
+                    jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}",
+                        ToJsonString("Failed to query disabled packages from TV: " + curDisabledRes.Combined));
+                    SendResponse(res, statusCode, jsonResponse);
+                    return;
+                }
+
                 int restoredCount = 0;
                 var restoredPkgs = new List<string>();
-
-                if (!string.IsNullOrEmpty(targetBackupDir) && File.Exists(Path.Combine(targetBackupDir, "packages-disabled.txt")))
+                var curDisabled = new List<string>();
+                foreach (var l in curDisabledRes.StdOut.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    var preDisabled = new HashSet<string>();
-                    foreach (var l in File.ReadAllLines(Path.Combine(targetBackupDir, "packages-disabled.txt")))
-                    {
-                        string p = l.Replace("package:", "").Trim();
-                        if (!string.IsNullOrEmpty(p)) preDisabled.Add(p);
-                    }
-
-                    // Get currently disabled packages from TV
-                    var curDisabledRes = RunAdb("-s " + device + " shell pm list packages -d", 8000);
-                    var curDisabled = new List<string>();
-                    foreach (var l in curDisabledRes.StdOut.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        string p = l.Replace("package:", "").Trim();
-                        if (!string.IsNullOrEmpty(p)) curDisabled.Add(p);
-                    }
-
-                    // Diff: re-enable packages currently disabled that were NOT disabled before
-                    foreach (var p in curDisabled)
-                    {
-                        if (!preDisabled.Contains(p))
-                        {
-                            var enRes = RunAdb("-s " + device + " shell pm enable --user 0 " + p, 5000);
-                            restoredCount++;
-                            restoredPkgs.Add(ToJsonString(p));
-                        }
-                    }
+                    string p = l.Replace("package:", "").Trim();
+                    if (!string.IsNullOrEmpty(p)) curDisabled.Add(p);
                 }
-                else
-                {
-                    // Fallback to presets list
-                    string[] presetFiles = Directory.Exists(presetsDir) ? Directory.GetFiles(presetsDir, "*.txt") : new string[0];
-                    var allPresetPkgs = new HashSet<string>();
-                    foreach (var pf in presetFiles)
-                    {
-                        foreach (var l in File.ReadAllLines(pf))
-                        {
-                            string p = l.Split('#')[0].Trim();
-                            if (!string.IsNullOrEmpty(p)) allPresetPkgs.Add(p);
-                        }
-                    }
 
-                    foreach (var p in allPresetPkgs)
+                // Diff: only re-enable packages currently disabled that were NOT disabled in baseline snapshot
+                foreach (var p in curDisabled)
+                {
+                    if (!preDisabled.Contains(p))
                     {
-                        var check = RunAdb("-s " + device + " shell pm list packages -d " + p, 3000);
-                        if (check.Combined.Contains(p))
+                        var enRes = RunAdb("-s " + device + " shell pm enable --user 0 " + p, 5000);
+                        if (enRes.ExitCode == 0)
                         {
-                            RunAdb("-s " + device + " shell pm enable --user 0 " + p, 5000);
                             restoredCount++;
                             restoredPkgs.Add(ToJsonString(p));
                         }
                     }
                 }
 
-                // Re-enable stock launchers if present
+                // Re-enable stock launchers if present on this device
                 string[] stockLaunchers = new string[] {
                     "com.google.android.tvlauncher",
                     "com.changhong.system.launcher.v2",
@@ -837,25 +839,53 @@ namespace CleanTV.Desktop
             string dir = Path.Combine(baseDir, "win-backup-" + deviceKey + "-" + ts);
 
             Directory.CreateDirectory(dir);
-            var pDisabled = RunAdb("-s " + device + " shell pm list packages -d", 8000);
-            var pAll = RunAdb("-s " + device + " shell pm list packages", 8000);
-            var getprop = RunAdb("-s " + device + " shell getprop", 8000);
-
-            string fileDisabled = Path.Combine(dir, "packages-disabled.txt");
-            string fileAll = Path.Combine(dir, "packages-all.txt");
-            string fileProp = Path.Combine(dir, "getprop.txt");
-
-            File.WriteAllText(fileDisabled, pDisabled.StdOut ?? "");
-            File.WriteAllText(fileAll, pAll.StdOut ?? "");
-            File.WriteAllText(fileProp, getprop.StdOut ?? "");
-
-            // Verify files actually exist and are non-empty/written
-            if (!File.Exists(fileDisabled) || !File.Exists(fileAll) || !File.Exists(fileProp))
+            try
             {
-                throw new IOException("Safety backup files could not be verified on disk.");
-            }
+                var pDisabled = RunAdb("-s " + device + " shell pm list packages -d", 8000);
+                var pAll = RunAdb("-s " + device + " shell pm list packages", 8000);
+                var getprop = RunAdb("-s " + device + " shell getprop", 8000);
 
-            return dir;
+                // 1. Strict ADB execution & command output verification
+                if (pAll.ExitCode != 0 || string.IsNullOrEmpty(pAll.StdOut) || !pAll.StdOut.Contains("package:"))
+                {
+                    throw new InvalidOperationException("Failed to query installed packages via ADB (ExitCode: " + pAll.ExitCode + ", StdErr: " + (pAll.StdErr ?? "").Trim() + ")");
+                }
+                if (getprop.ExitCode != 0 || string.IsNullOrEmpty(getprop.StdOut) || getprop.StdOut.Length < 20)
+                {
+                    throw new InvalidOperationException("Failed to capture system properties via ADB (ExitCode: " + getprop.ExitCode + ", StdErr: " + (getprop.StdErr ?? "").Trim() + ")");
+                }
+                if (pDisabled.ExitCode != 0)
+                {
+                    throw new InvalidOperationException("Failed to query disabled packages via ADB (ExitCode: " + pDisabled.ExitCode + ", StdErr: " + (pDisabled.StdErr ?? "").Trim() + ")");
+                }
+
+                string fileDisabled = Path.Combine(dir, "packages-disabled.txt");
+                string fileAll = Path.Combine(dir, "packages-all.txt");
+                string fileProp = Path.Combine(dir, "getprop.txt");
+
+                File.WriteAllText(fileDisabled, pDisabled.StdOut ?? "");
+                File.WriteAllText(fileAll, pAll.StdOut ?? "");
+                File.WriteAllText(fileProp, getprop.StdOut ?? "");
+
+                // 2. Strict file existence and non-zero size verification on disk
+                if (!File.Exists(fileDisabled) || !File.Exists(fileAll) || !File.Exists(fileProp))
+                {
+                    throw new IOException("Safety backup files were not created on disk.");
+                }
+                var fiAll = new FileInfo(fileAll);
+                var fiProp = new FileInfo(fileProp);
+                if (fiAll.Length == 0 || fiProp.Length == 0)
+                {
+                    throw new IOException("Safety backup files on disk are unexpectedly empty. Aborting debloat.");
+                }
+
+                return dir;
+            }
+            catch
+            {
+                try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { }
+                throw;
+            }
         }
 
         private static string FindLatestBackupDir(string device)
@@ -864,11 +894,8 @@ namespace CleanTV.Desktop
             if (!Directory.Exists(baseDir)) return null;
 
             string deviceKey = Regex.Replace(device, @"[^a-zA-Z0-9_-]", "_");
+            // Scoped strictly to this device. No unsafe fallback to other devices.
             var dirs = new List<string>(Directory.GetDirectories(baseDir, "win-backup-" + deviceKey + "-*"));
-            if (dirs.Count == 0)
-            {
-                dirs.AddRange(Directory.GetDirectories(baseDir, "*backup-*"));
-            }
             if (dirs.Count == 0) return null;
 
             dirs.Sort();

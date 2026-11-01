@@ -12,8 +12,8 @@ In [`windows/src/AppxManifest.xml`](file:///windows/src/AppxManifest.xml):
 
 ```xml
 <Identity
-    Name="CleanTV.Home.Manager"
-    Publisher="CN=YOUR-PARTNER-CENTER-PUBLISHER-ID, O=Your Organization, C=US"
+    Name="RishiSharma.CleanTV"
+    Publisher="CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2"
     Version="4.0.0.0"
     ProcessorArchitecture="x64" />
 ```

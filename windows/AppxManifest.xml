@@ -5,14 +5,14 @@
          xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
          IgnorableNamespaces="uap rescap desktop">
 
-  <Identity Name="CleanTV.Home.Manager"
-            Publisher="CN=CleanTV"
+  <Identity Name="RishiSharma.CleanTV"
+            Publisher="CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2"
             Version="4.0.0.0"
             ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>CleanTV Home Desktop Manager</DisplayName>
-    <PublisherDisplayName>CleanTV Open Source</PublisherDisplayName>
+    <PublisherDisplayName>Rishi Sharma</PublisherDisplayName>
     <Logo>assets\StoreLogo.png</Logo>
     <Description>The Apple TV-inspired desktop companion for Android TV: 1-click debloater, launcher installer, wireless web remote, and voice AI controller for Windows.</Description>
   </Properties>

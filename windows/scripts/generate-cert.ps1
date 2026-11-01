@@ -1,7 +1,7 @@
 # Generate Self-Signed Certificate for CleanTV Local Sideloading
 $ErrorActionPreference = "Stop"
 
-$certSubject = "CN=CleanTV"
+$certSubject = "CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2"
 Write-Host "Creating self-signed code signing certificate for '$certSubject'..."
 
 $cert = New-SelfSignedCertificate `

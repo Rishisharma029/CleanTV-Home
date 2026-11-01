@@ -27,7 +27,9 @@ assert(fs.existsSync(MANIFEST_PATH), 'AppxManifest.xml exists');
 const manifestContent = fs.readFileSync(MANIFEST_PATH, 'utf-8');
 
 // 2. Identity checks
-assert(manifestContent.includes('<Identity Name="CleanTV.Home.Manager"'), 'Identity Name is CleanTV.Home.Manager');
+assert(manifestContent.includes('<Identity Name="RishiSharma.CleanTV"'), 'Identity Name is RishiSharma.CleanTV');
+assert(manifestContent.includes('Publisher="CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2"'), 'Publisher is official Microsoft Store ID CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2');
+assert(manifestContent.includes('<PublisherDisplayName>Rishi Sharma</PublisherDisplayName>'), 'PublisherDisplayName is Rishi Sharma');
 assert(manifestContent.includes('Version="4.0.0.0"'), 'Package Version is 4.0.0.0');
 assert(manifestContent.includes('ProcessorArchitecture="x64"'), 'ProcessorArchitecture is x64');
 

@@ -34,9 +34,9 @@
       "icon": "assets/Square150x150Logo.png"
     },
     "msix": {
-      "identityName": "CleanTV.Home.Manager",
-      "publisher": "CN=CleanTV",
-      "publisherDisplayName": "CleanTV Open Source",
+      "identityName": "RishiSharma.CleanTV",
+      "publisher": "CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2",
+      "publisherDisplayName": "Rishi Sharma",
       "backgroundColor": "#0B0F19"
     }
   }

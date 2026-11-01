@@ -132,11 +132,21 @@ async function runTests() {
     const noHomeRes = await post('/api/debloat', { device: 'unresolved-home-device', preset: 'xiaomi' }, authHeaders);
     assert(noHomeRes.status === 500, 'POST /api/debloat fails closed with HTTP 500 when active launcher cannot be identified');
 
+    // Test 6b: Foreground App Is Not HOME (YouTube on screen test)
+    const youtubeForegroundRes = await post('/api/debloat', { device: 'foreground-app-device', preset: 'xiaomi' }, authHeaders);
+    assert(youtubeForegroundRes.status === 500, 'POST /api/debloat aborts with HTTP 500 when foreground app is YouTube and HOME launcher cannot be resolved');
+    assert(youtubeForegroundRes.data && youtubeForegroundRes.data.message && youtubeForegroundRes.data.message.includes('active HOME launcher'), 'Aborts cleanly without mistaking YouTube for a HOME launcher');
+
     // Test 7: Controlled debloat with active launcher protection
     const debloatRes = await post('/api/debloat', { device: 'mock-tv-device', preset: 'xiaomi' }, authHeaders);
     assert(debloatRes.status === 200, 'POST /api/debloat completes with HTTP 200 on mock device');
     assert(debloatRes.data.disabled > 0, `Debloated ${debloatRes.data.disabled} packages safely`);
     assert(debloatRes.data.skipped > 0, `Protected active launcher (skipped: ${debloatRes.data.skipped})`);
+    const backupDir = debloatRes.data.backupDir;
+    assert(backupDir && fs.existsSync(backupDir), `Pre-debloat safety backup directory verified on disk: ${backupDir}`);
+    assert(fs.existsSync(path.join(backupDir, 'original-home.txt')), 'Backup recorded original-home.txt');
+    assert(fs.readFileSync(path.join(backupDir, 'original-home.txt'), 'utf8').trim() === 'com.mitv.tvhome', 'original-home.txt recorded exact active launcher com.mitv.tvhome');
+    assert(fs.existsSync(path.join(backupDir, 'debloated-packages.txt')), 'Backup recorded debloated-packages.txt');
 
     // Test 8: Full backup-and-restore cycle
     const restoreRes = await post('/api/restore', { device: 'mock-tv-device' }, authHeaders);

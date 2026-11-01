@@ -337,6 +337,7 @@ namespace CleanTV.Desktop
 
         private static string GetActiveHomePackage(string device)
         {
+            // 1. Primary: modern Android (Android 8+) Intent resolution for category HOME
             var homeRes = RunAdb("-s " + device + " shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME", 5000);
             if (homeRes.ExitCode == 0)
             {
@@ -345,14 +346,16 @@ namespace CleanTV.Desktop
                 if (match.Success) return match.Groups[1].Value.Trim();
             }
 
-            // Fallback for older Android TV OS versions
-            var dumpsysRes = RunAdb("-s " + device + " shell dumpsys activity activities", 5000);
-            if (dumpsysRes.ExitCode == 0)
+            // 2. Fallback for older Android (Android 5-7): pm resolve-activity for Intent category HOME
+            var pmRes = RunAdb("-s " + device + " shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME", 5000);
+            if (pmRes.ExitCode == 0)
             {
-                var match = Regex.Match(dumpsysRes.StdOut ?? "", @"mResumedActivity: ActivityRecord\{[^\}]+ ([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
+                string combined = pmRes.Combined;
+                var match = Regex.Match(combined, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
                 if (match.Success) return match.Groups[1].Value.Trim();
             }
 
+            // Fail-closed: Never fall back to mResumedActivity (which identifies foreground apps like YouTube or Settings, not HOME)
             return null;
         }
 
@@ -611,6 +614,23 @@ namespace CleanTV.Desktop
                         }
                     }
 
+                    // Record original active launcher and exact debloated package list in backup
+                    try
+                    {
+                        File.WriteAllText(Path.Combine(backupDir, "original-home.txt"), activeHome ?? "");
+                        var debloatedOnly = new List<string>();
+                        foreach (var resItem in resultsList)
+                        {
+                            if (resItem.Contains("\"result\":\"disabled\""))
+                            {
+                                var m = Regex.Match(resItem, "\"pkg\":\"([^\"]+)\"");
+                                if (m.Success) debloatedOnly.Add(m.Groups[1].Value);
+                            }
+                        }
+                        File.WriteAllLines(Path.Combine(backupDir, "debloated-packages.txt"), debloatedOnly.ToArray());
+                    }
+                    catch { }
+
                     jsonResponse = string.Format("{{\"status\":\"ok\",\"preset\":{0},\"total\":{1},\"disabled\":{2},\"skipped\":{3},\"failed\":{4},\"backupDir\":{5},\"results\":[{6}]}}",
                         ToJsonString(preset), packagesToDisable.Count, disabledCount, skippedCount, failedCount, ToJsonString(backupDir), string.Join(",", resultsList.ToArray()));
                 }
@@ -657,35 +677,64 @@ namespace CleanTV.Desktop
                     if (!string.IsNullOrEmpty(p)) curDisabled.Add(p);
                 }
 
-                // Diff: only re-enable packages currently disabled that were NOT disabled in baseline snapshot
-                foreach (var p in curDisabled)
+                // Restore precision: If debloated-packages.txt exists, only restore packages CleanTV actually disabled.
+                // Otherwise fall back to baseline difference.
+                string debloatedFile = Path.Combine(targetBackupDir, "debloated-packages.txt");
+                var pkgsToRestore = new List<string>();
+                if (File.Exists(debloatedFile))
                 {
-                    if (!preDisabled.Contains(p))
+                    foreach (var l in File.ReadAllLines(debloatedFile))
                     {
-                        var enRes = RunAdb("-s " + device + " shell pm enable --user 0 " + p, 5000);
-                        if (enRes.ExitCode == 0)
-                        {
-                            restoredCount++;
-                            restoredPkgs.Add(ToJsonString(p));
-                        }
+                        string p = l.Trim();
+                        if (!string.IsNullOrEmpty(p)) pkgsToRestore.Add(p);
+                    }
+                }
+                else
+                {
+                    foreach (var p in curDisabled)
+                    {
+                        if (!preDisabled.Contains(p)) pkgsToRestore.Add(p);
                     }
                 }
 
-                // Re-enable stock launchers if present on this device
-                string[] stockLaunchers = new string[] {
-                    "com.google.android.tvlauncher",
-                    "com.changhong.system.launcher.v2",
-                    "com.mitv.tvhome",
-                    "com.sony.dtv.tvx",
-                    "com.hisense.launcher"
-                };
-                foreach (var sl in stockLaunchers)
+                foreach (var p in pkgsToRestore)
                 {
-                    var chk = RunAdb("-s " + device + " shell pm list packages " + sl, 3000);
-                    if (chk.Combined.Contains(sl))
+                    var enRes = RunAdb("-s " + device + " shell pm enable --user 0 " + p, 5000);
+                    if (enRes.ExitCode == 0)
                     {
-                        RunAdb("-s " + device + " shell pm enable --user 0 " + sl, 4000);
-                        RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + sl + "/.MainActivity", 4000);
+                        restoredCount++;
+                        restoredPkgs.Add(ToJsonString(p));
+                    }
+                }
+
+                // Restore original active launcher: read exact recorded original launcher from backup
+                string origHomeFile = Path.Combine(targetBackupDir, "original-home.txt");
+                string originalHome = File.Exists(origHomeFile) ? File.ReadAllText(origHomeFile).Trim() : null;
+
+                if (!string.IsNullOrEmpty(originalHome))
+                {
+                    RunAdb("-s " + device + " shell pm enable --user 0 " + originalHome, 4000);
+                    RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + originalHome + "/.MainActivity", 4000);
+                }
+                else
+                {
+                    // Fallback to stock launcher matching device baseline
+                    string[] stockLaunchers = new string[] {
+                        "com.google.android.tvlauncher",
+                        "com.changhong.system.launcher.v2",
+                        "com.mitv.tvhome",
+                        "com.sony.dtv.tvx",
+                        "com.hisense.launcher"
+                    };
+                    foreach (var sl in stockLaunchers)
+                    {
+                        var chk = RunAdb("-s " + device + " shell pm list packages " + sl, 3000);
+                        if (chk.Combined.Contains(sl))
+                        {
+                            RunAdb("-s " + device + " shell pm enable --user 0 " + sl, 4000);
+                            RunAdb("-s " + device + " shell cmd package set-home-activity --user 0 " + sl + "/.MainActivity", 4000);
+                            break;
+                        }
                     }
                 }
 

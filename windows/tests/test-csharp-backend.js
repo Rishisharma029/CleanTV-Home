@@ -148,6 +148,12 @@ async function runTests() {
     assert(noHomeRes.status === 500, 'POST /api/debloat fails closed with HTTP 500 when active launcher cannot be identified');
     assert(noHomeRes.data && noHomeRes.data.message && noHomeRes.data.message.includes('active HOME launcher'), 'Fail-closed debloat abort explicitly protects unknown/unresolved launcher');
 
+    // Test 6b: Foreground App Is Not HOME (YouTube on screen test)
+    // When dumpsys reports YouTube foreground but Intent resolver fails for HOME, debloater must abort
+    const youtubeForegroundRes = await post('/api/debloat', { device: 'foreground-app-device', preset: 'xiaomi' }, authHeaders);
+    assert(youtubeForegroundRes.status === 500, 'POST /api/debloat aborts with HTTP 500 when foreground app is YouTube and HOME launcher cannot be resolved');
+    assert(youtubeForegroundRes.data && youtubeForegroundRes.data.message && youtubeForegroundRes.data.message.includes('active HOME launcher'), 'Aborts cleanly without mistaking YouTube for a HOME launcher');
+
     // Test 7: Controlled Debloat Execution & Active Launcher Safety Guard
     // Debloating Xiaomi preset on mock device: com.mitv.tvhome is the active launcher and CleanTV is NOT active
     // Debloater must skip com.mitv.tvhome while safely disabling remaining bloatware
@@ -165,6 +171,9 @@ async function runTests() {
     assert(backupDir && fs.existsSync(backupDir), `Pre-debloat safety backup directory verified on disk: ${backupDir}`);
     assert(fs.existsSync(path.join(backupDir, 'packages-all.txt')), 'Backup contains packages-all.txt');
     assert(fs.existsSync(path.join(backupDir, 'getprop.txt')), 'Backup contains getprop.txt');
+    assert(fs.existsSync(path.join(backupDir, 'original-home.txt')), 'Backup recorded original-home.txt');
+    assert(fs.readFileSync(path.join(backupDir, 'original-home.txt'), 'utf8').trim() === 'com.mitv.tvhome', 'original-home.txt recorded exact active launcher com.mitv.tvhome');
+    assert(fs.existsSync(path.join(backupDir, 'debloated-packages.txt')), 'Backup recorded debloated-packages.txt');
 
     // Test 8: Full Successful Backup-and-Restore Cycle
     // Restores the controlled test device using the pre-debloat snapshot created above

@@ -393,11 +393,24 @@ const server = http.createServer((req, res) => {
         }
 
         // Query active home launcher (Fail-Closed)
-        adbExec(['-s', device, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errHome, homeOut) => {
-          let activeHome = '';
-          const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
-          if (m) activeHome = m[1].trim();
+        const resolveHome = (cb) => {
+          // 1. Primary: modern Android (Android 8+)
+          adbExec(['-s', device, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errHome, homeOut) => {
+            const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
+            if (m) return cb(m[1].trim());
 
+            // 2. Fallback for older Android (Android 5-7)
+            adbExec(['-s', device, 'shell', 'pm', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errPm, pmOut) => {
+              const m2 = (pmOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
+              if (m2) return cb(m2[1].trim());
+
+              // Fail-closed
+              cb(null);
+            });
+          });
+        };
+
+        resolveHome((activeHome) => {
           if (!activeHome) {
             return jsonErr(res, 'Could not identify the TV\'s active HOME launcher via ADB. Debloating aborted to prevent disabling the TV\'s only working launcher. Please ensure the TV screen is unlocked and responds to ADB.', 500);
           }
@@ -442,6 +455,12 @@ const server = http.createServer((req, res) => {
           });
 
           function finish() {
+            try {
+              fs.writeFileSync(path.join(backupDir, 'original-home.txt'), activeHome || '');
+              const debloatedOnly = results.filter(r => r.result === 'disabled').map(r => r.pkg);
+              fs.writeFileSync(path.join(backupDir, 'debloated-packages.txt'), debloatedOnly.join('\n'));
+            } catch (e) {}
+
             jsonOk(res, {
               preset: presetName,
               presetFile: file,
@@ -465,6 +484,12 @@ const server = http.createServer((req, res) => {
         return jsonErr(res, 'No valid backup found for device ' + device + '. CleanTV creates a pre-debloat backup before any modifications; cannot restore without a verified backup for this device.', 404);
       }
 
+      const debloatedFile = path.join(backupDir, 'debloated-packages.txt');
+      let toRestore = [];
+      if (fs.existsSync(debloatedFile)) {
+        toRestore = fs.readFileSync(debloatedFile, 'utf8').split('\n').map(l => l.trim()).filter(Boolean);
+      }
+
       const preDisabledFile = path.join(backupDir, 'packages-disabled.txt');
       let disabledBefore = [];
       if (fs.existsSync(preDisabledFile)) {
@@ -475,7 +500,10 @@ const server = http.createServer((req, res) => {
       adbListDisabledPackages(device, (err, currentlyDisabled) => {
         if (err) return jsonErr(res, 'Could not list packages: ' + err.message);
 
-        const toRestore = currentlyDisabled.filter(p => !disabledBefore.includes(p));
+        if (toRestore.length === 0) {
+          toRestore = currentlyDisabled.filter(p => !disabledBefore.includes(p));
+        }
+
         if (toRestore.length === 0) {
           return jsonOk(res, { restored: 0, message: 'Nothing to restore — no installer-disabled packages found.' });
         }
@@ -486,6 +514,16 @@ const server = http.createServer((req, res) => {
           adbEnablePackage(device, pkg, (err2) => {
             if (!err2) restored++;
             if (++done === toRestore.length) {
+              // Restore original home launcher
+              const origHomeFile = path.join(backupDir, 'original-home.txt');
+              if (fs.existsSync(origHomeFile)) {
+                const origHome = fs.readFileSync(origHomeFile, 'utf8').trim();
+                if (origHome) {
+                  adbEnablePackage(device, origHome, () => {
+                    adbExec(['-s', device, 'shell', 'cmd', 'package', 'set-home-activity', '--user', '0', `${origHome}/.MainActivity`], () => {});
+                  });
+                }
+              }
               jsonOk(res, { restored, total: toRestore.length, backupDir, packages: toRestore });
             }
           });

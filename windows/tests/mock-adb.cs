@@ -41,6 +41,21 @@ namespace CleanTV.Tests
                 }
             }
 
+            // Test scenario: resolver fails, foreground app is YouTube (must NOT be treated as HOME)
+            if (cmd.Contains("foreground-app-device"))
+            {
+                if (cmd.Contains("resolve-activity"))
+                {
+                    Console.Error.WriteLine("Error: Activity not found");
+                    return 1;
+                }
+                if (cmd.Contains("dumpsys activity activities"))
+                {
+                    Console.WriteLine("  mResumedActivity: ActivityRecord{12345 u0 com.google.android.youtube.tv/.MainActivity t12}");
+                    return 0;
+                }
+            }
+
             // Normal home launcher detection
             if (cmd.Contains("resolve-activity"))
             {

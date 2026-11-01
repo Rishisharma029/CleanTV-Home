@@ -55,6 +55,10 @@ namespace CleanTV.Desktop
                     {
                         isHeadless = true;
                     }
+                    else if (a.StartsWith("--adb=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cachedAdbPath = a.Substring(6).Trim('"');
+                    }
                 }
             }
 
@@ -107,6 +111,10 @@ namespace CleanTV.Desktop
 
         public static string ResolveAdb()
         {
+            // 0. Environment variable override (for mock ADB / testing)
+            string envAdb = Environment.GetEnvironmentVariable("CLEANTV_ADB_PATH");
+            if (!string.IsNullOrEmpty(envAdb) && File.Exists(envAdb)) return envAdb;
+
             // 1. Check bundled platform-tools next to exe
             string bundled = Path.Combine(appDir, "platform-tools", "adb.exe");
             if (File.Exists(bundled)) return bundled;
@@ -330,9 +338,21 @@ namespace CleanTV.Desktop
         private static string GetActiveHomePackage(string device)
         {
             var homeRes = RunAdb("-s " + device + " shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME", 5000);
-            string combined = homeRes.Combined;
-            var match = Regex.Match(combined, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
-            if (match.Success) return match.Groups[1].Value.Trim();
+            if (homeRes.ExitCode == 0)
+            {
+                string combined = homeRes.Combined;
+                var match = Regex.Match(combined, @"\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
+                if (match.Success) return match.Groups[1].Value.Trim();
+            }
+
+            // Fallback for older Android TV OS versions
+            var dumpsysRes = RunAdb("-s " + device + " shell dumpsys activity activities", 5000);
+            if (dumpsysRes.ExitCode == 0)
+            {
+                var match = Regex.Match(dumpsysRes.StdOut ?? "", @"mResumedActivity: ActivityRecord\{[^\}]+ ([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)/");
+                if (match.Success) return match.Groups[1].Value.Trim();
+            }
+
             return null;
         }
 
@@ -528,9 +548,18 @@ namespace CleanTV.Desktop
                         return;
                     }
 
-                    // 2. Active Home Launcher & System Protection Verification
+                    // 2. Active Home Launcher & System Protection Verification (Fail-Closed)
                     string activeHome = GetActiveHomePackage(device);
-                    bool isCleanTvActive = !string.IsNullOrEmpty(activeHome) && activeHome.Equals("com.gathin.tvhome", StringComparison.OrdinalIgnoreCase);
+                    if (string.IsNullOrEmpty(activeHome))
+                    {
+                        statusCode = 500;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}",
+                            ToJsonString("Could not identify the TV's active HOME launcher via ADB. Debloating aborted to prevent disabling the TV's only working launcher. Please ensure the TV screen is unlocked and responds to ADB."));
+                        SendResponse(res, statusCode, jsonResponse);
+                        return;
+                    }
+
+                    bool isCleanTvActive = activeHome.Equals("com.gathin.tvhome", StringComparison.OrdinalIgnoreCase);
 
                     int disabledCount = 0;
                     int skippedCount = 0;
@@ -894,13 +923,12 @@ namespace CleanTV.Desktop
             if (!Directory.Exists(baseDir)) return null;
 
             string deviceKey = Regex.Replace(device, @"[^a-zA-Z0-9_-]", "_");
-            // Scoped strictly to this device. No unsafe fallback to other devices.
-            var dirs = new List<string>(Directory.GetDirectories(baseDir, "win-backup-" + deviceKey + "-*"));
-            if (dirs.Count == 0) return null;
+            var dInfo = new DirectoryInfo(baseDir);
+            var dirs = dInfo.GetDirectories("win-backup-" + deviceKey + "-*");
+            if (dirs.Length == 0) return null;
 
-            dirs.Sort();
-            dirs.Reverse();
-            return dirs[0];
+            Array.Sort(dirs, (a, b) => b.CreationTimeUtc.CompareTo(a.CreationTimeUtc));
+            return dirs[0].FullName;
         }
 
         private static string GetMimeType(string ext)

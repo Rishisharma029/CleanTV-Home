@@ -1,8 +1,10 @@
 // Real Windows Backend Integration Test
-// Spawns CleanTV backend and tests all endpoints over real HTTP
+// Spawns CleanTV backend with mock ADB controller and tests all endpoints over real HTTP
 const http = require('http');
 const path = require('path');
-const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const { spawn, execSync } = require('child_process');
 
 const PORT = 59822;
 console.log('[TEST] Starting CleanTV Backend Integration Tests...\n');
@@ -69,9 +71,22 @@ function get(endpoint, headers = {}) {
 }
 
 async function runTests() {
-  // 1. Start backend process
+  const mockAdbCs = path.resolve(__dirname, 'mock-adb.cs');
+  const mockAdbExe = path.resolve(__dirname, 'mock-adb.exe');
+
+  // Clean mock state
+  const stateFile = path.join(os.tmpdir(), 'cleantv_mock_disabled_pkgs.txt');
+  try { if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile); } catch (e) {}
+
+  if (!fs.existsSync(mockAdbExe)) {
+    const cscPath = 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe';
+    execSync(`"${cscPath}" /nologo /target:exe /out:"${mockAdbExe}" "${mockAdbCs}"`);
+  }
+
+  // 1. Start backend process with mock ADB
   const mainScript = path.resolve(__dirname, '..', 'src', 'main.js');
-  serverProc = spawn('node', [mainScript], { stdio: 'pipe' });
+  const env = { ...process.env, CLEANTV_ADB_PATH: mockAdbExe };
+  serverProc = spawn('node', [mainScript], { env, stdio: 'pipe' });
 
   serverProc.stdout.on('data', d => process.stdout.write('  [Server] ' + d));
   serverProc.stderr.on('data', d => process.stderr.write('  [Server ERR] ' + d));
@@ -113,21 +128,36 @@ async function runTests() {
       assert(pRes.data && pRes.data.packages && pRes.data.packages.length > 0, `preset-list handles preset "${pr}" (${pRes.data.packages.length} pkgs)`);
     }
 
-    // Test 6: Safe restore rejection when no backup exists for device
-    const restoreSafeRes = await post('/api/restore', { device: '192.0.2.99:5555' }, authHeaders);
+    // Test 6: Fail-closed launcher check on unresolved-home-device
+    const noHomeRes = await post('/api/debloat', { device: 'unresolved-home-device', preset: 'xiaomi' }, authHeaders);
+    assert(noHomeRes.status === 500, 'POST /api/debloat fails closed with HTTP 500 when active launcher cannot be identified');
+
+    // Test 7: Controlled debloat with active launcher protection
+    const debloatRes = await post('/api/debloat', { device: 'mock-tv-device', preset: 'xiaomi' }, authHeaders);
+    assert(debloatRes.status === 200, 'POST /api/debloat completes with HTTP 200 on mock device');
+    assert(debloatRes.data.disabled > 0, `Debloated ${debloatRes.data.disabled} packages safely`);
+    assert(debloatRes.data.skipped > 0, `Protected active launcher (skipped: ${debloatRes.data.skipped})`);
+
+    // Test 8: Full backup-and-restore cycle
+    const restoreRes = await post('/api/restore', { device: 'mock-tv-device' }, authHeaders);
+    assert(restoreRes.status === 200, 'POST /api/restore completes with HTTP 200 using pre-debloat backup');
+    assert(restoreRes.data && restoreRes.data.restored > 0, `Restore successfully re-enabled ${restoreRes.data.restored} package(s)`);
+
+    // Test 9: Safe restore rejection when no backup exists for device
+    const restoreSafeRes = await post('/api/restore', { device: 'unbacked-mock-tv-999' }, authHeaders);
     assert(restoreSafeRes.status === 404, 'POST /api/restore safely fails with HTTP 404 when no backup exists for device');
 
-    // Test 7: Key endpoint validation
-    const invalidKeyRes = await post('/api/key', { device: '127.0.0.1:5555', key: 'invalid_code' }, authHeaders);
+    // Test 10: Key endpoint validation
+    const invalidKeyRes = await post('/api/key', { device: 'mock-tv-device', key: 'invalid_code' }, authHeaders);
     assert(invalidKeyRes.status === 400, 'POST /api/key rejects non-numeric keycode with HTTP 400');
 
-    // Test 8: AI Command endpoint validation
-    const emptyAiRes = await post('/api/ai/command', { device: '127.0.0.1:5555', query: '' }, authHeaders);
+    // Test 11: AI Command endpoint validation
+    const emptyAiRes = await post('/api/ai/command', { device: 'mock-tv-device', query: '' }, authHeaders);
     assert(emptyAiRes.status === 400, 'POST /api/ai/command rejects empty query with HTTP 400');
 
-    // Test 9: Sideload install endpoint rejects unreachable device gracefully
-    const instRes = await post('/api/install', { device: '192.0.2.1:5555' }, authHeaders);
-    assert(instRes.status === 500 || instRes.data.status === 'error', 'POST /api/install gracefully handles unreachable device');
+    // Test 12: Sideload install endpoint succeeds with mock ADB
+    const instRes = await post('/api/install', { device: 'mock-tv-device' }, authHeaders);
+    assert(instRes.status === 200, 'POST /api/install succeeds on mock device');
 
     console.log('\n=======================================');
     if (failed) {
@@ -141,6 +171,7 @@ async function runTests() {
     if (serverProc) {
       serverProc.kill();
     }
+    try { if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile); } catch (e) {}
   }
 }
 

@@ -1,8 +1,10 @@
 // CleanTV Shipped C# Windows Backend Integration Test
-// Spawns CleanTV.exe --server-only and validates the native C# executable over HTTP
+// Spawns CleanTV.exe with mock ADB controller and validates end-to-end functionality over real HTTP
 const http = require('http');
 const path = require('path');
-const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const { spawn, execSync } = require('child_process');
 
 const PORT = 59822;
 console.log('[TEST] Starting CleanTV Shipped C# Backend (CleanTV.exe) Integration Tests...\n');
@@ -70,16 +72,37 @@ function get(endpoint, headers = {}) {
 
 async function runTests() {
   const exePath = path.resolve(__dirname, '..', 'CleanTV.exe');
-  console.log(`  Target binary: ${exePath}`);
+  const mockAdbCs = path.resolve(__dirname, 'mock-adb.cs');
+  const mockAdbExe = path.resolve(__dirname, 'mock-adb.exe');
 
-  // Spawn CleanTV.exe with --server-only flag (headless mode for automated testing)
-  exeProc = spawn(exePath, ['--server-only'], { stdio: 'ignore', windowsHide: true });
+  // Clean mock persistent state
+  const stateFile = path.join(os.tmpdir(), 'cleantv_mock_disabled_pkgs.txt');
+  try { if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile); } catch (e) {}
+
+  // 1. Compile Mock ADB if needed
+  if (!fs.existsSync(mockAdbExe)) {
+    console.log('  Compiling mock-adb.exe for controlled device testing...');
+    const cscPath = 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe';
+    execSync(`"${cscPath}" /nologo /target:exe /out:"${mockAdbExe}" "${mockAdbCs}"`);
+  }
+  assert(fs.existsSync(mockAdbExe), 'Mock ADB test controller is ready');
+
+  console.log(`  Target binary: ${exePath}`);
+  console.log(`  Target mock ADB: ${mockAdbExe}`);
+
+  // 2. Spawn CleanTV.exe with --server-only and --adb=<mockAdbExe>
+  const env = { ...process.env, CLEANTV_ADB_PATH: mockAdbExe };
+  exeProc = spawn(exePath, ['--server-only', `--adb=${mockAdbExe}`], {
+    env,
+    stdio: 'ignore',
+    windowsHide: true
+  });
 
   // Give server 1.5 seconds to bind to port 59822
   await new Promise(r => setTimeout(r, 1500));
 
   try {
-    // 1. Static UI serving from C# HttpListener
+    // Test 1: Static UI serving from C# HttpListener
     const htmlRes = await get('/index.html');
     assert(htmlRes.status === 200, 'CleanTV.exe serves /index.html with HTTP 200');
     assert(htmlRes.body.includes('CleanTV Home Desktop Manager'), 'Served HTML contains correct title');
@@ -91,12 +114,12 @@ async function runTests() {
     const token = tokenMatch ? tokenMatch[1] : '';
     const authHeaders = { 'X-CleanTV-Token': token };
 
-    // 2. CORS validation (evil origins blocked)
+    // Test 2: CORS validation (evil origins blocked)
     const corsRes = await get('/index.html', { 'Origin': 'http://malicious-website.com' });
     const allowOrigin = corsRes.headers['access-control-allow-origin'];
     assert(allowOrigin === 'null', 'CORS restricts non-loopback origins to null');
 
-    // 3. Security: Session Token Enforcement (Issue #1 verification)
+    // Test 3: Session Token Enforcement (Positive & Negative tests)
     const noTokenRes = await post('/api/adb-status', {});
     assert(noTokenRes.status === 401, 'POST /api/adb-status without token is rejected with HTTP 401 Unauthorized');
 
@@ -106,12 +129,12 @@ async function runTests() {
     const unauthPresetRes = await post('/api/preset-list', { preset: 'realme' });
     assert(unauthPresetRes.status === 401, 'POST /api/preset-list without token is rejected with HTTP 401 Unauthorized');
 
-    // 4. Authenticated ADB Status
+    // Test 4: Authenticated ADB Status
     const adbRes = await post('/api/adb-status', {}, authHeaders);
     assert(adbRes.status === 200, 'POST /api/adb-status with valid token returns HTTP 200');
-    assert(adbRes.data && adbRes.data.adbFound === true, 'C# backend detects bundled or system ADB');
+    assert(adbRes.data && adbRes.data.adbFound === true, 'C# backend detects bundled or mock ADB');
 
-    // 5. Presets loading across all 7 supported configurations
+    // Test 5: Presets loading across all 7 supported configurations
     const presets = ['realme', 'sony', 'xiaomi', 'tcl', 'google', 'hisense', 'generic'];
     for (const p of presets) {
       const pRes = await post('/api/preset-list', { preset: p }, authHeaders);
@@ -119,29 +142,54 @@ async function runTests() {
       assert(pRes.data && pRes.data.packages && pRes.data.packages.length > 0, `Preset [${p}] contains active packages (${pRes.data.packages.length})`);
     }
 
-    // 6. Backup Verification & Safety Abort (Issue #2 verification)
-    // When target device ADB commands fail, debloater must abort immediately with HTTP 500
-    const debloatFailRes = await post('/api/debloat', { device: '192.0.2.1:5555', preset: 'generic' }, authHeaders);
-    assert(debloatFailRes.status === 500, 'POST /api/debloat aborts with HTTP 500 when pre-debloat safety backup cannot be verified');
-    assert(debloatFailRes.data && debloatFailRes.data.message && debloatFailRes.data.message.includes('safety backup failed'), 'Debloat failure response explicitly confirms safety backup failure safeguard');
+    // Test 6: Fail-Closed Active Launcher Protection
+    // When TV's active launcher cannot be resolved via ADB, debloater MUST abort immediately
+    const noHomeRes = await post('/api/debloat', { device: 'unresolved-home-device', preset: 'xiaomi' }, authHeaders);
+    assert(noHomeRes.status === 500, 'POST /api/debloat fails closed with HTTP 500 when active launcher cannot be identified');
+    assert(noHomeRes.data && noHomeRes.data.message && noHomeRes.data.message.includes('active HOME launcher'), 'Fail-closed debloat abort explicitly protects unknown/unresolved launcher');
 
-    // 7. Restore Safe Failure without Device Backup (Issue #3 verification)
-    // When no backup exists for this specific device, restore must return 404 rather than fall back to other backups or presets
-    const restoreSafeRes = await post('/api/restore', { device: '192.0.2.99:5555' }, authHeaders);
-    assert(restoreSafeRes.status === 404, 'POST /api/restore safely fails with HTTP 404 when no backup exists for the specific device');
-    assert(restoreSafeRes.data && restoreSafeRes.data.message && restoreSafeRes.data.message.includes('No valid backup found'), 'Restore error message explains missing device backup requirement');
+    // Test 7: Controlled Debloat Execution & Active Launcher Safety Guard
+    // Debloating Xiaomi preset on mock device: com.mitv.tvhome is the active launcher and CleanTV is NOT active
+    // Debloater must skip com.mitv.tvhome while safely disabling remaining bloatware
+    const debloatRes = await post('/api/debloat', { device: 'mock-tv-device', preset: 'xiaomi' }, authHeaders);
+    assert(debloatRes.status === 200, 'POST /api/debloat completes with HTTP 200 on controlled test device');
+    assert(debloatRes.data && debloatRes.data.disabled > 0, `Debloater successfully disabled ${debloatRes.data.disabled} OEM bloat packages`);
+    assert(debloatRes.data.skipped > 0, `Debloater protected active launcher & system packages (skipped: ${debloatRes.data.skipped})`);
 
-    // 8. Input validation on /api/key (numeric check)
-    const invalidKeyRes = await post('/api/key', { device: '127.0.0.1:5555', key: 'non_numeric' }, authHeaders);
+    // Verify com.mitv.tvhome was protected and skipped
+    const launcherResult = debloatRes.data.results.find(r => r.pkg === 'com.mitv.tvhome');
+    assert(launcherResult && launcherResult.result === 'skipped_active_launcher', 'Active launcher com.mitv.tvhome was safely protected from being disabled');
+
+    // Verify pre-debloat backup directory was created and verified
+    const backupDir = debloatRes.data.backupDir;
+    assert(backupDir && fs.existsSync(backupDir), `Pre-debloat safety backup directory verified on disk: ${backupDir}`);
+    assert(fs.existsSync(path.join(backupDir, 'packages-all.txt')), 'Backup contains packages-all.txt');
+    assert(fs.existsSync(path.join(backupDir, 'getprop.txt')), 'Backup contains getprop.txt');
+
+    // Test 8: Full Successful Backup-and-Restore Cycle
+    // Restores the controlled test device using the pre-debloat snapshot created above
+    const restoreRes = await post('/api/restore', { device: 'mock-tv-device' }, authHeaders);
+    assert(restoreRes.status === 200, 'POST /api/restore completes with HTTP 200 on controlled test device');
+    assert(restoreRes.data && restoreRes.data.restored > 0, `Restore operation successfully re-enabled ${restoreRes.data.restored} package(s)`);
+    assert(path.resolve(restoreRes.data.backupDir) === path.resolve(backupDir), 'Restore operation used exact device-scoped backup from debloat');
+
+    // Test 9: Restore Safe 404 Rejection on Unbacked Device
+    const noBackupRestore = await post('/api/restore', { device: 'unbacked-mock-tv-999' }, authHeaders);
+    assert(noBackupRestore.status === 404, 'POST /api/restore safely returns HTTP 404 when no backup exists for device');
+    assert(noBackupRestore.data.message.includes('No valid backup found'), 'Restore error message explains missing device backup requirement');
+
+    // Test 10: Input validation on /api/key (numeric check)
+    const invalidKeyRes = await post('/api/key', { device: 'mock-tv-device', key: 'non_numeric' }, authHeaders);
     assert(invalidKeyRes.status === 400, 'POST /api/key rejects non-numeric input with HTTP 400');
 
-    // 9. Input validation on /api/ai/command (empty query check)
-    const emptyAiRes = await post('/api/ai/command', { device: '127.0.0.1:5555', query: '' }, authHeaders);
+    // Test 11: Input validation on /api/ai/command (empty query check)
+    const emptyAiRes = await post('/api/ai/command', { device: 'mock-tv-device', query: '' }, authHeaders);
     assert(emptyAiRes.status === 400, 'POST /api/ai/command rejects empty query with HTTP 400');
 
-    // 10. Sideload APK endpoint handles unreachable endpoint safely
-    const instRes = await post('/api/install', { device: '192.0.2.1:5555' }, authHeaders);
-    assert(instRes.status === 404 || instRes.status === 500, 'POST /api/install safely handles unreachable endpoint without crashing');
+    // Test 12: Sideload install endpoint succeeds with mock ADB
+    const instRes = await post('/api/install', { device: 'mock-tv-device' }, authHeaders);
+    assert(instRes.status === 200, 'POST /api/install executes streamed APK install successfully');
+    assert(instRes.data && instRes.data.installed === true, 'Sideload response confirms successful installation');
 
     console.log('\n=======================================');
     if (failed) {
@@ -159,6 +207,7 @@ async function runTests() {
         spawn('taskkill', ['/pid', exeProc.pid, '/f', '/t'], { stdio: 'ignore' });
       } catch { }
     }
+    try { if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile); } catch (e) {}
   }
 }
 

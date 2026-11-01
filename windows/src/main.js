@@ -20,6 +20,9 @@ const UI_DIR  = path.join(APP_DIR, 'ui');
 // Priority: 1) bundled in windows/platform-tools/  2) PATH  3) error
 
 function findAdb() {
+  if (process.env.CLEANTV_ADB_PATH && fs.existsSync(process.env.CLEANTV_ADB_PATH)) {
+    return process.env.CLEANTV_ADB_PATH;
+  }
   const bundled = path.join(APP_DIR, 'platform-tools', 'adb.exe');
   if (fs.existsSync(bundled)) return bundled;
 
@@ -223,11 +226,11 @@ function createBackup(device, callback) {
 function findLatestBackup(device) {
   if (!fs.existsSync(BACKUP_DIR)) return null;
   const devKey = sanitizeDeviceKey(device);
-  // Scoped strictly to this device. No unsafe fallback to other devices.
   const dirs = fs.readdirSync(BACKUP_DIR)
     .filter(d => d.startsWith(`win-backup-${devKey}-`))
-    .sort().reverse();
-  return dirs.length ? path.join(BACKUP_DIR, dirs[0]) : null;
+    .map(d => ({ path: path.join(BACKUP_DIR, d), time: fs.statSync(path.join(BACKUP_DIR, d)).mtimeMs }))
+    .sort((a, b) => b.time - a.time);
+  return dirs.length ? dirs[0].path : null;
 }
 
 // ─── JSON response helpers ───────────────────────────────────────────────────
@@ -389,11 +392,16 @@ const server = http.createServer((req, res) => {
           return jsonErr(res, 'Pre-debloat safety backup failed: ' + (errBackup ? errBackup.message : 'Unknown error') + '. Debloat aborted to protect TV.');
         }
 
-        // Query active home launcher
+        // Query active home launcher (Fail-Closed)
         adbExec(['-s', device, 'shell', 'cmd', 'package', 'resolve-activity', '--brief', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.HOME'], (errHome, homeOut) => {
           let activeHome = '';
           const m = (homeOut || '').match(/\b([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+)\//);
           if (m) activeHome = m[1].trim();
+
+          if (!activeHome) {
+            return jsonErr(res, 'Could not identify the TV\'s active HOME launcher via ADB. Debloating aborted to prevent disabling the TV\'s only working launcher. Please ensure the TV screen is unlocked and responds to ADB.', 500);
+          }
+
           const isCleanTvActive = (activeHome === 'com.gathin.tvhome');
 
           let disabled = 0, skipped = 0, failed = 0;

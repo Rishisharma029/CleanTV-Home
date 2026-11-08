@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/proDialogRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#E60B0D10"
+    android:clickable="true"
+    android:focusable="false">
+
+    <LinearLayout
+        android:id="@+id/proCardContent"
+        android:layout_width="660dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/glass_panel"
+        android:orientation="vertical"
+        android:padding="26dp"
+        android:clickable="true"
+        android:focusable="false">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⭐"
+                android:textSize="24sp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CleanTV Pro"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="21sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:id="@+id/dialogProBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:background="@drawable/pill_bg"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:text="PRO LIFETIME"
+                        android:textColor="#FF35D0A0"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Commercial Edition · Advanced Android TV Management"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnCloseProDialog"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/pill_bg"
+                android:text="Close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:focusable="true" />
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp"
+            android:background="#26FFFFFF" />
+
+        <!-- Feature List -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Active Features &amp; Entitlements"
+                android:textColor="#FF49B6FF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="8dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="✔  Zero-Telemetry Minimalist TV Launcher &amp; Fast Dock"
+                    android:textColor="#FFE2E8F0"
+                    android:textSize="13sp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="✔  Pro Batch Package Management (Disable &amp; Uninstall)"
+                    android:textColor="#FFE2E8F0"
+                    android:textSize="13sp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="✔  Ultra, Streaming &amp; Privacy Deep Debloat Profiles"
+                    android:textColor="#FFE2E8F0"
+                    android:textSize="13sp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="✔  Hardware Acceleration &amp; System Audit Diagnostic Reports"
+                    android:textColor="#FFE2E8F0"
+                    android:textSize="13sp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="✔  Full Snapshot Backup &amp; Safe Restore Verification"
+                    android:textColor="#FFE2E8F0"
+                    android:textSize="13sp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Status Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/voice_ai_card_bg"
+            android:padding="12dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvLicenseStatusDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="CleanTV Pro Status: Active Lifetime License"
+                android:textColor="#FF35D0A0"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvLicenseKeyDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Managed via CleanTV Desktop Manager (Windows MSIX / Direct Key)"
+                android:textColor="#99FFFFFF"
+                android:textSize="11.5sp" />
+        </LinearLayout>
+
+        <!-- Actions Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:orientation="horizontal"
+            android:gravity="end">
+
+            <Button
+                android:id="@+id/btnEnterTvKey"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/pill_bg"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="Enter License Key"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:focusable="true" />
+
+            <Button
+                android:id="@+id/btnDoneProDialog"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/pill_bg"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:text="OK"
+                android:textColor="#FF35D0A0"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:focusable="true" />
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>

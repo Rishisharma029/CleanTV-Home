@@ -237,6 +237,7 @@
                         android:gravity="center_vertical"
                         android:focusable="true"
                         android:clickable="true"
+                        android:nextFocusRight="@+id/btnVoiceAiHome"
                         android:nextFocusDown="@+id/grid"
                         android:orientation="horizontal">
 
@@ -280,6 +281,8 @@
                         android:gravity="center_vertical"
                         android:focusable="true"
                         android:clickable="true"
+                        android:nextFocusLeft="@+id/btnProfile"
+                        android:nextFocusRight="@+id/btnCleanTvProHome"
                         android:nextFocusDown="@+id/grid"
                         android:orientation="horizontal">
 
@@ -295,6 +298,42 @@
                             android:layout_marginStart="4dp"
                             android:text="AI"
                             android:textColor="@drawable/pill_text"
+                            android:textSize="11sp"
+                            android:fontFamily="@string/font_medium"
+                            android:includeFontPadding="false" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/btnCleanTvProHome"
+                        android:layout_width="wrap_content"
+                        android:layout_height="26dp"
+                        android:background="@drawable/pill_bg"
+                        android:layout_marginStart="8dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="10dp"
+                        android:gravity="center_vertical"
+                        android:focusable="true"
+                        android:clickable="true"
+                        android:nextFocusLeft="@+id/btnVoiceAiHome"
+                        android:nextFocusRight="@+id/btnAudio"
+                        android:nextFocusDown="@+id/grid"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="⭐"
+                            android:textSize="11sp"
+                            android:includeFontPadding="false" />
+
+                        <TextView
+                            android:id="@+id/tvCleanTvProLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="Pro"
+                            android:singleLine="true"
+                            android:textColor="#FF35D0A0"
                             android:textSize="11sp"
                             android:fontFamily="@string/font_medium"
                             android:includeFontPadding="false" />

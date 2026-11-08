@@ -844,6 +844,28 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             });
         }
 
+        View btnCleanTvProHome = findViewById(R.id.btnCleanTvProHome);
+        if (btnCleanTvProHome != null) {
+            btnCleanTvProHome.setOnClickListener(v -> CleanTvProDialog.show(this));
+            btnCleanTvProHome.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) {
+                    v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(120).start();
+                    v.playSoundEffect(SoundEffectConstants.CLICK);
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                }
+            });
+            btnCleanTvProHome.setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                        CleanTvProDialog.show(this);
+                        return true;
+                    }
+                }
+                return topBarKeyListener.onKey(v, keyCode, event);
+            });
+        }
+
         View btnControlCenter = findViewById(R.id.btnControlCenter);
         if (btnControlCenter != null) {
             btnControlCenter.setFocusable(true);

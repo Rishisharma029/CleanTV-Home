@@ -21,6 +21,55 @@
             android:textColor="#FFFFFFFF"
             android:textSize="34sp" />
 
+        <LinearLayout
+            android:id="@+id/cleanTvProSettingsBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/voice_ai_card_bg"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:focusable="true"
+            android:clickable="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⭐ CleanTV Pro"
+                    android:textColor="#FF35D0A0"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvSettingsProBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/pill_bg"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="LIFETIME ACTIVE"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Commercial Edition · Advanced debloating, batch package optimization, audit exports, and deep customization."
+                android:textColor="#FFA1AAB5"
+                android:textSize="13sp" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/reorderChoice"
             style="@style/SettingsRow"

@@ -44,6 +44,18 @@ public final class LauncherSettingsActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         setContentView(R.layout.activity_launcher_settings);
+
+        View proBanner = findViewById(R.id.cleanTvProSettingsBanner);
+        if (proBanner != null) {
+            proBanner.setOnClickListener(v -> CleanTvProDialog.show(this));
+            proBanner.setOnFocusChangeListener((v, hasFocus) -> {
+                if (hasFocus) {
+                    v.animate().scaleX(1.02f).scaleY(1.02f).setDuration(120).start();
+                } else {
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start();
+                }
+            });
+        }
         choices = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE);
         Config config = Config.load(this);
         View reorderChoice = findViewById(R.id.reorderChoice);

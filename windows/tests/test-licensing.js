@@ -87,7 +87,7 @@ async function run() {
     // Test 2: Pricing configuration endpoint
     const cfgRes = await post('/api/license/config', {}, token);
     assert(cfgRes.status === 200, 'POST /api/license/config returns 200');
-    assert(cfgRes.data.introductoryPrice === '₹99' && cfgRes.data.regularPrice === '₹199', 'Config exposes ₹99 intro / ₹199 standard pricing');
+    assert(cfgRes.data.monthlyPriceInr === '₹99' && cfgRes.data.lifetimePriceInr === '₹200', 'Config exposes ₹99 monthly / ₹200 lifetime pricing');
 
     // Test 3: Free Tier Enforcement: Batch Action is rejected with 403 Forbidden
     const batchFree = await post('/api/batch-action', { device: 'mock-tv-device', packages: ['com.xiaomi.mitv.upgrade'], action: 'disable' }, token);
@@ -101,7 +101,7 @@ async function run() {
     // Test 5: Activation rejection: invalid key format
     const badFmt = await post('/api/license/activate', { licenseKey: 'BAD-FORMAT-123' }, token);
     assert(badFmt.status === 400, 'Rejects invalid key format with HTTP 400');
-    assert(badFmt.data.message.includes('CTV-PRO-XXXX-XXXX'), 'Error message instructs on correct CTV-PRO-XXXX-XXXX format');
+    assert(badFmt.data.message.includes('CTV-PRO') || badFmt.data.message.includes('CTV-MON'), 'Error message instructs on correct CTV-PRO / CTV-MON format');
 
     // Test 6: Activation rejection: invalid checksum
     const badSum = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-0000' }, token);

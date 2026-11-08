@@ -3,228 +3,431 @@
     android:id="@+id/proDialogRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#E60B0D10"
+    android:background="#EB0B0D10"
     android:clickable="true"
     android:focusable="false">
 
-    <LinearLayout
-        android:id="@+id/proCardContent"
-        android:layout_width="660dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:background="@drawable/glass_panel"
-        android:orientation="vertical"
-        android:padding="26dp"
-        android:clickable="true"
-        android:focusable="false">
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-        <!-- Header -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/proCardContent"
+            android:layout_width="880dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_gravity="center"
+            android:background="@drawable/glass_panel"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:clickable="true"
+            android:focusable="false">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⭐"
-                android:textSize="24sp" />
-
+            <!-- Header Row -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:text="⭐"
+                    android:textSize="26sp" />
 
-                    <TextView
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="CleanTV Pro"
-                        android:textColor="#FFFFFFFF"
-                        android:textSize="21sp"
-                        android:fontFamily="sans-serif-medium" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="CleanTV Plan Manager"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="22sp"
+                            android:fontFamily="sans-serif-medium" />
+
+                        <TextView
+                            android:id="@+id/dialogHeaderCurrentBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:background="@drawable/pill_bg"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="3dp"
+                            android:paddingBottom="3dp"
+                            android:text="BASIC PLAN (ACTIVE)"
+                            android:textColor="#FFA1AAB5"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <TextView
-                        android:id="@+id/dialogProBadge"
+                        android:id="@+id/dialogHeaderSubtext"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
+                        android:layout_marginTop="2dp"
+                        android:text="Choose a plan to unlock complete bloatware removal, Voice AI assistant, and VIP profiles"
+                        android:textColor="#99FFFFFF"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnCloseProDialog"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:background="@drawable/pill_bg"
+                    android:text="Close"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="12sp"
+                    android:focusable="true" />
+            </LinearLayout>
+
+            <!-- Upgrade Notice Banner (Visible when intercepted) -->
+            <LinearLayout
+                android:id="@+id/layoutUpgradeNotice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/voice_ai_chip_bg"
+                android:padding="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tvUpgradeNoticeMessage"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="Please upgrade your plan to access this premium capability."
+                    android:textColor="#FFFFB454"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="14dp"
+                android:layout_marginBottom="14dp"
+                android:background="#26FFFFFF" />
+
+            <!-- Three Plans Grid -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:baselineAligned="false">
+
+                <!-- Plan 1: Basic Plan (Current / Free) -->
+                <LinearLayout
+                    android:id="@+id/cardPlanBasic"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/voice_ai_card_bg"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:focusable="true">
+
+                    <TextView
+                        android:id="@+id/badgePlanBasic"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:background="@drawable/pill_bg"
                         android:paddingStart="8dp"
                         android:paddingEnd="8dp"
                         android:paddingTop="2dp"
                         android:paddingBottom="2dp"
-                        android:text="PRO LIFETIME"
-                        android:textColor="#FF35D0A0"
-                        android:textSize="11sp"
+                        android:text="CURRENT PLAN"
+                        android:textColor="#FFA1AAB5"
+                        android:textSize="10sp"
                         android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Basic Plan"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="18sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Free Forever (₹0 / $0)"
+                        android:textColor="#FF35D0A0"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Essential cleanup and basic protection for smoother Android TV performance."
+                        android:textColor="#88FFFFFF"
+                        android:textSize="11.5sp"
+                        android:lineSpacingExtra="2dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="10dp"
+                        android:background="#15FFFFFF" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="✔ Basic Ad-Shielding &amp; Filtering\n✔ Safe Basic Telemetry Disabling\n✔ Ad-Free Lean Home Launcher\n✖ Complete 150+ Bloat Removal\n✖ Voice AI Assistant &amp; Search"
+                        android:textColor="#B3FFFFFF"
+                        android:textSize="11.5sp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <Button
+                        android:id="@+id/btnPlanBasicStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginTop="16dp"
+                        android:background="@drawable/pill_bg"
+                        android:text="✓ Active Plan"
+                        android:textColor="#FFA1AAB5"
+                        android:textSize="11.5sp"
+                        android:enabled="false" />
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <!-- Plan 2: Pro Monthly Plan -->
+                <LinearLayout
+                    android:id="@+id/cardPlanMonthly"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Commercial Edition · Advanced Android TV Management"
-                    android:textColor="#99FFFFFF"
-                    android:textSize="12sp" />
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/voice_ai_card_bg"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:focusable="true">
+
+                    <TextView
+                        android:id="@+id/badgePlanMonthly"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/pill_bg"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:text="PRO MONTHLY"
+                        android:textColor="#FF49B6FF"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Pro Monthly"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="18sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="₹99 / mo · $5 USD"
+                        android:textColor="#FF49B6FF"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Complete device power with full bloat removal and Voice AI for 1 month."
+                        android:textColor="#88FFFFFF"
+                        android:textSize="11.5sp"
+                        android:lineSpacingExtra="2dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="10dp"
+                        android:background="#15FFFFFF" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="✔ Everything in Basic Plan\n✔ Full Voice AI Assistant\n✔ Complete 150+ Bloat Removal\n✔ Streaming &amp; Privacy Profiles\n✔ 30-Day VIP Priority Updates"
+                        android:textColor="#B3FFFFFF"
+                        android:textSize="11.5sp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <Button
+                        android:id="@+id/btnSelectMonthly"
+                        android:layout_width="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginTop="16dp"
+                        android:background="@drawable/pill_bg"
+                        android:text="Choose Monthly (₹99 / $5)"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:focusable="true" />
+                </LinearLayout>
+
+                <!-- Plan 3: Pro Lifetime Plan (Best Value) -->
+                <LinearLayout
+                    android:id="@+id/cardPlanLifetime"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/voice_ai_card_bg"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:focusable="true">
+
+                    <TextView
+                        android:id="@+id/badgePlanLifetime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/pill_bg"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:text="⭐ BEST VALUE · LIFETIME"
+                        android:textColor="#FF35D0A0"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Pro Lifetime"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="18sp"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="₹200 · $7 USD (One-Time)"
+                        android:textColor="#FF35D0A0"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Permanent ownership. Unlimited access forever with zero recurring fees."
+                        android:textColor="#88FFFFFF"
+                        android:textSize="11.5sp"
+                        android:lineSpacingExtra="2dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="10dp"
+                        android:background="#15FFFFFF" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="✔ Everything in Pro Monthly\n✔ Unlimited Lifetime Access\n✔ Never Pay Again (Forever)\n✔ All Future Presets &amp; AI Updates\n✔ Windows Desktop Manager Sync"
+                        android:textColor="#B3FFFFFF"
+                        android:textSize="11.5sp"
+                        android:lineSpacingExtra="4dp" />
+
+                    <Button
+                        android:id="@+id/btnSelectLifetime"
+                        android:layout_width="match_parent"
+                        android:layout_height="34dp"
+                        android:layout_marginTop="16dp"
+                        android:background="@drawable/pill_bg"
+                        android:text="Get Lifetime (₹200 / $7)"
+                        android:textColor="#FF35D0A0"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:focusable="true" />
+                </LinearLayout>
+
             </LinearLayout>
 
-            <Button
-                android:id="@+id/btnCloseProDialog"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:background="@drawable/pill_bg"
-                android:text="Close"
-                android:textColor="#FFFFFFFF"
-                android:textSize="12sp"
-                android:focusable="true" />
-        </LinearLayout>
-
-        <!-- Divider -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp"
-            android:background="#26FFFFFF" />
-
-        <!-- Feature List -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Active Features &amp; Entitlements"
-                android:textColor="#FF49B6FF"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
+            <!-- Bottom Actions Bar -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="18dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:id="@+id/tvActivePlanNotice"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="✔  Zero-Telemetry Minimalist TV Launcher &amp; Fast Dock"
-                    android:textColor="#FFE2E8F0"
-                    android:textSize="13sp"
-                    android:paddingTop="3dp"
-                    android:paddingBottom="3dp" />
+                    android:layout_weight="1"
+                    android:text="Current: Basic Plan (Active). Select Monthly or Lifetime to upgrade."
+                    android:textColor="#99FFFFFF"
+                    android:textSize="11.5sp" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="✔  Pro Batch Package Management (Disable &amp; Uninstall)"
-                    android:textColor="#FFE2E8F0"
-                    android:textSize="13sp"
-                    android:paddingTop="3dp"
-                    android:paddingBottom="3dp" />
+                <Button
+                    android:id="@+id/btnEnterTvKey"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:background="@drawable/pill_bg"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:text="🔑 Enter License Key"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="12sp"
+                    android:focusable="true" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="✔  Ultra, Streaming &amp; Privacy Deep Debloat Profiles"
-                    android:textColor="#FFE2E8F0"
-                    android:textSize="13sp"
-                    android:paddingTop="3dp"
-                    android:paddingBottom="3dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="✔  Hardware Acceleration &amp; System Audit Diagnostic Reports"
-                    android:textColor="#FFE2E8F0"
-                    android:textSize="13sp"
-                    android:paddingTop="3dp"
-                    android:paddingBottom="3dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="✔  Full Snapshot Backup &amp; Safe Restore Verification"
-                    android:textColor="#FFE2E8F0"
-                    android:textSize="13sp"
-                    android:paddingTop="3dp"
-                    android:paddingBottom="3dp" />
+                <Button
+                    android:id="@+id/btnDoneProDialog"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/pill_bg"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:text="OK"
+                    android:textColor="#FF35D0A0"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:focusable="true" />
             </LinearLayout>
+
         </LinearLayout>
-
-        <!-- Status Card -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/voice_ai_card_bg"
-            android:padding="12dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/tvLicenseStatusDetail"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="CleanTV Pro Status: Active Lifetime License"
-                android:textColor="#FF35D0A0"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvLicenseKeyDetail"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:text="Managed via CleanTV Desktop Manager (Windows MSIX / Direct Key)"
-                android:textColor="#99FFFFFF"
-                android:textSize="11.5sp" />
-        </LinearLayout>
-
-        <!-- Actions Row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:orientation="horizontal"
-            android:gravity="end">
-
-            <Button
-                android:id="@+id/btnEnterTvKey"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:background="@drawable/pill_bg"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:text="Enter License Key"
-                android:textColor="#FFFFFFFF"
-                android:textSize="12sp"
-                android:focusable="true" />
-
-            <Button
-                android:id="@+id/btnDoneProDialog"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginStart="10dp"
-                android:background="@drawable/pill_bg"
-                android:paddingStart="18dp"
-                android:paddingEnd="18dp"
-                android:text="OK"
-                android:textColor="#FF35D0A0"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:focusable="true" />
-        </LinearLayout>
-
-    </LinearLayout>
+    </ScrollView>
 </FrameLayout>

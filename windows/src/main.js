@@ -257,21 +257,23 @@ function computeLicenseSignature(tier, key, plan, activatedAt) {
 function verifyLicenseKey(rawKey) {
   if (!rawKey) return { valid: false, error: 'License key cannot be empty.' };
   const key = rawKey.trim().toUpperCase();
-  const m = key.match(/^CTV-PRO-([0-9A-Z]{4})-([0-9A-Z]{4})$/);
+  const m = key.match(/^CTV-(PRO|MON)-([0-9A-Z]{4})-([0-9A-Z]{4})$/);
   if (!m) {
-    return { valid: false, error: 'Invalid format. Key must follow CTV-PRO-XXXX-XXXX (e.g. CTV-PRO-8892-98B4).' };
+    return { valid: false, error: 'Invalid format. Key must follow CTV-PRO-XXXX-XXXX or CTV-MON-XXXX-XXXX.' };
   }
-  const part1 = m[1];
-  const part2 = m[2];
+  const prefix = m[1];
+  const part1 = m[2];
+  const part2 = m[3];
+  const plan = prefix === 'MON' ? 'CleanTV Pro Monthly' : 'CleanTV Pro Lifetime';
 
   // Revocation list
-  if (key.includes('REVOK') || key === 'CTV-PRO-REV1-9999') {
-    return { valid: false, error: 'This CleanTV Pro license key has been revoked.' };
+  if (key.includes('REVOK') || key === 'CTV-PRO-REV1-9999' || key === 'CTV-MON-REV1-9999') {
+    return { valid: false, error: 'This CleanTV license key has been revoked.' };
   }
 
   // Testing & store keys
-  if (part1 === 'TEST' && part2 === '9999') return { valid: true, key };
-  if (part1 === 'STOR') return { valid: true, key };
+  if (part1 === 'TEST' && part2 === '9999') return { valid: true, key, plan };
+  if (part1 === 'STOR') return { valid: true, key, plan };
 
   // Algorithmic SHA-256 checksum verification
   const expectedSum = crypto.createHash('sha256').update(LICENSE_KEY_SECRET + part1).digest('hex').substring(0, 4).toUpperCase();
@@ -279,7 +281,7 @@ function verifyLicenseKey(rawKey) {
     return { valid: false, error: 'Invalid license key checksum. Please verify the code from your purchase receipt.' };
   }
 
-  return { valid: true, key };
+  return { valid: true, key, plan };
 }
 
 function getVerifiedLicense() {
@@ -907,13 +909,16 @@ const server = http.createServer((req, res) => {
     // POST /api/license/config
     if (url === '/api/license/config') {
       return jsonOk(res, {
+        monthlyPriceInr: '₹99',
+        monthlyPriceUsd: '$5',
+        lifetimePriceInr: '₹200',
+        lifetimePriceUsd: '$7',
         introductoryPrice: '₹99',
-        regularPrice: '₹199',
-        introductoryAvailable: true,
+        regularPrice: '₹200',
         currency: 'INR',
         storeProductId: 'CleanTV.Pro.Lifetime',
         webStoreUrl: 'https://cleantv.app/pro',
-        providers: ['Microsoft Store', 'Razorpay', 'Lemon Squeezy', 'Gumroad']
+        providers: ['Microsoft Store', 'Razorpay', 'Stripe', 'Lemon Squeezy', 'Gumroad']
       });
     }
 
@@ -929,7 +934,7 @@ const server = http.createServer((req, res) => {
       fs.mkdirSync(path.dirname(licFile), { recursive: true });
 
       const activatedAt = new Date().toISOString();
-      const plan = 'CleanTV Pro Lifetime';
+      const plan = verification.plan || 'CleanTV Pro Lifetime';
       const signature = computeLicenseSignature('pro', key, plan, activatedAt);
 
       const lic = {

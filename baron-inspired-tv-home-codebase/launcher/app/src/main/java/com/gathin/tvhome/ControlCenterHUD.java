@@ -1349,6 +1349,26 @@ public final class ControlCenterHUD {
             });
         }
 
+        View cardPlanUpgrade = hudRoot.findViewById(R.id.cardPlanUpgrade);
+        if (cardPlanUpgrade != null) {
+            applyCardFocusEffect(cardPlanUpgrade);
+            TextView sub = hudRoot.findViewById(R.id.ccPlanSubtitle);
+            if (sub != null && activity != null) {
+                String plan = CleanTvProDialog.getActivePlan(activity);
+                if (CleanTvProDialog.PLAN_LIFETIME.equals(plan)) {
+                    sub.setText("Active: Pro Lifetime Edition (Unlocked)");
+                } else if (CleanTvProDialog.PLAN_MONTHLY.equals(plan)) {
+                    sub.setText("Active: Pro Monthly (30 Days)");
+                } else {
+                    sub.setText("Active: Basic Plan (Free) · Tap to Upgrade");
+                }
+            }
+            cardPlanUpgrade.setOnClickListener(v -> {
+                dismissImmediate();
+                CleanTvProDialog.show(activity);
+            });
+        }
+
     }
 
 

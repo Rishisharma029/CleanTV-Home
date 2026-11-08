@@ -865,6 +865,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 return topBarKeyListener.onKey(v, keyCode, event);
             });
         }
+        if (getIntent() != null && getIntent().hasExtra("activate_license")) {
+            String licKey = getIntent().getStringExtra("activate_license");
+            if (licKey != null && !licKey.trim().isEmpty()) {
+                String key = licKey.trim().toUpperCase();
+                if (key.contains("MON")) {
+                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_MONTHLY, key);
+                } else {
+                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_LIFETIME, key);
+                }
+            }
+        }
+        updatePlanBadge();
 
         View btnControlCenter = findViewById(R.id.btnControlCenter);
         if (btnControlCenter != null) {
@@ -921,8 +933,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
         btnLibraryTop.setVisibility(cfg.libraryButton && cfg.appLibrary ? View.VISIBLE : View.GONE);
 
-        // Bind unified top bar D-pad key navigation to all top controls
-        View[] topBarControls = new View[]{btnProfile, btnVoiceAiHome, btnInputs, btnAudio, btnStorage, btnWifi, btnReorder, btnLibraryTop, btnControlCenter, btnSettings};
+        // Bind unified top bar D-pad key navigation to right-side buttons only
+        View[] topBarControls = new View[]{btnInputs, btnAudio, btnStorage, btnWifi, btnReorder, btnLibraryTop, btnControlCenter, btnSettings};
         for (View b : topBarControls) {
             if (b != null) b.setOnKeyListener(topBarKeyListener);
         }
@@ -1080,6 +1092,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (intent != null && intent.hasExtra("activate_license")) {
+            String licKey = intent.getStringExtra("activate_license");
+            if (licKey != null && !licKey.trim().isEmpty()) {
+                String key = licKey.trim().toUpperCase();
+                if (key.contains("MON")) {
+                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_MONTHLY, key);
+                    updatePlanBadge();
+                    Toast.makeText(this, "🎉 CleanTV Pro Monthly Plan Activated (₹99 / $5)!", Toast.LENGTH_LONG).show();
+                } else {
+                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_LIFETIME, key);
+                    updatePlanBadge();
+                    Toast.makeText(this, "🎉 CleanTV Pro Lifetime Plan Activated (₹200 / $7)!", Toast.LENGTH_LONG).show();
+                }
+            }
+            return;
+        }
         if (intent != null && intent.getBooleanExtra("control_center", false)) {
             showControlCenter();
             return;
@@ -1127,6 +1155,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        updatePlanBadge();
         WebRemoteServer.start(this);
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -3942,8 +3971,29 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     public void showVoiceAiHud() {
+        if (!CleanTvProDialog.isFeatureUnlocked(this, CleanTvProDialog.FEATURE_VOICE_AI)) {
+            Toast.makeText(this, "Please upgrade your plan to unlock Voice AI", Toast.LENGTH_SHORT).show();
+            CleanTvProDialog.show(this, "Voice AI Assistant requires CleanTV Pro. Please upgrade your plan.");
+            return;
+        }
         android.util.Log.i("CleanTvAI", "MainActivity.showVoiceAiHud() called, voiceAiHud=" + voiceAiHud);
         if (voiceAiHud != null) voiceAiHud.show();
+    }
+
+    public void updatePlanBadge() {
+        TextView tvLabel = findViewById(R.id.tvCleanTvProLabel);
+        if (tvLabel == null) return;
+        String plan = CleanTvProDialog.getActivePlan(this);
+        if (CleanTvProDialog.PLAN_LIFETIME.equals(plan)) {
+            tvLabel.setText("Pro Lifetime");
+            tvLabel.setTextColor(0xFF35D0A0);
+        } else if (CleanTvProDialog.PLAN_MONTHLY.equals(plan)) {
+            tvLabel.setText("Pro Monthly");
+            tvLabel.setTextColor(0xFF49B6FF);
+        } else {
+            tvLabel.setText("Basic");
+            tvLabel.setTextColor(0xFFA1AAB5);
+        }
     }
 
     public void showVoiceAi() {
@@ -4021,6 +4071,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     public void showDebloaterDialog() {
+        if (!CleanTvProDialog.isFeatureUnlocked(this, CleanTvProDialog.FEATURE_DEEP_DEBLOAT)) {
+            Toast.makeText(this, "Please upgrade your plan for complete bloatware removal", Toast.LENGTH_SHORT).show();
+            CleanTvProDialog.show(this, "Complete 150+ Bloatware Removal requires CleanTV Pro. Basic plan only performs safe basic smoothing.");
+            return;
+        }
         DebloaterDialog.show(this);
     }
 

@@ -207,151 +207,157 @@
             android:clipChildren="false"
             android:clipToPadding="false">
 
+                        <!-- Top Pills Row (Full Width across top of screen) -->
+            <LinearLayout
+                android:id="@+id/pillsRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_alignParentTop="true"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="4dp">
+
+                <LinearLayout
+                    android:id="@+id/btnProfile"
+                    android:layout_width="wrap_content"
+                    android:layout_height="26dp"
+                    android:background="@drawable/pill_bg"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:gravity="center_vertical"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusRight="@+id/btnVoiceAiHome"
+                    android:nextFocusDown="@+id/grid"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvProfileAvatar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="👤"
+                        android:textSize="11sp"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:id="@+id/tvProfileName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="5dp"
+                        android:text="Personal"
+                        android:textColor="@drawable/pill_text"
+                        android:textSize="11sp"
+                        android:fontFamily="@string/font_medium"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="▾"
+                        android:textColor="@drawable/pill_text"
+                        android:textSize="10sp"
+                        android:includeFontPadding="false" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnVoiceAiHome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="26dp"
+                    android:background="@drawable/pill_bg"
+                    android:layout_marginStart="8dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="10dp"
+                    android:gravity="center_vertical"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnProfile"
+                    android:nextFocusRight="@+id/btnCleanTvProHome"
+                    android:nextFocusDown="@+id/grid"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:src="@drawable/ic_sparkle"
+                        android:tint="#FF38BDF8" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="AI"
+                        android:textColor="@drawable/pill_text"
+                        android:textSize="11sp"
+                        android:fontFamily="@string/font_medium"
+                        android:includeFontPadding="false" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnCleanTvProHome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="26dp"
+                    android:background="@drawable/pill_bg"
+                    android:layout_marginStart="8dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="10dp"
+                    android:gravity="center_vertical"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:nextFocusLeft="@+id/btnVoiceAiHome"
+                    android:nextFocusRight="@+id/btnInputs"
+                    android:nextFocusDown="@+id/grid"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvCleanTvProIcon"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⭐"
+                        android:textSize="11sp"
+                        android:includeFontPadding="false" />
+
+                    <TextView
+                        android:id="@+id/tvCleanTvProLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="Basic"
+                        android:singleLine="true"
+                        android:maxLines="1"
+                        android:textColor="#FFA1AAB5"
+                        android:textSize="11sp"
+                        android:fontFamily="@string/font_medium"
+                        android:includeFontPadding="false" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/greeting"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:textColor="#8CFFFFFF"
+                    android:textSize="11sp"
+                    android:fontFamily="@string/font_medium"
+                    android:letterSpacing="0.22"
+                    android:textAllCaps="true" />
+            </LinearLayout>
+
+            <!-- Left Block (Clock & Date) positioned BELOW pillsRow, and before topButtons -->
             <LinearLayout
                 android:id="@+id/leftBlock"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_below="@id/pillsRow"
                 android:layout_alignParentStart="true"
                 android:layout_toStartOf="@+id/topButtons"
                 android:layout_marginEnd="16dp"
                 android:orientation="vertical">
-
-                <!-- The header texts use gravity left, not start: the launcher lays out left to right
-                     (no supportsRtl), and with start a right-to-left script such as Arabic would move to the
-                     right edge of these full-width lines instead of staying under the clock. -->
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginStart="4dp"
-                    android:layout_marginBottom="4dp">
-
-                    <LinearLayout
-                        android:id="@+id/btnProfile"
-                        android:layout_width="wrap_content"
-                        android:layout_height="26dp"
-                        android:background="@drawable/pill_bg"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp"
-                        android:gravity="center_vertical"
-                        android:focusable="true"
-                        android:clickable="true"
-                        android:nextFocusRight="@+id/btnVoiceAiHome"
-                        android:nextFocusDown="@+id/grid"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/tvProfileAvatar"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="👤"
-                            android:textSize="11sp"
-                            android:includeFontPadding="false" />
-
-                        <TextView
-                            android:id="@+id/tvProfileName"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="5dp"
-                            android:text="Personal"
-                            android:textColor="@drawable/pill_text"
-                            android:textSize="11sp"
-                            android:fontFamily="@string/font_medium"
-                            android:includeFontPadding="false" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="4dp"
-                            android:text="▾"
-                            android:textColor="@drawable/pill_text"
-                            android:textSize="10sp"
-                            android:includeFontPadding="false" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:id="@+id/btnVoiceAiHome"
-                        android:layout_width="wrap_content"
-                        android:layout_height="26dp"
-                        android:background="@drawable/pill_bg"
-                        android:layout_marginStart="8dp"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="10dp"
-                        android:gravity="center_vertical"
-                        android:focusable="true"
-                        android:clickable="true"
-                        android:nextFocusLeft="@+id/btnProfile"
-                        android:nextFocusRight="@+id/btnCleanTvProHome"
-                        android:nextFocusDown="@+id/grid"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="12dp"
-                            android:layout_height="12dp"
-                            android:src="@drawable/ic_sparkle"
-                            android:tint="#FF38BDF8" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="4dp"
-                            android:text="AI"
-                            android:textColor="@drawable/pill_text"
-                            android:textSize="11sp"
-                            android:fontFamily="@string/font_medium"
-                            android:includeFontPadding="false" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:id="@+id/btnCleanTvProHome"
-                        android:layout_width="wrap_content"
-                        android:layout_height="26dp"
-                        android:background="@drawable/pill_bg"
-                        android:layout_marginStart="8dp"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="10dp"
-                        android:gravity="center_vertical"
-                        android:focusable="true"
-                        android:clickable="true"
-                        android:nextFocusLeft="@+id/btnVoiceAiHome"
-                        android:nextFocusRight="@+id/btnAudio"
-                        android:nextFocusDown="@+id/grid"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="⭐"
-                            android:textSize="11sp"
-                            android:includeFontPadding="false" />
-
-                        <TextView
-                            android:id="@+id/tvCleanTvProLabel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="4dp"
-                            android:text="Pro"
-                            android:singleLine="true"
-                            android:textColor="#FF35D0A0"
-                            android:textSize="11sp"
-                            android:fontFamily="@string/font_medium"
-                            android:includeFontPadding="false" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/greeting"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:singleLine="true"
-                        android:ellipsize="end"
-                        android:textColor="#8CFFFFFF"
-                        android:textSize="11sp"
-                        android:fontFamily="@string/font_medium"
-                        android:letterSpacing="0.22"
-                        android:textAllCaps="true" />
-                </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -525,6 +531,8 @@
                     style="@style/TopButton"
                     android:text="@string/inputs"
                     android:drawableStart="@drawable/ic_input"
+                    android:nextFocusLeft="@+id/btnCleanTvProHome"
+                    android:nextFocusRight="@+id/btnAudio"
                     android:nextFocusDown="@+id/grid" />
                 <TextView
                     android:id="@+id/btnAudio"

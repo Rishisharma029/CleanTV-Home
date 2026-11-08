@@ -1085,13 +1085,13 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/license/config")
             {
-                jsonResponse = "{\"status\":\"ok\",\"introductoryPrice\":\"₹99\",\"regularPrice\":\"₹199\",\"introductoryAvailable\":true,\"currency\":\"INR\",\"storeProductId\":\"CleanTV.Pro.Lifetime\",\"webStoreUrl\":\"https://cleantv.app/pro\",\"providers\":[\"Microsoft Store\",\"Razorpay\",\"Lemon Squeezy\",\"Gumroad\"]}";
+                jsonResponse = "{\"status\":\"ok\",\"monthlyPriceInr\":\"₹99\",\"monthlyPriceUsd\":\"$5\",\"lifetimePriceInr\":\"₹200\",\"lifetimePriceUsd\":\"$7\",\"introductoryPrice\":\"₹99\",\"regularPrice\":\"₹200\",\"currency\":\"INR\",\"storeProductId\":\"CleanTV.Pro.Lifetime\",\"webStoreUrl\":\"https://cleantv.app/pro\",\"providers\":[\"Microsoft Store\",\"Razorpay\",\"Stripe\",\"Lemon Squeezy\",\"Gumroad\"]}";
             }
             else if (endpoint == "/api/license/activate")
             {
                 string rawKey = ExtractJsonField(body, "licenseKey");
-                string validKey, err;
-                if (!VerifyLicenseKey(rawKey, out validKey, out err))
+                string validKey, validPlan, err;
+                if (!VerifyLicenseKey(rawKey, out validKey, out validPlan, out err))
                 {
                     statusCode = 400;
                     jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString(err));
@@ -1104,7 +1104,7 @@ namespace CleanTV.Desktop
                     string licFile = Path.Combine(licDir, "license.json");
 
                     string activatedAt = DateTime.UtcNow.ToString("o");
-                    string plan = "CleanTV Pro Lifetime";
+                    string plan = validPlan;
                     string sig = ComputeLicenseSignature("pro", validKey, plan, activatedAt);
                     string source = validKey.StartsWith("CTV-PRO-STOR") ? "store" : "web";
 
@@ -1320,9 +1320,10 @@ namespace CleanTV.Desktop
             }
         }
 
-        private static bool VerifyLicenseKey(string rawKey, out string key, out string error)
+        private static bool VerifyLicenseKey(string rawKey, out string key, out string plan, out string error)
         {
             key = null;
+            plan = "CleanTV Pro Lifetime";
             error = null;
             if (string.IsNullOrEmpty(rawKey))
             {
@@ -1330,18 +1331,20 @@ namespace CleanTV.Desktop
                 return false;
             }
             key = rawKey.Trim().ToUpper();
-            var m = Regex.Match(key, @"^CTV-PRO-([0-9A-Z]{4})-([0-9A-Z]{4})$");
+            var m = Regex.Match(key, @"^CTV-(PRO|MON)-([0-9A-Z]{4})-([0-9A-Z]{4})$");
             if (!m.Success)
             {
-                error = "Invalid format. Key must follow CTV-PRO-XXXX-XXXX (e.g. CTV-PRO-8892-98B4).";
+                error = "Invalid format. Key must follow CTV-PRO-XXXX-XXXX or CTV-MON-XXXX-XXXX.";
                 return false;
             }
-            string part1 = m.Groups[1].Value;
-            string part2 = m.Groups[2].Value;
+            string prefix = m.Groups[1].Value;
+            string part1 = m.Groups[2].Value;
+            string part2 = m.Groups[3].Value;
+            plan = prefix == "MON" ? "CleanTV Pro Monthly" : "CleanTV Pro Lifetime";
 
-            if (key.Contains("REVOK") || key == "CTV-PRO-REV1-9999")
+            if (key.Contains("REVOK") || key == "CTV-PRO-REV1-9999" || key == "CTV-MON-REV1-9999")
             {
-                error = "This CleanTV Pro license key has been revoked.";
+                error = "This CleanTV license key has been revoked.";
                 return false;
             }
 

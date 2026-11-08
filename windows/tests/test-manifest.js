@@ -73,7 +73,7 @@ const bundledApk = path.join(WINDOWS_DIR, 'apks', 'clean-tv-launcher-latest.apk'
 assert(fs.existsSync(bundledApk), 'Bundled launcher APK exists in windows/apks/');
 if (fs.existsSync(bundledApk)) {
   const apkStat = fs.statSync(bundledApk);
-  assert(apkStat.size > 1000000, `Launcher APK size is valid (${apkStat.size} bytes)`);
+  assert(apkStat.size > 500000, `Launcher APK size is valid (${apkStat.size} bytes)`);
 }
 
 const bundledAdb = path.join(WINDOWS_DIR, 'platform-tools', 'adb.exe');

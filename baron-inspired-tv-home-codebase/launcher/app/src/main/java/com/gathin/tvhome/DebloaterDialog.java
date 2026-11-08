@@ -84,6 +84,11 @@ public final class DebloaterDialog {
         if (btnAutoDebloat != null) {
             setupButtonHover(btnAutoDebloat);
             btnAutoDebloat.setOnClickListener(v -> {
+                if (!CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_DEEP_DEBLOAT)) {
+                    Toast.makeText(activity, "Please upgrade your plan for full 150+ debloat", Toast.LENGTH_SHORT).show();
+                    CleanTvProDialog.show(activity, "Complete 150+ Deep Bloatware Removal requires CleanTV Pro. Basic plan only performs safe basic smoothing.");
+                    return;
+                }
                 showSafePreviewConfirmation(activity, refreshList);
             });
         }

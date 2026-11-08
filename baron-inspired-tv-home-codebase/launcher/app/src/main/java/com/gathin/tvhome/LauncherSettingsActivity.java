@@ -47,6 +47,20 @@ public final class LauncherSettingsActivity extends Activity {
 
         View proBanner = findViewById(R.id.cleanTvProSettingsBanner);
         if (proBanner != null) {
+            TextView tvBadge = findViewById(R.id.tvSettingsProBadge);
+            String plan = CleanTvProDialog.getActivePlan(this);
+            if (tvBadge != null) {
+                if (CleanTvProDialog.PLAN_LIFETIME.equals(plan)) {
+                    tvBadge.setText("PRO LIFETIME (ACTIVE)");
+                    tvBadge.setTextColor(0xFF35D0A0);
+                } else if (CleanTvProDialog.PLAN_MONTHLY.equals(plan)) {
+                    tvBadge.setText("PRO MONTHLY (ACTIVE)");
+                    tvBadge.setTextColor(0xFF49B6FF);
+                } else {
+                    tvBadge.setText("BASIC PLAN (FREE)");
+                    tvBadge.setTextColor(0xFFA1AAB5);
+                }
+            }
             proBanner.setOnClickListener(v -> CleanTvProDialog.show(this));
             proBanner.setOnFocusChangeListener((v, hasFocus) -> {
                 if (hasFocus) {

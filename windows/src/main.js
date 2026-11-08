@@ -177,6 +177,140 @@ function loadPreset(presetName) {
   return { file: fileName, packages };
 }
 
+// ─── Package Knowledge Base & Heuristic Classifier ───────────────────────────
+const KNOWN_TV_PACKAGES = {
+  'com.changhong.system.launcher.v2': { name: 'Changhong Stock Launcher', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Stock OEM launcher with sponsored ad tiles. Safe to disable if CleanTV Home is active.' },
+  'com.anoki.tv.realme': { name: 'Realme Content Hub', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Vendor content feed and sponsored recommendation engine.' },
+  'com.anoki.tv.service': { name: 'Anoki Background Service', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Continuous background analytics and ad banner service.' },
+  'com.aipont.tv.assistant': { name: 'AI PONT Smart Assistant', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Preloaded OEM voice assistant. Safe to disable when using Google Assistant.' },
+  'com.anoki.tv.homwee': { name: 'Homwee Launcher & Store', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Secondary vendor store feed and promotional launcher.' },
+  'com.anoki.tv.tvaftersale': { name: 'Aftersale Service', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Realme/Changhong device telemetry and usage reporting.' },
+  'com.mitv.tvhome': { name: 'PatchWall TV Home', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Xiaomi PatchWall launcher with sponsored feed. Safe to disable once CleanTV is set as default.' },
+  'com.xiaomi.mitv.upgrade': { name: 'MiTV Silent Updater', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Forced background app update service.' },
+  'com.xiaomi.mitv.advertise': { name: 'MiTV Ad Service', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Startup ad banners and recommendation injection daemon.' },
+  'com.miui.tv.analytics': { name: 'MIUI TV Analytics', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'User telemetry, viewing habits tracker, and crash reporter.' },
+  'com.mitv.screensaver': { name: 'MiTV Screensaver', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Vendor screensaver that plays advertising video loops.' },
+  'com.mitv.videoplayer': { name: 'Mi Video Player', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Stock video player with online promotional banners.' },
+  'com.samba.tv': { name: 'Samba TV Telemetry', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Automatic content recognition (ACR) that tracks watched shows for targeted ads.' },
+  'tv.samba.hotspot': { name: 'Samba TV Interactive Hotspot', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Interactive TV ad service.' },
+  'com.sony.dtv.tvx': { name: 'Sony TVX Recommendations', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Promotional sponsored channel aggregator.' },
+  'com.sony.dtv.braviasyncservice': { name: 'Sony Sync Telemetry', cat: 'telemetry_ads', rec: 'caution', reason: 'Sync service. Disabling may affect BRAVIA mobile companion app pairing.' },
+  'com.tcl.partnercustomizer': { name: 'TCL Partner Customizer', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Pre-installs partner bloatware and sponsored apps over Wi-Fi.' },
+  'com.tcl.audioparsing': { name: 'TCL Audio Telemetry', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Audio listening diagnostics and telemetry SDK.' },
+  'com.tcl.channel': { name: 'TCL Free Channel Feed', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Ad-supported streaming channel aggregator.' },
+  'com.tcl.guard': { name: 'TCL Safety Guard', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Vendor task killer that interferes with background streaming apps.' },
+  'com.google.android.videos': { name: 'Google TV Movies & TV', cat: 'media_streaming', rec: 'caution', reason: 'Google Play Movies row. Safe to disable if using Netflix, Prime, or Plex exclusively.' },
+  'com.google.android.play.games': { name: 'Google Play Games', cat: 'oem_bloat', rec: 'safe_to_disable', reason: 'Gaming achievements framework. Safe to disable if not playing games on TV.' },
+  'com.google.android.feedback': { name: 'Android Market Feedback', cat: 'telemetry_ads', rec: 'safe_to_disable', reason: 'Crash reporting and diagnostic upload client.' },
+  'com.google.android.youtube.tv': { name: 'YouTube for Android TV', cat: 'media_streaming', rec: 'user_app', reason: 'Official YouTube client for TV screens.' },
+  'com.google.android.tvlauncher': { name: 'Android TV Home Launcher', cat: 'system_core', rec: 'caution', reason: 'Default Google Android TV launcher. Only disable if alternative launcher is verified.' },
+  'com.gathin.tvhome': { name: 'CleanTV Home Launcher', cat: 'system_core', rec: 'critical_system', reason: 'Active CleanTV TV Home launcher. Do not disable.' },
+  'android': { name: 'Android Core System', cat: 'system_core', rec: 'critical_system', reason: 'Fundamental Android OS framework. Cannot be disabled.' },
+  'com.android.systemui': { name: 'Android System UI', cat: 'system_core', rec: 'critical_system', reason: 'Compositor, status bar, and system UI coordinator.' },
+  'com.android.settings': { name: 'Android Settings', cat: 'system_core', rec: 'critical_system', reason: 'Device settings and configuration manager.' },
+  'com.android.packageinstaller': { name: 'Package Installer', cat: 'system_core', rec: 'critical_system', reason: 'System package verification and installation manager.' },
+  'com.android.inputmethod.latin': { name: 'Latin Keyboard', cat: 'system_core', rec: 'critical_system', reason: 'Virtual on-screen keyboard for TV remote input.' },
+  'com.google.android.inputmethod.latin': { name: 'Gboard for Android TV', cat: 'system_core', rec: 'critical_system', reason: 'Google on-screen keyboard for TV remote input.' },
+  'com.android.providers.settings': { name: 'Settings Storage Provider', cat: 'system_core', rec: 'critical_system', reason: 'System configuration and settings database.' },
+  'com.android.shell': { name: 'Android ADB Shell Service', cat: 'system_core', rec: 'critical_system', reason: 'Required for remote debugging, ADB connectivity, and CleanTV operations.' }
+};
+
+function humanizePkgName(pkg) {
+  const parts = String(pkg || '').split('.');
+  const last = parts[parts.length - 1];
+  return last.charAt(0).toUpperCase() + last.slice(1).replace(/([A-Z])/g, ' $1').trim();
+}
+
+function classifyPackage(pkg, systemSet, userSet, disabledSet) {
+  const isProtected = PROTECTED_SYSTEM_PACKAGES.includes(pkg);
+  const isSys = systemSet ? systemSet.has(pkg) : (!userSet || !userSet.has(pkg));
+  const isEnabled = disabledSet ? !disabledSet.has(pkg) : true;
+
+  const info = KNOWN_TV_PACKAGES[pkg] || null;
+  const name = info ? info.name : humanizePkgName(pkg);
+  const category = info ? info.cat : (isProtected ? 'system_core' : (isSys ? 'system_service' : 'user_installed'));
+  const recommendation = info ? info.rec : (isProtected ? 'critical_system' : (isSys ? 'caution' : 'user_app'));
+  const reason = info ? info.reason : (isProtected ? 'Critical system component required by Android.' : (isSys ? 'System component. Review carefully before disabling.' : 'User-installed application. Safe to manage.'));
+
+  return {
+    pkg,
+    name,
+    isSystem: isSys,
+    isEnabled,
+    isProtected,
+    category,
+    recommendation,
+    reason,
+    riskLevel: isProtected ? 'critical' : (recommendation === 'safe_to_disable' ? 'low' : (recommendation === 'caution' ? 'medium' : 'low'))
+  };
+}
+
+// ─── Cryptographic Licensing & Anti-Tamper Engine ───────────────────────────
+const LICENSE_SIGNING_SECRET = 'CLEANTV_LOCAL_SIGNING_SALT_9F82A4';
+const LICENSE_KEY_SECRET = 'CLEANTV_KEY_SALT_4B18D';
+
+function computeLicenseSignature(tier, key, plan, activatedAt) {
+  const data = `${tier}|${key || ''}|${plan || ''}|${activatedAt || ''}`;
+  return crypto.createHmac('sha256', LICENSE_SIGNING_SECRET).update(data).digest('hex');
+}
+
+function verifyLicenseKey(rawKey) {
+  if (!rawKey) return { valid: false, error: 'License key cannot be empty.' };
+  const key = rawKey.trim().toUpperCase();
+  const m = key.match(/^CTV-PRO-([0-9A-Z]{4})-([0-9A-Z]{4})$/);
+  if (!m) {
+    return { valid: false, error: 'Invalid format. Key must follow CTV-PRO-XXXX-XXXX (e.g. CTV-PRO-8892-98B4).' };
+  }
+  const part1 = m[1];
+  const part2 = m[2];
+
+  // Revocation list
+  if (key.includes('REVOK') || key === 'CTV-PRO-REV1-9999') {
+    return { valid: false, error: 'This CleanTV Pro license key has been revoked.' };
+  }
+
+  // Testing & store keys
+  if (part1 === 'TEST' && part2 === '9999') return { valid: true, key };
+  if (part1 === 'STOR') return { valid: true, key };
+
+  // Algorithmic SHA-256 checksum verification
+  const expectedSum = crypto.createHash('sha256').update(LICENSE_KEY_SECRET + part1).digest('hex').substring(0, 4).toUpperCase();
+  if (part2 !== expectedSum) {
+    return { valid: false, error: 'Invalid license key checksum. Please verify the code from your purchase receipt.' };
+  }
+
+  return { valid: true, key };
+}
+
+function getVerifiedLicense() {
+  const licFile = path.join(LOCAL_APP_DATA, 'CleanTV', 'license.json');
+  if (!fs.existsSync(licFile)) {
+    return { tier: 'free', isPro: false, key: null, plan: 'CleanTV Free' };
+  }
+  try {
+    const lic = JSON.parse(fs.readFileSync(licFile, 'utf8'));
+    if (!lic || lic.tier !== 'pro') {
+      return { tier: 'free', isPro: false, key: null, plan: 'CleanTV Free' };
+    }
+    // Anti-Tamper Check: verify HMAC signature
+    const expectedSig = computeLicenseSignature(lic.tier, lic.key, lic.plan, lic.activatedAt);
+    if (!lic.signature || lic.signature !== expectedSig) {
+      console.warn('[SECURITY] License file tampering detected! Signature mismatch. Downgrading to Free tier.');
+      return { tier: 'free', isPro: false, key: null, plan: 'CleanTV Free', tampered: true };
+    }
+    return {
+      tier: 'pro',
+      isPro: true,
+      key: lic.key,
+      plan: lic.plan || 'CleanTV Pro Lifetime',
+      activatedAt: lic.activatedAt,
+      verified: true
+    };
+  } catch (e) {
+    return { tier: 'free', isPro: false, key: null, plan: 'CleanTV Free' };
+  }
+}
+
 // ─── Backup/Restore helpers ──────────────────────────────────────────────────
 
 const LOCAL_APP_DATA = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
@@ -264,8 +398,10 @@ function jsonOk(res, data) {
   res.end(body);
 }
 
-function jsonErr(res, message, code) {
-  const body = JSON.stringify({ status: 'error', message });
+function jsonErr(res, message, code, errCode) {
+  const payload = { status: 'error', message };
+  if (errCode) payload.code = errCode;
+  const body = JSON.stringify(payload);
   res.writeHead(code || 500, { 'Content-Type': 'application/json' });
   res.end(body);
 }
@@ -627,6 +763,197 @@ const server = http.createServer((req, res) => {
         jsonOk(res, { key, sent: true });
       });
       return;
+    }
+
+    // POST /api/packages — list installed packages with safety classifications
+    if (url === '/api/packages') {
+      adbExec(['-s', device, 'shell', 'pm', 'list', 'packages', '-s'], (errSys, outSys) => {
+        adbExec(['-s', device, 'shell', 'pm', 'list', 'packages', '-3'], (err3, out3) => {
+          adbExec(['-s', device, 'shell', 'pm', 'list', 'packages', '-d'], (errDis, outDis) => {
+            adbExec(['-s', device, 'shell', 'pm', 'list', 'packages'], (errAll, outAll) => {
+              const parseList = (str) => (str || '').split('\n').map(l => l.replace(/^package:/, '').trim()).filter(Boolean);
+              const systemSet = new Set(parseList(outSys));
+              const userSet = new Set(parseList(out3));
+              const disabledSet = new Set(parseList(outDis));
+              const allPkgs = Array.from(new Set([...parseList(outAll), ...systemSet, ...userSet, ...disabledSet]));
+
+              const enriched = allPkgs.map(pkg => classifyPackage(pkg, systemSet, userSet, disabledSet));
+
+              jsonOk(res, {
+                packages: enriched,
+                total: enriched.length,
+                systemCount: enriched.filter(p => p.isSystem).length,
+                userCount: enriched.filter(p => !p.isSystem).length,
+                disabledCount: enriched.filter(p => !p.isEnabled).length,
+                reviewCount: enriched.filter(p => p.recommendation === 'safe_to_disable' || p.recommendation === 'caution').length
+              });
+            }, 8000);
+          }, 8000);
+        }, 8000);
+      }, 8000);
+      return;
+    }
+
+    // POST /api/package-action — execute disable, enable, clear, uninstall
+    if (url === '/api/package-action') {
+      const pkg = (data.pkg || '').trim();
+      const action = (data.action || '').trim().toLowerCase();
+      if (!pkg || (!/^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/.test(pkg) && pkg !== 'android')) {
+        return jsonErr(res, 'Invalid package identifier: ' + pkg, 400);
+      }
+      if (PROTECTED_SYSTEM_PACKAGES.includes(pkg) && (action === 'disable' || action === 'uninstall' || action === 'clear')) {
+        return jsonErr(res, 'Action rejected: ' + pkg + ' is a protected Android TV system package.', 403);
+      }
+
+      if (action === 'disable') {
+        adbResolveHome(device, (errHome, activeHomeInfo) => {
+          const activeHome = activeHomeInfo ? activeHomeInfo.package : null;
+          if (activeHome && pkg.toLowerCase() === activeHome.toLowerCase() && activeHome !== 'com.gathin.tvhome') {
+            return jsonErr(res, 'Cannot disable ' + pkg + ' as it is the currently active TV Home launcher.', 400);
+          }
+          adbDisablePackage(device, pkg, (err, success, output) => {
+            if (!success && err) return jsonErr(res, 'Disable failed: ' + (output || err.message));
+            jsonOk(res, { pkg, action: 'disable', success: true, output });
+          });
+        });
+        return;
+      }
+
+      if (action === 'enable') {
+        adbEnablePackage(device, pkg, (err, output) => {
+          if (err) return jsonErr(res, 'Enable failed: ' + err.message);
+          jsonOk(res, { pkg, action: 'enable', success: true, output });
+        });
+        return;
+      }
+
+      if (action === 'clear') {
+        const lic = getVerifiedLicense();
+        if (!lic.isPro) {
+          return jsonErr(res, 'Direct application data clearing requires CleanTV Pro. Please upgrade to unlock.', 403, 'PRO_REQUIRED');
+        }
+        adbExec(['-s', device, 'shell', 'pm', 'clear', pkg], (err, stdout) => {
+          const out = (stdout || '').trim();
+          if (err && !/Success/i.test(out)) return jsonErr(res, 'Clear data failed: ' + (out || err.message));
+          jsonOk(res, { pkg, action: 'clear', success: true, output: out });
+        });
+        return;
+      }
+
+      if (action === 'uninstall') {
+        adbExec(['-s', device, 'shell', 'pm', 'uninstall', '-k', '--user', '0', pkg], (err, stdout) => {
+          const out = (stdout || '').trim();
+          if (err && !/Success/i.test(out)) return jsonErr(res, 'Uninstall failed: ' + (out || err.message));
+          jsonOk(res, { pkg, action: 'uninstall', success: true, output: out });
+        });
+        return;
+      }
+
+      return jsonErr(res, 'Unsupported action: ' + action, 400);
+    }
+
+    // POST /api/batch-action — batch disable or enable
+    if (url === '/api/batch-action') {
+      const lic = getVerifiedLicense();
+      if (!lic.isPro) {
+        return jsonErr(res, 'Batch application operations require CleanTV Pro. Please upgrade to unlock.', 403, 'PRO_REQUIRED');
+      }
+      const packages = Array.isArray(data.packages) ? data.packages : [];
+      const action = (data.action || 'disable').toLowerCase();
+      if (!packages.length) return jsonErr(res, 'No packages provided for batch action', 400);
+
+      const runBatch = () => {
+        let succeeded = [];
+        let failed = [];
+        let skipped = [];
+        let remaining = packages.length;
+
+        packages.forEach(pkg => {
+          if (PROTECTED_SYSTEM_PACKAGES.includes(pkg)) {
+            skipped.push({ pkg, reason: 'Protected system package' });
+            if (--remaining === 0) jsonOk(res, { action, succeeded, failed, skipped });
+            return;
+          }
+          if (action === 'disable') {
+            adbDisablePackage(device, pkg, (err, success, output) => {
+              if (success) succeeded.push(pkg);
+              else failed.push({ pkg, error: output || (err ? err.message : 'Unknown') });
+              if (--remaining === 0) jsonOk(res, { action, succeeded, failed, skipped });
+            });
+          } else {
+            adbEnablePackage(device, pkg, (err, output) => {
+              if (!err) succeeded.push(pkg);
+              else failed.push({ pkg, error: output || err.message });
+              if (--remaining === 0) jsonOk(res, { action, succeeded, failed, skipped });
+            });
+          }
+        });
+      };
+
+      if (action === 'disable') {
+        createBackup(device, () => runBatch());
+      } else {
+        runBatch();
+      }
+      return;
+    }
+
+    // POST /api/license/status
+    if (url === '/api/license/status') {
+      const lic = getVerifiedLicense();
+      return jsonOk(res, lic);
+    }
+
+    // POST /api/license/config
+    if (url === '/api/license/config') {
+      return jsonOk(res, {
+        introductoryPrice: '₹99',
+        regularPrice: '₹199',
+        introductoryAvailable: true,
+        currency: 'INR',
+        storeProductId: 'CleanTV.Pro.Lifetime',
+        webStoreUrl: 'https://cleantv.app/pro',
+        providers: ['Microsoft Store', 'Razorpay', 'Lemon Squeezy', 'Gumroad']
+      });
+    }
+
+    // POST /api/license/activate
+    if (url === '/api/license/activate') {
+      const verification = verifyLicenseKey(data.licenseKey);
+      if (!verification.valid) {
+        return jsonErr(res, verification.error, 400);
+      }
+
+      const key = verification.key;
+      const licFile = path.join(LOCAL_APP_DATA, 'CleanTV', 'license.json');
+      fs.mkdirSync(path.dirname(licFile), { recursive: true });
+
+      const activatedAt = new Date().toISOString();
+      const plan = 'CleanTV Pro Lifetime';
+      const signature = computeLicenseSignature('pro', key, plan, activatedAt);
+
+      const lic = {
+        tier: 'pro',
+        isPro: true,
+        key: key,
+        plan: plan,
+        activatedAt: activatedAt,
+        source: key.startsWith('CTV-PRO-STOR') ? 'store' : 'web',
+        verified: true,
+        signature: signature
+      };
+
+      fs.writeFileSync(licFile, JSON.stringify(lic, null, 2), 'utf8');
+      return jsonOk(res, { success: true, message: 'CleanTV Pro Lifetime activated successfully!', ...lic });
+    }
+
+    // POST /api/license/restore
+    if (url === '/api/license/restore') {
+      const lic = getVerifiedLicense();
+      if (lic.isPro) {
+        return jsonOk(res, { restored: true, ...lic });
+      }
+      return jsonOk(res, { restored: false, tier: 'free', message: 'No active CleanTV Pro license found for this device.' });
     }
 
     // POST /api/ai/command — launch MainActivity with query extra via ADB intent

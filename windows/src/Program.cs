@@ -885,6 +885,251 @@ namespace CleanTV.Desktop
                     }
                 }
             }
+            else if (endpoint == "/api/packages")
+            {
+                var sysRes = RunAdb("-s " + device + " shell pm list packages -s", 6000);
+                var userRes = RunAdb("-s " + device + " shell pm list packages -3", 6000);
+                var disRes = RunAdb("-s " + device + " shell pm list packages -d", 6000);
+                var allRes = RunAdb("-s " + device + " shell pm list packages", 6000);
+
+                var sysSet = ParsePackageList(sysRes.StdOut);
+                var userSet = ParsePackageList(userRes.StdOut);
+                var disSet = ParsePackageList(disRes.StdOut);
+                var allList = ParsePackageList(allRes.StdOut);
+
+                var unionSet = new HashSet<string>(allList, StringComparer.OrdinalIgnoreCase);
+                foreach (var s in sysSet) unionSet.Add(s);
+                foreach (var u in userSet) unionSet.Add(u);
+                foreach (var d in disSet) unionSet.Add(d);
+
+                var items = new List<string>();
+                int sysCount = 0;
+                int userCount = 0;
+                int disCount = 0;
+                int revCount = 0;
+
+                foreach (var p in unionSet)
+                {
+                    bool isSys = sysSet.Contains(p) || (!userSet.Contains(p) && (p.StartsWith("android") || p.StartsWith("com.android.") || p.StartsWith("com.google.android.")));
+                    bool isEnabled = !disSet.Contains(p);
+                    bool isProt = ProtectedSystemPackages.Contains(p);
+
+                    string cat = GetPackageCategory(p, isProt, isSys);
+                    string rec = GetPackageRecommendation(p, isProt, isSys);
+                    string reason = GetPackageReason(p, isProt, isSys);
+                    string name = GetPackageName(p);
+                    string risk = isProt ? "critical" : (rec == "safe_to_disable" ? "low" : (rec == "caution" ? "medium" : "low"));
+
+                    if (isSys) sysCount++; else userCount++;
+                    if (!isEnabled) disCount++;
+                    if (rec == "safe_to_disable" || rec == "caution") revCount++;
+
+                    items.Add(string.Format("{{\"pkg\":{0},\"name\":{1},\"isSystem\":{2},\"isEnabled\":{3},\"isProtected\":{4},\"category\":{5},\"recommendation\":{6},\"reason\":{7},\"riskLevel\":{8}}}",
+                        ToJsonString(p), ToJsonString(name), isSys ? "true" : "false", isEnabled ? "true" : "false", isProt ? "true" : "false",
+                        ToJsonString(cat), ToJsonString(rec), ToJsonString(reason), ToJsonString(risk)));
+                }
+
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"packages\":[{0}],\"total\":{1},\"systemCount\":{2},\"userCount\":{3},\"disabledCount\":{4},\"reviewCount\":{5}}}",
+                    string.Join(",", items.ToArray()), unionSet.Count, sysCount, userCount, disCount, revCount);
+            }
+            else if (endpoint == "/api/package-action")
+            {
+                string pkg = (ExtractJsonField(body, "pkg") ?? "").Trim();
+                string action = (ExtractJsonField(body, "action") ?? "").Trim().ToLower();
+
+                if (string.IsNullOrEmpty(pkg) || !Regex.IsMatch(pkg, @"^[a-zA-Z0-9_]+(.[a-zA-Z0-9_]+)+$"))
+                {
+                    statusCode = 400;
+                    jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Invalid package identifier: " + pkg));
+                }
+                else if (ProtectedSystemPackages.Contains(pkg) && (action == "disable" || action == "uninstall" || action == "clear"))
+                {
+                    statusCode = 403;
+                    jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Action rejected: " + pkg + " is a protected Android TV system package."));
+                }
+                else if (action == "disable")
+                {
+                    var activeHomeInfo = GetActiveHomeLauncher(device);
+                    string activeHome = activeHomeInfo != null ? activeHomeInfo.Package : null;
+                    if (!string.IsNullOrEmpty(activeHome) && pkg.Equals(activeHome, StringComparison.OrdinalIgnoreCase) && !activeHome.Equals("com.gathin.tvhome", StringComparison.OrdinalIgnoreCase))
+                    {
+                        statusCode = 400;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Cannot disable " + pkg + " as it is the currently active TV Home launcher."));
+                    }
+                    else
+                    {
+                        var disRes = RunAdb("-s " + device + " shell pm disable-user --user 0 " + pkg, 6000);
+                        bool ok = disRes.Combined.IndexOf("disabled", StringComparison.OrdinalIgnoreCase) >= 0 || disRes.Combined.IndexOf("already", StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (!ok && disRes.ExitCode != 0)
+                        {
+                            statusCode = 500;
+                            jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Disable failed: " + disRes.Combined));
+                        }
+                        else
+                        {
+                            jsonResponse = string.Format("{{\"status\":\"ok\",\"pkg\":{0},\"action\":\"disable\",\"success\":true,\"output\":{1}}}", ToJsonString(pkg), ToJsonString(disRes.Combined));
+                        }
+                    }
+                }
+                else if (action == "enable")
+                {
+                    var enRes = RunAdb("-s " + device + " shell pm enable --user 0 " + pkg, 5000);
+                    if (enRes.ExitCode != 0)
+                    {
+                        statusCode = 500;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Enable failed: " + enRes.Combined));
+                    }
+                    else
+                    {
+                        jsonResponse = string.Format("{{\"status\":\"ok\",\"pkg\":{0},\"action\":\"enable\",\"success\":true,\"output\":{1}}}", ToJsonString(pkg), ToJsonString(enRes.Combined));
+                    }
+                }
+                else if (action == "clear")
+                {
+                    string lk, lp, la;
+                    if (!GetVerifiedLicense(out lk, out lp, out la))
+                    {
+                        statusCode = 403;
+                        jsonResponse = "{\"status\":\"error\",\"code\":\"PRO_REQUIRED\",\"message\":\"Direct application data clearing requires CleanTV Pro. Please upgrade to unlock.\"}";
+                    }
+                    else
+                    {
+                        var clrRes = RunAdb("-s " + device + " shell pm clear " + pkg, 6000);
+                        jsonResponse = string.Format("{{\"status\":\"ok\",\"pkg\":{0},\"action\":\"clear\",\"success\":true,\"output\":{1}}}", ToJsonString(pkg), ToJsonString(clrRes.Combined));
+                    }
+                }
+                else if (action == "uninstall")
+                {
+                    var unRes = RunAdb("-s " + device + " shell pm uninstall -k --user 0 " + pkg, 8000);
+                    jsonResponse = string.Format("{{\"status\":\"ok\",\"pkg\":{0},\"action\":\"uninstall\",\"success\":true,\"output\":{1}}}", ToJsonString(pkg), ToJsonString(unRes.Combined));
+                }
+                else
+                {
+                    statusCode = 400;
+                    jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Unsupported action: " + action));
+                }
+            }
+            else if (endpoint == "/api/batch-action")
+            {
+                string lk, lp, la;
+                if (!GetVerifiedLicense(out lk, out lp, out la))
+                {
+                    statusCode = 403;
+                    jsonResponse = "{\"status\":\"error\",\"code\":\"PRO_REQUIRED\",\"message\":\"Batch application operations require CleanTV Pro. Please upgrade to unlock.\"}";
+                    SendResponse(res, statusCode, jsonResponse);
+                    return;
+                }
+                var pkgs = ExtractJsonStringArray(body, "packages");
+                string action = (ExtractJsonField(body, "action") ?? "disable").ToLower();
+
+                if (pkgs.Count == 0)
+                {
+                    statusCode = 400;
+                    jsonResponse = "{\"status\":\"error\",\"message\":\"No packages provided for batch action.\"}";
+                }
+                else
+                {
+                    if (action == "disable")
+                    {
+                        try { CreateBackup(device); } catch { }
+                    }
+
+                    var succ = new List<string>();
+                    var skipped = new List<string>();
+                    var failed = new List<string>();
+
+                    foreach (var p in pkgs)
+                    {
+                        if (ProtectedSystemPackages.Contains(p))
+                        {
+                            skipped.Add(string.Format("{{\"pkg\":{0},\"reason\":\"Protected system package\"}}", ToJsonString(p)));
+                            continue;
+                        }
+                        if (action == "disable")
+                        {
+                            var r = RunAdb("-s " + device + " shell pm disable-user --user 0 " + p, 5000);
+                            if (r.Combined.IndexOf("disabled", StringComparison.OrdinalIgnoreCase) >= 0 || r.Combined.IndexOf("already", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                succ.Add(ToJsonString(p));
+                            }
+                            else
+                            {
+                                failed.Add(string.Format("{{\"pkg\":{0},\"error\":{1}}}", ToJsonString(p), ToJsonString(r.Combined)));
+                            }
+                        }
+                        else
+                        {
+                            var r = RunAdb("-s " + device + " shell pm enable --user 0 " + p, 4000);
+                            if (r.ExitCode == 0) succ.Add(ToJsonString(p));
+                            else failed.Add(string.Format("{{\"pkg\":{0},\"error\":{1}}}", ToJsonString(p), ToJsonString(r.Combined)));
+                        }
+                    }
+
+                    jsonResponse = string.Format("{{\"status\":\"ok\",\"action\":{0},\"total\":{1},\"succeeded\":[{2}],\"skipped\":[{3}],\"failed\":[{4}]}}",
+                        ToJsonString(action), pkgs.Count, string.Join(",", succ.ToArray()), string.Join(",", skipped.ToArray()), string.Join(",", failed.ToArray()));
+                }
+            }
+            else if (endpoint == "/api/license/status")
+            {
+                string k, p, a;
+                bool isPro = GetVerifiedLicense(out k, out p, out a);
+                if (isPro)
+                {
+                    jsonResponse = string.Format("{{\"status\":\"ok\",\"tier\":\"pro\",\"isPro\":true,\"key\":{0},\"plan\":{1},\"activatedAt\":{2},\"verified\":true}}",
+                        ToJsonString(k), ToJsonString(p), ToJsonString(a));
+                }
+                else
+                {
+                    jsonResponse = "{\"status\":\"ok\",\"tier\":\"free\",\"isPro\":false,\"key\":null,\"plan\":\"CleanTV Free\"}";
+                }
+            }
+            else if (endpoint == "/api/license/config")
+            {
+                jsonResponse = "{\"status\":\"ok\",\"introductoryPrice\":\"₹99\",\"regularPrice\":\"₹199\",\"introductoryAvailable\":true,\"currency\":\"INR\",\"storeProductId\":\"CleanTV.Pro.Lifetime\",\"webStoreUrl\":\"https://cleantv.app/pro\",\"providers\":[\"Microsoft Store\",\"Razorpay\",\"Lemon Squeezy\",\"Gumroad\"]}";
+            }
+            else if (endpoint == "/api/license/activate")
+            {
+                string rawKey = ExtractJsonField(body, "licenseKey");
+                string validKey, err;
+                if (!VerifyLicenseKey(rawKey, out validKey, out err))
+                {
+                    statusCode = 400;
+                    jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString(err));
+                }
+                else
+                {
+                    string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    string licDir = Path.Combine(localApp, "CleanTV");
+                    if (!Directory.Exists(licDir)) Directory.CreateDirectory(licDir);
+                    string licFile = Path.Combine(licDir, "license.json");
+
+                    string activatedAt = DateTime.UtcNow.ToString("o");
+                    string plan = "CleanTV Pro Lifetime";
+                    string sig = ComputeLicenseSignature("pro", validKey, plan, activatedAt);
+                    string source = validKey.StartsWith("CTV-PRO-STOR") ? "store" : "web";
+
+                    string licJson = string.Format("{{\"tier\":\"pro\",\"isPro\":true,\"key\":{0},\"plan\":{1},\"activatedAt\":{2},\"source\":{3},\"verified\":true,\"signature\":{4}}}",
+                        ToJsonString(validKey), ToJsonString(plan), ToJsonString(activatedAt), ToJsonString(source), ToJsonString(sig));
+
+                    File.WriteAllText(licFile, licJson);
+                    jsonResponse = string.Format("{{\"status\":\"ok\",\"success\":true,\"tier\":\"pro\",\"isPro\":true,\"key\":{0},\"plan\":{1},\"message\":\"CleanTV Pro Lifetime activated successfully!\"}}",
+                        ToJsonString(validKey), ToJsonString(plan));
+                }
+            }
+            else if (endpoint == "/api/license/restore")
+            {
+                string k, p, a;
+                bool isPro = GetVerifiedLicense(out k, out p, out a);
+                if (isPro)
+                {
+                    jsonResponse = string.Format("{{\"status\":\"ok\",\"restored\":true,\"tier\":\"pro\",\"isPro\":true,\"key\":{0},\"plan\":{1},\"activatedAt\":{2}}}",
+                        ToJsonString(k), ToJsonString(p), ToJsonString(a));
+                }
+                else
+                {
+                    jsonResponse = "{\"status\":\"ok\",\"restored\":false,\"tier\":\"free\",\"message\":\"No active CleanTV Pro license found for this device.\"}";
+                }
+            }
             else if (endpoint == "/api/ai/command")
             {
                 string query = (ExtractJsonField(body, "query") ?? "").Trim();
@@ -959,6 +1204,197 @@ namespace CleanTV.Desktop
                 res.Close();
             }
             catch { }
+        }
+
+        private static HashSet<string> ParsePackageList(string output)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(output)) return set;
+            string[] lines = output.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string line in lines)
+            {
+                string clean = line.Trim();
+                if (clean.StartsWith("package:")) clean = clean.Substring(8).Trim();
+                if (!string.IsNullOrEmpty(clean)) set.Add(clean);
+            }
+            return set;
+        }
+
+        private static List<string> ExtractJsonStringArray(string json, string key)
+        {
+            var list = new List<string>();
+            if (string.IsNullOrEmpty(json)) return list;
+            var match = Regex.Match(json, "\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]");
+            if (match.Success)
+            {
+                var itemMatches = Regex.Matches(match.Groups[1].Value, "\"([^\"]+)\"");
+                foreach (Match m in itemMatches)
+                {
+                    list.Add(m.Groups[1].Value);
+                }
+            }
+            return list;
+        }
+
+        private static string GetPackageCategory(string pkg, bool isProtected, bool isSystem)
+        {
+            if (isProtected) return "system_core";
+            string p = pkg.ToLower();
+            if (p.Contains("samba") || p.Contains("analytics") || p.Contains("advertise") || p.Contains("audioparsing") || p.Contains("telemetry") || p.Contains("anoki.tv.service"))
+                return "telemetry_ads";
+            if (p.Contains("changhong") || p.Contains("homwee") || p.Contains("patchwall") || p.Contains("mitv.upgrade") || p.Contains("tcl.channel") || p.Contains("guard"))
+                return "oem_bloat";
+            if (p.Contains("youtube") || p.Contains("netflix") || p.Contains("videos"))
+                return "media_streaming";
+            return isSystem ? "system_service" : "user_installed";
+        }
+
+        private static string GetPackageRecommendation(string pkg, bool isProtected, bool isSystem)
+        {
+            if (isProtected) return "critical_system";
+            string p = pkg.ToLower();
+            if (p.Contains("anoki") || p.Contains("samba") || p.Contains("advertise") || p.Contains("analytics") ||
+                p.Contains("audioparsing") || p.Contains("changhong.system.launcher") || p.Contains("mitv.upgrade") ||
+                p.Contains("tcl.partnercustomizer") || p.Contains("feedback"))
+                return "safe_to_disable";
+            if (isSystem) return "caution";
+            return "user_app";
+        }
+
+        private static string GetPackageReason(string pkg, bool isProtected, bool isSystem)
+        {
+            if (isProtected) return "Core Android operating system package. Disabling will destabilize or brick device.";
+            string p = pkg.ToLower();
+            if (p.Contains("anoki")) return "Vendor content syndication and background ad recommendation service.";
+            if (p.Contains("samba")) return "Automatic content recognition (ACR) telemetry tracking TV viewing habits.";
+            if (p.Contains("advertise")) return "Startup ad banners and recommendation injection daemon.";
+            if (p.Contains("analytics")) return "User viewing habits telemetry and background data reporter.";
+            if (p.Contains("changhong.system.launcher")) return "Vendor OEM launcher with sponsored banners. Safe to disable when CleanTV Home is active.";
+            if (p.Contains("audioparsing")) return "Vendor audio diagnostic listening telemetry.";
+            if (p.Contains("partnercustomizer")) return "Vendor background partner app auto-installer.";
+            if (p.Contains("youtube")) return "Official TV video streaming client.";
+            if (isSystem) return "System component. Review carefully before disabling.";
+            return "User-installed application. Can be safely managed.";
+        }
+
+        private static string GetPackageName(string pkg)
+        {
+            string p = pkg.ToLower();
+            if (p == "com.changhong.system.launcher.v2") return "Changhong Stock Launcher";
+            if (p == "com.anoki.tv.realme") return "Realme Content Hub";
+            if (p == "com.anoki.tv.service") return "Anoki Background Service";
+            if (p == "com.aipont.tv.assistant") return "AI PONT Voice Assistant";
+            if (p == "com.anoki.tv.homwee") return "Homwee TV Store & Launcher";
+            if (p == "com.mitv.tvhome") return "PatchWall TV Home";
+            if (p == "com.xiaomi.mitv.advertise") return "MiTV Ad Service";
+            if (p == "com.xiaomi.mitv.upgrade") return "MiTV Silent Updater";
+            if (p == "com.miui.tv.analytics") return "MIUI TV Analytics";
+            if (p == "com.samba.tv") return "Samba TV Telemetry";
+            if (p == "com.google.android.youtube.tv") return "YouTube for Android TV";
+            if (p == "com.google.android.tvlauncher") return "Android TV Home Launcher";
+            if (p == "com.gathin.tvhome") return "CleanTV Home Launcher";
+            if (p == "android") return "Android Core System";
+            if (p == "com.android.systemui") return "Android System UI";
+            if (p == "com.android.settings") return "Android Settings";
+            if (p == "com.android.packageinstaller") return "Package Installer";
+
+            string[] parts = pkg.Split('.');
+            string last = parts[parts.Length - 1];
+            if (last.Length > 0)
+                return char.ToUpper(last[0]) + last.Substring(1);
+            return pkg;
+        }
+
+        private const string LicenseSigningSecret = "CLEANTV_LOCAL_SIGNING_SALT_9F82A4";
+        private const string LicenseKeySecret = "CLEANTV_KEY_SALT_4B18D";
+
+        private static string ComputeLicenseSignature(string tier, string key, string plan, string activatedAt)
+        {
+            string data = tier + "|" + (key ?? "") + "|" + (plan ?? "") + "|" + (activatedAt ?? "");
+            using (var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(LicenseSigningSecret)))
+            {
+                byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+                var sb = new StringBuilder();
+                for (int i = 0; i < hash.Length; i++) sb.Append(hash[i].ToString("x2"));
+                return sb.ToString();
+            }
+        }
+
+        private static bool VerifyLicenseKey(string rawKey, out string key, out string error)
+        {
+            key = null;
+            error = null;
+            if (string.IsNullOrEmpty(rawKey))
+            {
+                error = "License key cannot be empty.";
+                return false;
+            }
+            key = rawKey.Trim().ToUpper();
+            var m = Regex.Match(key, @"^CTV-PRO-([0-9A-Z]{4})-([0-9A-Z]{4})$");
+            if (!m.Success)
+            {
+                error = "Invalid format. Key must follow CTV-PRO-XXXX-XXXX (e.g. CTV-PRO-8892-98B4).";
+                return false;
+            }
+            string part1 = m.Groups[1].Value;
+            string part2 = m.Groups[2].Value;
+
+            if (key.Contains("REVOK") || key == "CTV-PRO-REV1-9999")
+            {
+                error = "This CleanTV Pro license key has been revoked.";
+                return false;
+            }
+
+            if (part1 == "TEST" && part2 == "9999") return true;
+            if (part1 == "STOR") return true;
+
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(LicenseKeySecret + part1));
+                var sb = new StringBuilder();
+                for (int i = 0; i < 2; i++) sb.Append(hash[i].ToString("X2"));
+                string expectedSum = sb.ToString();
+                if (part2 != expectedSum)
+                {
+                    error = "Invalid license key checksum. Please verify the code from your purchase receipt.";
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool GetVerifiedLicense(out string key, out string plan, out string activatedAt)
+        {
+            key = null;
+            plan = "CleanTV Free";
+            activatedAt = null;
+
+            string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string licFile = Path.Combine(localApp, "CleanTV", "license.json");
+            if (!File.Exists(licFile)) return false;
+
+            try
+            {
+                string json = File.ReadAllText(licFile);
+                string tier = ExtractJsonField(json, "tier");
+                if (tier != "pro") return false;
+
+                key = ExtractJsonField(json, "key");
+                plan = ExtractJsonField(json, "plan") ?? "CleanTV Pro Lifetime";
+                activatedAt = ExtractJsonField(json, "activatedAt");
+                string sig = ExtractJsonField(json, "signature");
+
+                string expectedSig = ComputeLicenseSignature("pro", key, plan, activatedAt);
+                if (string.IsNullOrEmpty(sig) || sig != expectedSig)
+                {
+                    return false;
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static string ResolvePresetFileName(string preset)

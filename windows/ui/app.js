@@ -1,6 +1,5 @@
-// CleanTV Desktop Manager — NEON OBSIDIAN Client Engine
-// Precision · Intelligence · Minimalism · Depth · Control
-// Pure ADB Integration · Production Certified
+// CleanTV Desktop Manager — OBSIDIAN / AURORA Engine
+// Precision · Workstation Engineering · Editorial Restraint
 'use strict';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -25,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     packages: [],
     packageFilter: 'all',
     packageSearch: '',
-    debloatPreset: 'realme',
     adShieldActive: true,
     license: {
       isPro: true,
@@ -34,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // ─── Debloat Preset Definitions ───────────────────────────────────────────────
+  // ─── Debloat Presets ──────────────────────────────────────────────────────────
   const debloatPresets = {
     realme: [
       { name: 'Anoki Live TV Services', pkg: 'com.anoki.service', risk: 'safe', reason: 'Unskippable Live TV PIP stream' },
@@ -67,121 +65,129 @@ document.addEventListener('DOMContentLoaded', () => {
     ]
   };
 
-  // ─── DOM Elements ─────────────────────────────────────────────────────────────
-  const navBtns = document.querySelectorAll('.nav-btn');
+  // ─── DOM References ────────────────────────────────────────────────────────────
+  const railItems = document.querySelectorAll('.rail-item');
   const pageViews = document.querySelectorAll('.page-view');
-  const globalStatusDot = document.getElementById('globalStatusDot');
-  const globalStatusText = document.getElementById('globalStatusText');
-  const titlebarTierLabel = document.getElementById('titlebarTierLabel');
-  const btnQuickRefresh = document.getElementById('btnQuickRefresh');
-  const btnHeaderLicense = document.getElementById('btnHeaderLicense');
+  const breadcrumbSection = document.getElementById('breadcrumbSection');
+  const breadcrumbPage = document.getElementById('breadcrumbPage');
+  const statusBeaconDot = document.getElementById('statusBeaconDot');
+  const titlebarDeviceText = document.getElementById('titlebarDeviceText');
+  const titlebarProLabel = document.getElementById('titlebarProLabel');
+  const btnTitlebarRefresh = document.getElementById('btnTitlebarRefresh');
+  const btnTitlebarLicenseModal = document.getElementById('btnTitlebarLicenseModal');
 
-  // Connect Page Elements
-  const inputIpAddress = document.getElementById('inputIpAddress');
-  const inputPort = document.getElementById('inputPort');
-  const btnConnectDevice = document.getElementById('btnConnectDevice');
-  const btnDiscoverDevices = document.getElementById('btnDiscoverDevices');
-  const btnConnectEmulator = document.getElementById('btnConnectEmulator');
-  const connectedBanner = document.getElementById('connectedBanner');
-  const connectedBannerSub = document.getElementById('connectedBannerSub');
-  const btnQuickManageApps = document.getElementById('btnQuickManageApps');
-  const btnQuickLaunchRemote = document.getElementById('btnQuickLaunchRemote');
+  // Connect View Elements
+  const inputTargetIp = document.getElementById('inputTargetIp');
+  const inputTargetPort = document.getElementById('inputTargetPort');
+  const btnConnectAdb = document.getElementById('btnConnectAdb');
+  const btnDiscoverAdb = document.getElementById('btnDiscoverAdb');
+  const btnConnectEmu = document.getElementById('btnConnectEmu');
+  const connectedStateBanner = document.getElementById('connectedStateBanner');
+  const connectedStateDetails = document.getElementById('connectedStateDetails');
+  const btnQuickToApps = document.getElementById('btnQuickToApps');
+  const btnQuickToRemote = document.getElementById('btnQuickToRemote');
 
-  // Telemetry Elements
-  const valDeviceModel = document.getElementById('valDeviceModel');
-  const valManufacturer = document.getElementById('valManufacturer');
-  const valAndroidVersion = document.getElementById('valAndroidVersion');
-  const valAdbState = document.getElementById('valAdbState');
-  const valLauncherStatus = document.getElementById('valLauncherStatus');
-  const valRamText = document.getElementById('valRamText');
-  const valRamFill = document.getElementById('valRamFill');
-  const btnRefreshTelemetry = document.getElementById('btnRefreshTelemetry');
+  // Telemetry View Elements
+  const tModel = document.getElementById('tModel');
+  const tMfr = document.getElementById('tMfr');
+  const tAndroid = document.getElementById('tAndroid');
+  const tAdb = document.getElementById('tAdb');
+  const tLauncher = document.getElementById('tLauncher');
+  const tRamVal = document.getElementById('tRamVal');
+  const tRamGauge = document.getElementById('tRamGauge');
+  const btnTelemetryRefresh = document.getElementById('btnTelemetryRefresh');
 
   // Quick Action Tiles
-  const qaPing = document.getElementById('qaPing');
-  const valPingLatency = document.getElementById('valPingLatency');
-  const qaWakeTv = document.getElementById('qaWakeTv');
-  const qaWebRemote = document.getElementById('qaWebRemote');
-  const qaAdShield = document.getElementById('qaAdShield');
+  const qaPingDevice = document.getElementById('qaPingDevice');
+  const qaPingMs = document.getElementById('qaPingMs');
+  const qaWakeDisplay = document.getElementById('qaWakeDisplay');
+  const qaLaunchWebRemote = document.getElementById('qaLaunchWebRemote');
+  const qaToggleAdGuard = document.getElementById('qaToggleAdGuard');
   const qaAdShieldSub = document.getElementById('qaAdShieldSub');
 
+  // Overview View Elements
+  const ovDevName = document.getElementById('ovDevName');
+  const ovDevMfr = document.getElementById('ovDevMfr');
+  const ovDevBuild = document.getElementById('ovDevBuild');
+  const ovRamFreeText = document.getElementById('ovRamFreeText');
+
   // Applications Elements
-  const inputAppSearch = document.getElementById('inputAppSearch');
-  const appsListContainer = document.getElementById('appsListContainer');
-  const btnRefreshAppList = document.getElementById('btnRefreshAppList');
-  const countTotalApps = document.getElementById('countTotalApps');
-  const countUserApps = document.getElementById('countUserApps');
-  const countSysApps = document.getElementById('countSysApps');
-  const countDisApps = document.getElementById('countDisApps');
-  const appFilterChips = document.querySelectorAll('.filter-chips-strip .chip-btn');
+  const inputFilterApps = document.getElementById('inputFilterApps');
+  const inventoryTable = document.getElementById('inventoryTable');
+  const btnReloadApps = document.getElementById('btnReloadApps');
+  const countAll = document.getElementById('countAll');
+  const countUser = document.getElementById('countUser');
+  const countSys = document.getElementById('countSys');
+  const countDis = document.getElementById('countDis');
+  const appFilterBtns = document.querySelectorAll('.app-filter-btn');
 
   // Debloater Elements
-  const selectDebloatPreset = document.getElementById('selectDebloatPreset');
-  const debloatPackageTable = document.getElementById('debloatPackageTable');
-  const statDebloatCount = document.getElementById('statDebloatCount');
-  const statDebloatRam = document.getElementById('statDebloatRam');
-  const btnExecuteDebloat = document.getElementById('btnExecuteDebloat');
-  const btnExecuteRestore = document.getElementById('btnExecuteRestore');
+  const selectBrandPreset = document.getElementById('selectBrandPreset');
+  const debloatPresetTable = document.getElementById('debloatPresetTable');
+  const metricBloatCount = document.getElementById('metricBloatCount');
+  const metricBloatRam = document.getElementById('metricBloatRam');
+  const btnDebloatRun = document.getElementById('btnDebloatRun');
+  const btnDebloatRestore = document.getElementById('btnDebloatRestore');
 
   // Remote Elements
-  const remoteConsoleFeed = document.getElementById('remoteConsoleFeed');
-  const btnClearRemoteLog = document.getElementById('btnClearRemoteLog');
-  const remoteKeys = document.querySelectorAll('[data-key]');
-  const btnTriggerAiHud = document.getElementById('btnTriggerAiHud');
-  const btnTriggerControlCenter = document.getElementById('btnTriggerControlCenter');
+  const feedLogs = document.getElementById('feedLogs');
+  const btnClearFeed = document.getElementById('btnClearFeed');
+  const remoteKeyBtns = document.querySelectorAll('[data-key]');
+  const btnRemoteAiHud = document.getElementById('btnRemoteAiHud');
+  const btnRemoteCc = document.getElementById('btnRemoteCc');
 
-  // APK Installer Elements
-  const btnDeployApk = document.getElementById('btnDeployApk');
-  const btnSetAsDefaultHome = document.getElementById('btnSetAsDefaultHome');
+  // APK Deployment Elements
+  const btnDeployLauncher = document.getElementById('btnDeployLauncher');
+  const btnSetLauncherDefault = document.getElementById('btnSetLauncherDefault');
   const deployProgressBox = document.getElementById('deployProgressBox');
   const deployStatusText = document.getElementById('deployStatusText');
   const deployPercentText = document.getElementById('deployPercentText');
-  const deployProgressFill = document.getElementById('deployProgressFill');
+  const deployProgressGauge = document.getElementById('deployProgressGauge');
 
-  // Voice & AI Elements
-  const inputAiCommand = document.getElementById('inputAiCommand');
-  const btnSubmitAiCommand = document.getElementById('btnSubmitAiCommand');
-  const aiChips = document.querySelectorAll('#page-ai .chip-btn');
+  // Voice AI Elements
+  const inputAiPrompt = document.getElementById('inputAiPrompt');
+  const btnSubmitAi = document.getElementById('btnSubmitAi');
+  const chipsAi = document.querySelectorAll('.chip-ai');
   const aiResultTitle = document.getElementById('aiResultTitle');
   const aiResultSubtitle = document.getElementById('aiResultSubtitle');
 
-  // Pro & Ad-Shield Elements
-  const inputLicenseKey = document.getElementById('inputLicenseKey');
-  const btnActivateKey = document.getElementById('btnActivateKey');
-  const toggleAdShieldDns = document.getElementById('toggleAdShieldDns');
-  const proKeyChips = document.querySelectorAll('#page-pro .chip-btn');
-  const sidebarProStatus = document.getElementById('sidebarProStatus');
-  const btnSidebarKeyModal = document.getElementById('btnSidebarKeyModal');
+  // Pro & License Elements
+  const inputProKey = document.getElementById('inputProKey');
+  const btnActivateProKey = document.getElementById('btnActivateProKey');
+  const toggleAdGuardDns = document.getElementById('toggleAdGuardDns');
+  const keyChips = document.querySelectorAll('.key-chip');
+  const railProStatus = document.getElementById('railProStatus');
+  const btnRailEnterKey = document.getElementById('btnRailEnterKey');
 
   // Modal Elements
-  const modalLicenseOverlay = document.getElementById('modalLicenseOverlay');
-  const modalInputKey = document.getElementById('modalInputKey');
-  const btnCloseModalX = document.getElementById('btnCloseModalX');
-  const btnCancelModalKey = document.getElementById('btnCancelModalKey');
-  const btnSubmitModalKey = document.getElementById('btnSubmitModalKey');
+  const keyModalOverlay = document.getElementById('keyModalOverlay');
+  const modalKeyInputField = document.getElementById('modalKeyInputField');
+  const btnCloseKeyModal = document.getElementById('btnCloseKeyModal');
+  const btnCancelKeyModal = document.getElementById('btnCancelKeyModal');
+  const btnConfirmKeyModal = document.getElementById('btnConfirmKeyModal');
 
-  // Toast Stack
-  const toastContainerStack = document.getElementById('toastContainerStack');
+  // Toast Container
+  const toastRack = document.getElementById('toastRack');
 
-  // ─── Toast Notifications ───────────────────────────────────────────────────────
+  // ─── Toast System ─────────────────────────────────────────────────────────────
   function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `toast-item ${type}`;
+    toast.className = `toast-message ${type}`;
     const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '⚡';
-    toast.innerHTML = `<span style="color: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--primary)'}; font-weight: 700;">${icon}</span> <span>${message}</span>`;
-    toastContainerStack.appendChild(toast);
+    toast.innerHTML = `<span style="color: ${type === 'success' ? 'var(--accent-secondary)' : type === 'error' ? 'var(--danger)' : 'var(--accent-primary)'}; font-weight: 700;">${icon}</span> <span>${message}</span>`;
+    toastRack.appendChild(toast);
 
     setTimeout(() => {
       toast.style.opacity = '0';
-      toast.style.transform = 'translateX(20px)';
-      toast.style.transition = 'all 200ms ease';
-      setTimeout(() => toast.remove(), 220);
-    }, 3600);
+      toast.style.transform = 'translateX(14px)';
+      toast.style.transition = 'all 160ms ease';
+      setTimeout(() => toast.remove(), 180);
+    }, 3400);
   }
 
   // ─── Page Navigation ───────────────────────────────────────────────────────────
-  function switchPage(pageId) {
-    navBtns.forEach(btn => {
+  function switchPage(pageId, section = 'Device', label = 'Connect') {
+    railItems.forEach(btn => {
       if (btn.getAttribute('data-page') === pageId) {
         btn.classList.add('active');
       } else {
@@ -197,6 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    if (breadcrumbSection) breadcrumbSection.textContent = section;
+    if (breadcrumbPage) breadcrumbPage.textContent = label;
+
     state.activePage = pageId;
 
     if (pageId === 'page-apps' && state.packages.length === 0 && state.isConnected) {
@@ -204,29 +213,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  navBtns.forEach(btn => {
+  railItems.forEach(btn => {
     btn.addEventListener('click', () => {
       const pageId = btn.getAttribute('data-page');
-      switchPage(pageId);
+      const section = btn.getAttribute('data-section') || 'Device';
+      const label = btn.getAttribute('data-label') || 'Connect';
+      switchPage(pageId, section, label);
     });
   });
 
-  btnQuickManageApps?.addEventListener('click', () => switchPage('page-apps'));
-  btnQuickLaunchRemote?.addEventListener('click', () => switchPage('page-remote'));
+  btnQuickToApps?.addEventListener('click', () => switchPage('page-apps', 'Device', 'Applications'));
+  btnQuickToRemote?.addEventListener('click', () => switchPage('page-remote', 'Device', 'Virtual Remote'));
 
   // ─── Remote Logger ────────────────────────────────────────────────────────────
   function logRemote(msg) {
-    if (!remoteConsoleFeed) return;
+    if (!feedLogs) return;
     const time = new Date().toLocaleTimeString();
     const line = document.createElement('span');
     line.textContent = `[${time}] ${msg}`;
-    remoteConsoleFeed.appendChild(line);
-    remoteConsoleFeed.scrollTop = remoteConsoleFeed.scrollHeight;
+    feedLogs.appendChild(line);
+    feedLogs.scrollTop = feedLogs.scrollHeight;
   }
 
-  btnClearRemoteLog?.addEventListener('click', () => {
-    if (remoteConsoleFeed) {
-      remoteConsoleFeed.innerHTML = '<span>[INIT] CleanTV Remote Bridge v4.0 active.</span>';
+  btnClearFeed?.addEventListener('click', () => {
+    if (feedLogs) {
+      feedLogs.innerHTML = '<span>[INIT] CleanTV Remote Bridge v4.0 active.</span>';
     }
   });
 
@@ -244,64 +255,52 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ─── Connection Management ────────────────────────────────────────────────────
-  function setConnectionState(status, text) {
-    if (status === 'connected') {
+  function setConnectionUI(status, label) {
+    if (status === 'online') {
       state.isConnected = true;
       state.isConnecting = false;
-      globalStatusDot.className = 'status-dot connected';
-      globalStatusText.textContent = text || `Connected · ${state.device}`;
-      if (valAdbState) {
-        valAdbState.className = 'telemetry-val success';
-        valAdbState.textContent = `Online (${state.device})`;
+      statusBeaconDot.className = 'status-beacon-dot online';
+      titlebarDeviceText.textContent = label || `${state.telemetry.model} (${state.device})`;
+      if (tAdb) {
+        tAdb.className = 'data-val mint';
+        tAdb.textContent = `Online (${state.device})`;
       }
-      if (connectedBanner) {
-        connectedBanner.style.display = 'block';
-        if (connectedBannerSub) {
-          connectedBannerSub.textContent = `${state.telemetry.model} · ${state.device} · ADB Online`;
+      if (connectedStateBanner) {
+        connectedStateBanner.style.display = 'block';
+        if (connectedStateDetails) {
+          connectedStateDetails.textContent = `${state.telemetry.model} · ${state.device} · ADB Online`;
         }
       }
     } else if (status === 'connecting') {
       state.isConnected = false;
       state.isConnecting = true;
-      globalStatusDot.className = 'status-dot connecting';
-      globalStatusText.textContent = text || `Connecting to ${state.device}...`;
-      if (valAdbState) {
-        valAdbState.className = 'telemetry-val';
-        valAdbState.textContent = 'Connecting...';
+      statusBeaconDot.className = 'status-beacon-dot connecting';
+      titlebarDeviceText.textContent = label || `Connecting to ${state.device}...`;
+      if (tAdb) {
+        tAdb.className = 'data-val';
+        tAdb.textContent = 'Connecting...';
       }
-      if (connectedBanner) connectedBanner.style.display = 'none';
-    } else if (status === 'error') {
-      state.isConnected = false;
-      state.isConnecting = false;
-      globalStatusDot.className = 'status-dot error';
-      globalStatusText.textContent = text || 'Connection Error';
-      if (valAdbState) {
-        valAdbState.className = 'telemetry-val';
-        valAdbState.style.color = 'var(--danger)';
-        valAdbState.textContent = 'Offline';
-      }
-      if (connectedBanner) connectedBanner.style.display = 'none';
+      if (connectedStateBanner) connectedStateBanner.style.display = 'none';
     } else {
       state.isConnected = false;
       state.isConnecting = false;
-      globalStatusDot.className = 'status-dot disconnected';
-      globalStatusText.textContent = text || 'Not connected';
-      if (valAdbState) {
-        valAdbState.className = 'telemetry-val';
-        valAdbState.style.color = 'var(--text-muted)';
-        valAdbState.textContent = 'Offline';
+      statusBeaconDot.className = 'status-beacon-dot offline';
+      titlebarDeviceText.textContent = label || 'No Device Connected';
+      if (tAdb) {
+        tAdb.className = 'data-val';
+        tAdb.textContent = 'Offline';
       }
-      if (connectedBanner) connectedBanner.style.display = 'none';
+      if (connectedStateBanner) connectedStateBanner.style.display = 'none';
     }
   }
 
   async function checkAdbState() {
     const res = await apiCall('/api/check-state', { device: state.device });
     if (res && res.connected) {
-      setConnectionState('connected', `Connected · ${res.device || state.device}`);
+      setConnectionUI('online', `Online · ${res.device || state.device}`);
       fetchTelemetry();
     } else {
-      setConnectionState('disconnected', 'Not connected');
+      setConnectionUI('offline', 'No Device Connected');
     }
   }
 
@@ -311,22 +310,22 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('cleantv_ip', state.ip);
     localStorage.setItem('cleantv_port', state.port);
 
-    if (inputIpAddress) inputIpAddress.value = state.ip;
-    if (inputPort) inputPort.value = state.port;
+    if (inputTargetIp) inputTargetIp.value = state.ip;
+    if (inputTargetPort) inputTargetPort.value = state.port;
 
-    setConnectionState('connecting', `Connecting to ${state.device}...`);
-    showToast(`Establishing encrypted ADB bridge to ${state.device}...`, 'info');
+    setConnectionUI('connecting', `Connecting to ${state.device}...`);
+    showToast(`Connecting to ${state.device}...`, 'info');
 
     const res = await apiCall('/api/connect', { device: state.device });
     if (res && res.connected) {
-      setConnectionState('connected', `Connected · ${state.device}`);
+      setConnectionUI('online', `${state.telemetry.model} (${state.device})`);
       showToast(`Connected successfully to ${state.device}`, 'success');
       logRemote(`Connected to ${state.device}`);
       await fetchTelemetry();
       await pingDevice();
     } else {
-      setConnectionState('error', 'Connection Failed');
-      showToast(res.message || `Could not connect to ${state.device}. Check TV USB debugging.`, 'error');
+      setConnectionUI('offline', 'Connection Failed');
+      showToast(res.message || `Could not connect to ${state.device}`, 'error');
     }
   }
 
@@ -335,8 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const res = await apiCall('/api/check-state', { device: state.device });
     const lat = Math.round(performance.now() - t0);
     state.latencyMs = lat;
-    if (valPingLatency) valPingLatency.textContent = `${lat} ms`;
-    showToast(`Socket Ping: ${lat} ms (0.0% Loss)`, 'success');
+    if (qaPingMs) qaPingMs.textContent = `${lat} ms`;
+    showToast(`Ping: ${lat} ms (0.0% loss)`, 'success');
     logRemote(`Socket ping: ${lat} ms`);
   }
 
@@ -349,62 +348,66 @@ document.addEventListener('DOMContentLoaded', () => {
       state.telemetry.manufacturer = res.manufacturer || brand;
       state.telemetry.android = `Android ${res.android || '11'}`;
 
-      if (valDeviceModel) valDeviceModel.textContent = state.telemetry.model;
-      if (valManufacturer) valManufacturer.textContent = state.telemetry.manufacturer;
-      if (valAndroidVersion) valAndroidVersion.textContent = state.telemetry.android;
+      if (tModel) tModel.textContent = state.telemetry.model;
+      if (tMfr) tMfr.textContent = state.telemetry.manufacturer;
+      if (tAndroid) tAndroid.textContent = state.telemetry.android;
 
-      if (res.memStr && valRamText) {
-        valRamText.textContent = res.memStr;
+      if (ovDevName) ovDevName.textContent = state.telemetry.model;
+      if (ovDevMfr) ovDevMfr.textContent = state.telemetry.manufacturer;
+
+      if (res.memStr && tRamVal) {
+        tRamVal.textContent = res.memStr;
       }
-      if (res.freeGb && res.totalGb && valRamFill) {
+      if (res.freeGb && res.totalGb && tRamGauge) {
         const pct = Math.round((res.freeGb / res.totalGb) * 100);
-        valRamFill.style.width = `${pct}%`;
+        tRamGauge.style.width = `${pct}%`;
+        if (ovRamFreeText) ovRamFreeText.textContent = `${res.freeGb} GB (${pct}%)`;
       }
     }
   }
 
   // ─── Button Listeners ─────────────────────────────────────────────────────────
-  btnConnectDevice?.addEventListener('click', () => {
-    const ip = inputIpAddress.value || '192.168.0.159';
-    const port = inputPort.value || '5555';
+  btnConnectAdb?.addEventListener('click', () => {
+    const ip = inputTargetIp.value || '192.168.0.159';
+    const port = inputTargetPort.value || '5555';
     connectDevice(ip, port);
   });
 
-  btnConnectEmulator?.addEventListener('click', () => {
+  btnConnectEmu?.addEventListener('click', () => {
     connectDevice('127.0.0.1', '5555');
   });
 
-  btnDiscoverDevices?.addEventListener('click', async () => {
-    showToast('Scanning network for active Android TV hosts...', 'info');
+  btnDiscoverAdb?.addEventListener('click', async () => {
+    showToast('Scanning local network for active TV hosts...', 'info');
     const res = await apiCall('/api/scan');
     if (res && res.devices && res.devices.length > 0) {
       const target = res.devices[0].serial;
-      showToast(`Discovered target device: ${target}`, 'success');
+      showToast(`Discovered target: ${target}`, 'success');
       connectDevice(target);
     } else {
-      showToast('No active ADB devices discovered on local network.', 'warning');
+      showToast('No active ADB devices discovered.', 'warning');
     }
   });
 
-  btnQuickRefresh?.addEventListener('click', () => {
+  btnTitlebarRefresh?.addEventListener('click', () => {
     showToast('Refreshing connection telemetry...', 'info');
     checkAdbState();
   });
 
-  btnRefreshTelemetry?.addEventListener('click', () => {
+  btnTelemetryRefresh?.addEventListener('click', () => {
     fetchTelemetry();
     pingDevice();
   });
 
-  qaPing?.addEventListener('click', pingDevice);
+  qaPingDevice?.addEventListener('click', pingDevice);
 
-  qaWakeTv?.addEventListener('click', async () => {
-    showToast('Waking / Toggling TV display...', 'info');
+  qaWakeDisplay?.addEventListener('click', async () => {
+    showToast('Toggling TV display power state...', 'info');
     logRemote('Sending KEYCODE_POWER (26)');
     await apiCall('/api/key', { device: state.device, key: '26' });
   });
 
-  qaWebRemote?.addEventListener('click', () => {
+  qaLaunchWebRemote?.addEventListener('click', () => {
     window.open('http://127.0.0.1:59822/remote.html', '_blank');
   });
 
@@ -412,46 +415,46 @@ document.addEventListener('DOMContentLoaded', () => {
   async function toggleAdShield(enable) {
     state.adShieldActive = enable;
     const mode = enable ? 'adguard' : 'off';
-    showToast(`Routing TV DNS through AdGuard Private DNS...`, 'info');
+    showToast(`Setting Ad-Shield Private DNS to: ${mode.toUpperCase()}...`, 'info');
     await apiCall('/api/adblock/toggle', { device: state.device, mode });
 
     if (qaAdShieldSub) {
       qaAdShieldSub.textContent = enable ? 'AdGuard Private DNS (Active)' : 'Ad-Shield Inactive (Disabled)';
     }
-    if (toggleAdShieldDns) toggleAdShieldDns.checked = enable;
+    if (toggleAdGuardDns) toggleAdGuardDns.checked = enable;
 
-    logRemote(`Ad-Shield private DNS toggled to ${mode.toUpperCase()}`);
+    logRemote(`Ad-Shield DNS set to ${mode.toUpperCase()}`);
     showToast(`Ad-Shield DNS is now ${enable ? 'ACTIVE' : 'OFF'}!`, 'success');
   }
 
-  qaAdShield?.addEventListener('click', () => toggleAdShield(!state.adShieldActive));
-  toggleAdShieldDns?.addEventListener('change', (e) => toggleAdShield(e.target.checked));
+  qaToggleAdGuard?.addEventListener('click', () => toggleAdShield(!state.adShieldActive));
+  toggleAdGuardDns?.addEventListener('change', (e) => toggleAdShield(e.target.checked));
 
-  // ─── Applications Manager ─────────────────────────────────────────────────────
+  // ─── Applications Management ──────────────────────────────────────────────────
   async function loadPackages() {
-    if (!appsListContainer) return;
-    appsListContainer.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted);">Auditing packages over ADB...</div>';
+    if (!inventoryTable) return;
+    inventoryTable.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Auditing packages over ADB...</div>';
 
     const res = await apiCall('/api/packages', { device: state.device });
     if (res && res.status === 'ok' && res.packages) {
       state.packages = res.packages;
-      if (countTotalApps) countTotalApps.textContent = res.total || res.packages.length;
-      if (countUserApps) countUserApps.textContent = res.userCount || 0;
-      if (countSysApps) countSysApps.textContent = res.systemCount || 0;
-      if (countDisApps) countDisApps.textContent = res.disabledCount || 0;
-      renderPackageList();
+      if (countAll) countAll.textContent = res.total || res.packages.length;
+      if (countUser) countUser.textContent = res.userCount || 0;
+      if (countSys) countSys.textContent = res.systemCount || 0;
+      if (countDis) countDis.textContent = res.disabledCount || 0;
+      renderPackageInventory();
     } else {
-      appsListContainer.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--danger);">Failed to load packages. Ensure device is online.</div>';
+      inventoryTable.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--danger);">Failed to load packages. Ensure device is online.</div>';
     }
   }
 
-  function renderPackageList() {
-    if (!appsListContainer) return;
-    appsListContainer.innerHTML = '';
+  function renderPackageInventory() {
+    if (!inventoryTable) return;
+    inventoryTable.innerHTML = '';
 
-    const query = state.packageSearch.toLowerCase();
+    const q = state.packageSearch.toLowerCase();
     const filtered = state.packages.filter(p => {
-      const matchSearch = p.name.toLowerCase().includes(query) || p.pkg.toLowerCase().includes(query);
+      const matchSearch = p.name.toLowerCase().includes(q) || p.pkg.toLowerCase().includes(q);
       if (!matchSearch) return false;
       if (state.packageFilter === 'user') return !p.isSystem;
       if (state.packageFilter === 'system') return p.isSystem;
@@ -460,31 +463,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (filtered.length === 0) {
-      appsListContainer.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted);">No matching packages found.</div>';
+      inventoryTable.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No matching packages found.</div>';
       return;
     }
 
     filtered.slice(0, 100).forEach(pkg => {
-      const card = document.createElement('div');
-      card.className = 'app-row-card';
+      const row = document.createElement('div');
+      row.className = 'inventory-row';
       const isDis = !pkg.isEnabled;
 
-      card.innerHTML = `
-        <div class="app-main-info">
-          <div class="app-icon-rect">📦</div>
-          <div class="app-labels-wrap">
-            <span class="app-name-text">${pkg.name}</span>
-            <span class="app-pkg-text">${pkg.pkg}</span>
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="font-size: 16px;">📦</div>
+          <div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${pkg.name}</div>
+            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${pkg.pkg}</div>
           </div>
         </div>
-        <div class="app-actions-wrap">
+        <div style="display: flex; align-items: center; gap: 8px;">
           <span class="risk-tag ${isDis ? 'risk-caution' : 'risk-safe'}">${isDis ? 'DISABLED' : (pkg.isSystem ? 'SYSTEM' : 'USER')}</span>
           <button class="btn btn-secondary btn-sm btn-pkg-action" data-pkg="${pkg.pkg}" data-action="${isDis ? 'enable' : 'disable'}">
             ${isDis ? 'Enable' : 'Disable'}
           </button>
         </div>
       `;
-      appsListContainer.appendChild(card);
+      inventoryTable.appendChild(row);
     });
 
     document.querySelectorAll('.btn-pkg-action').forEach(btn => {
@@ -499,54 +502,54 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  inputAppSearch?.addEventListener('input', (e) => {
+  inputFilterApps?.addEventListener('input', (e) => {
     state.packageSearch = e.target.value;
-    renderPackageList();
+    renderPackageInventory();
   });
 
-  appFilterChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      appFilterChips.forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      state.packageFilter = chip.getAttribute('data-filter');
-      renderPackageList();
+  appFilterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      appFilterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.packageFilter = btn.getAttribute('data-filter');
+      renderPackageInventory();
     });
   });
 
-  btnRefreshAppList?.addEventListener('click', loadPackages);
+  btnReloadApps?.addEventListener('click', loadPackages);
 
-  // ─── TV Debloater ─────────────────────────────────────────────────────────────
-  function renderDebloatPresets(presetKey) {
+  // ─── Debloater ────────────────────────────────────────────────────────────────
+  function renderBrandDebloat(presetKey) {
     const list = debloatPresets[presetKey] || debloatPresets.realme;
-    if (statDebloatCount) statDebloatCount.textContent = list.length;
-    if (statDebloatRam) statDebloatRam.textContent = `~${list.length * 14} MB`;
+    if (metricBloatCount) metricBloatCount.textContent = list.length;
+    if (metricBloatRam) metricBloatRam.textContent = `~${list.length * 14} MB`;
 
-    if (!debloatPackageTable) return;
-    debloatPackageTable.innerHTML = '';
+    if (!debloatPresetTable) return;
+    debloatPresetTable.innerHTML = '';
 
     list.forEach(item => {
       const row = document.createElement('div');
-      row.className = 'pkg-table-row';
+      row.className = 'inventory-row';
       row.innerHTML = `
         <div>
-          <div style="font-size: 13.5px; font-weight: 600; color: var(--text-primary);">${item.name}</div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${item.name}</div>
           <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${item.pkg}</div>
           <div style="font-size: 11px; color: var(--warning); margin-top: 2px;">⚠️ ${item.reason}</div>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
           <span class="risk-tag ${item.risk === 'safe' ? 'risk-safe' : 'risk-caution'}">${item.risk.toUpperCase()}</span>
           <input type="checkbox" class="debloat-check" checked data-pkg="${item.pkg}">
         </div>
       `;
-      debloatPackageTable.appendChild(row);
+      debloatPresetTable.appendChild(row);
     });
   }
 
-  selectDebloatPreset?.addEventListener('change', (e) => {
-    renderDebloatPresets(e.target.value);
+  selectBrandPreset?.addEventListener('change', (e) => {
+    renderBrandDebloat(e.target.value);
   });
 
-  btnExecuteDebloat?.addEventListener('click', async () => {
+  btnDebloatRun?.addEventListener('click', async () => {
     showToast('Executing safe 1-Click Debloat on TV...', 'info');
     const checked = Array.from(document.querySelectorAll('.debloat-check:checked')).map(c => c.getAttribute('data-pkg'));
     await apiCall('/api/debloat', { device: state.device, packages: checked.join(',') });
@@ -554,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
     logRemote(`Debloated ${checked.length} packages`);
   });
 
-  btnExecuteRestore?.addEventListener('click', async () => {
+  btnDebloatRestore?.addEventListener('click', async () => {
     showToast('Restoring OEM factory packages...', 'info');
     await apiCall('/api/restore', { device: state.device });
     showToast('Restored all OEM packages successfully.', 'success');
@@ -562,7 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ─── Virtual Remote ───────────────────────────────────────────────────────────
-  remoteKeys.forEach(btn => {
+  remoteKeyBtns.forEach(btn => {
     btn.addEventListener('click', async () => {
       const keycode = btn.getAttribute('data-key');
       const label = btn.innerText.trim();
@@ -571,33 +574,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  btnTriggerAiHud?.addEventListener('click', () => switchPage('page-ai'));
-  btnTriggerControlCenter?.addEventListener('click', () => switchPage('page-connect'));
+  btnRemoteAiHud?.addEventListener('click', () => switchPage('page-ai', 'Tools', 'Voice & AI'));
+  btnRemoteCc?.addEventListener('click', () => switchPage('page-connect', 'Device', 'Connect'));
 
-  // ─── CleanTV APK Installer ────────────────────────────────────────────────────
-  btnDeployApk?.addEventListener('click', async () => {
+  // ─── CleanTV APK Deployment ───────────────────────────────────────────────────
+  btnDeployLauncher?.addEventListener('click', async () => {
     if (deployProgressBox) deployProgressBox.style.display = 'block';
     if (deployStatusText) deployStatusText.textContent = 'Pushing clean-tv-launcher-latest.apk to TV...';
     if (deployPercentText) deployPercentText.textContent = '35%';
-    if (deployProgressFill) deployProgressFill.style.width = '35%';
+    if (deployProgressGauge) deployProgressGauge.style.width = '35%';
 
     showToast('Deploying CleanTV Home to TV...', 'info');
 
     setTimeout(async () => {
       if (deployPercentText) deployPercentText.textContent = '75%';
-      if (deployProgressFill) deployProgressFill.style.width = '75%';
+      if (deployProgressGauge) deployProgressGauge.style.width = '75%';
 
       await apiCall('/api/install', { device: state.device });
 
       if (deployPercentText) deployPercentText.textContent = '100%';
-      if (deployProgressFill) deployProgressFill.style.width = '100%';
+      if (deployProgressGauge) deployProgressGauge.style.width = '100%';
       if (deployStatusText) deployStatusText.textContent = 'CleanTV Home v4.0.0 installed successfully!';
       showToast('CleanTV Home deployed to TV!', 'success');
       logRemote('CleanTV APK deployed to TV');
     }, 1200);
   });
 
-  btnSetAsDefaultHome?.addEventListener('click', async () => {
+  btnSetLauncherDefault?.addEventListener('click', async () => {
     showToast('Dispatching Home key event...', 'info');
     await apiCall('/api/key', { device: state.device, key: '3' });
     logRemote('Home key event dispatched');
@@ -621,27 +624,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 500);
   }
 
-  btnSubmitAiCommand?.addEventListener('click', () => {
-    const cmd = inputAiCommand.value.trim();
+  btnSubmitAi?.addEventListener('click', () => {
+    const cmd = inputAiPrompt.value.trim();
     if (cmd) executeAiCommand(cmd);
   });
 
-  inputAiCommand?.addEventListener('keydown', (e) => {
+  inputAiPrompt?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      const cmd = inputAiCommand.value.trim();
+      const cmd = inputAiPrompt.value.trim();
       if (cmd) executeAiCommand(cmd);
     }
   });
 
-  aiChips.forEach(chip => {
+  chipsAi.forEach(chip => {
     chip.addEventListener('click', () => {
       const cmd = chip.getAttribute('data-cmd');
-      if (inputAiCommand) inputAiCommand.value = cmd;
+      if (inputAiPrompt) inputAiPrompt.value = cmd;
       executeAiCommand(cmd);
     });
   });
 
-  // ─── Pro License Key Activation ───────────────────────────────────────────────
+  // ─── License Key Activation ───────────────────────────────────────────────────
   async function activateLicenseKey(key) {
     const cleanKey = key.trim().toUpperCase();
     showToast(`Validating Pro License Key: ${cleanKey}...`, 'info');
@@ -652,50 +655,50 @@ document.addEventListener('DOMContentLoaded', () => {
     state.license.key = cleanKey;
     localStorage.setItem('cleantv_key', cleanKey);
 
-    if (sidebarProStatus) sidebarProStatus.textContent = 'Lifetime Pro Active';
-    if (titlebarTierLabel) titlebarTierLabel.textContent = 'PRO Lifetime';
+    if (railProStatus) railProStatus.textContent = 'Pro Active';
+    if (titlebarProLabel) titlebarProLabel.textContent = 'Pro Lifetime';
 
     showToast(`CleanTV Pro Activated with Key: ${cleanKey}!`, 'success');
     logRemote(`[LICENSE] Activated Pro key: ${cleanKey}`);
 
-    if (modalLicenseOverlay) modalLicenseOverlay.style.display = 'none';
+    if (keyModalOverlay) keyModalOverlay.style.display = 'none';
   }
 
-  btnActivateKey?.addEventListener('click', () => {
-    const key = inputLicenseKey.value || 'CTV-PRO-8892-98B4';
+  btnActivateProKey?.addEventListener('click', () => {
+    const key = inputProKey.value || 'CTV-PRO-8892-98B4';
     activateLicenseKey(key);
   });
 
-  proKeyChips.forEach(chip => {
+  keyChips.forEach(chip => {
     chip.addEventListener('click', () => {
       const k = chip.getAttribute('data-key');
-      if (inputLicenseKey) inputLicenseKey.value = k;
+      if (inputProKey) inputProKey.value = k;
       activateLicenseKey(k);
     });
   });
 
   // Modal Handlers
   function openLicenseModal() {
-    if (modalLicenseOverlay) modalLicenseOverlay.style.display = 'flex';
+    if (keyModalOverlay) keyModalOverlay.style.display = 'flex';
   }
 
   function closeLicenseModal() {
-    if (modalLicenseOverlay) modalLicenseOverlay.style.display = 'none';
+    if (keyModalOverlay) keyModalOverlay.style.display = 'none';
   }
 
-  btnSidebarKeyModal?.addEventListener('click', openLicenseModal);
-  btnHeaderLicense?.addEventListener('click', openLicenseModal);
-  titlebarTierLabel?.addEventListener('click', openLicenseModal);
-  btnCloseModalX?.addEventListener('click', closeLicenseModal);
-  btnCancelModalKey?.addEventListener('click', closeLicenseModal);
+  btnRailEnterKey?.addEventListener('click', openLicenseModal);
+  btnTitlebarLicenseModal?.addEventListener('click', openLicenseModal);
+  titlebarProLabel?.addEventListener('click', openLicenseModal);
+  btnCloseKeyModal?.addEventListener('click', closeLicenseModal);
+  btnCancelKeyModal?.addEventListener('click', closeLicenseModal);
 
-  btnSubmitModalKey?.addEventListener('click', () => {
-    const k = modalInputKey.value || 'CTV-PRO-8892-98B4';
+  btnConfirmKeyModal?.addEventListener('click', () => {
+    const k = modalKeyInputField.value || 'CTV-PRO-8892-98B4';
     activateLicenseKey(k);
   });
 
   // ─── Initial Startup ──────────────────────────────────────────────────────────
-  renderDebloatPresets('realme');
+  renderBrandDebloat('realme');
   checkAdbState();
 
   // Auto-connect to emulator if running

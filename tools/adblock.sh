@@ -15,8 +15,8 @@ if command -v adb >/dev/null 2>&1; then
 fi
 
 if [ -z "$1" ]; then
-  read -r -p "Enter your TV IP address [default: 192.168.0.159]: " TV_IP
-  TV_IP="${TV_IP:-192.168.0.159}"
+  read -r -p "Enter your TV IP address [e.g. 192.168.1.100]: " TV_IP
+  TV_IP="${TV_IP:-192.168.1.100}"
 else
   TV_IP="$1"
 fi

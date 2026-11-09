@@ -111,7 +111,7 @@ if ($adbDevices.Count -eq 1 -and -not $TvIp) {
 
 if (-not $targetSerial) {
   if (-not $TvIp) {
-    $defaultIp = "192.168.0.159"
+    $defaultIp = "192.168.1.100"
     Write-Host "How to find your TV's IP address on your TV screen:" -ForegroundColor Cyan
     Write-Host "  Settings -> Network & Internet -> Your connected Wi-Fi/Ethernet" -ForegroundColor Gray
     Write-Host "  (Ensure TV and PC are on the same Wi-Fi / Router network)`n" -ForegroundColor Gray

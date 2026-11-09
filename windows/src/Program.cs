@@ -246,6 +246,15 @@ namespace CleanTV.Desktop
                 var req = context.Request;
                 var res = context.Response;
 
+                // Security: Prevent DNS rebinding attacks by validating Host header
+                string host = req.Headers["Host"];
+                if (!string.IsNullOrEmpty(host) && !host.StartsWith("127.0.0.1", StringComparison.OrdinalIgnoreCase) && !host.StartsWith("localhost", StringComparison.OrdinalIgnoreCase))
+                {
+                    res.StatusCode = 400;
+                    res.Close();
+                    return;
+                }
+
                 // Security: Restrict CORS strictly to loopback origins
                 string origin = req.Headers["Origin"];
                 if (string.IsNullOrEmpty(origin) ||
@@ -420,6 +429,13 @@ namespace CleanTV.Desktop
             if (string.IsNullOrEmpty(clientToken) || !string.Equals(clientToken, sessionToken, StringComparison.Ordinal))
             {
                 SendResponse(res, 401, "{\"status\":\"error\",\"message\":\"Unauthorized: Invalid or missing X-CleanTV-Token session header.\"}");
+                return;
+            }
+
+            // Security: Prevent Denial-of-Service memory exhaustion from huge request bodies
+            if (req.ContentLength64 > 2 * 1024 * 1024)
+            {
+                SendResponse(res, 413, "{\"status\":\"error\",\"message\":\"Payload too large. Maximum request size is 2MB.\"}");
                 return;
             }
 
@@ -1589,7 +1605,7 @@ namespace CleanTV.Desktop
                     else if (ser.Contains(":"))
                     {
                         type = "tv";
-                        name = ser.StartsWith("192.168.0.159") ? "Realme Smart TV 4K" : "Android TV (" + ser.Split(':')[0] + ")";
+                        name = "Android TV (" + ser.Split(':')[0] + ")";
                     }
                     else if (inf.Contains("model:"))
                     {
@@ -1657,7 +1673,7 @@ namespace CleanTV.Desktop
                                     client.EndConnect(ar);
                                     lock (lockObj)
                                     {
-                                        string name = targetIp == "192.168.0.159" ? "Realme Smart TV 4K" : "Android TV (" + targetIp + ")";
+                                        string name = "Android TV (" + targetIp + ")";
                                         list.Add(new DiscoveredDevice
                                         {
                                             Serial = targetIp + ":5555",
@@ -1791,18 +1807,12 @@ namespace CleanTV.Desktop
         private static string ExtractJsonField(string json, string key)
         {
             if (string.IsNullOrEmpty(json)) return null;
-            string pattern = "\"" + key + "\":\"";
-            int idx = json.IndexOf(pattern);
-            if (idx == -1)
+            var m = Regex.Match(json, "\"" + Regex.Escape(key) + "\"\\s*:\\s*\"([^\"]*)\"");
+            if (m.Success)
             {
-                pattern = "\"" + key + "\" : \"";
-                idx = json.IndexOf(pattern);
+                return m.Groups[1].Value;
             }
-            if (idx == -1) return null;
-            int start = idx + pattern.Length;
-            int end = json.IndexOf("\"", start);
-            if (end == -1) return null;
-            return json.Substring(start, end - start);
+            return null;
         }
 
         private static string ToJsonString(string s)

@@ -40,7 +40,7 @@ Show-Header
 
 # 2. Connect to TV
 if (-not $TvIp) {
-  $defaultIp = "192.168.0.159"
+  $defaultIp = "192.168.1.100"
   $inputIp = Read-Host "Enter your TV IP address [Press Enter for default: $defaultIp]"
   $TvIp = if ([string]::IsNullOrWhiteSpace($inputIp)) { $defaultIp } else { $inputIp.Trim() }
 }

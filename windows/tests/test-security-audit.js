@@ -109,11 +109,23 @@ async function runAudit() {
     assert.strictEqual(aiFree.status, 403, 'Voice AI strictly requires Pro (403)');
     console.log('  PASS: Voice AI blocked on Free Tier with 403 PRO_REQUIRED');
 
-    // 6. Legitimate Pro Key Activation Test
-    const legitAct = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-98B4' }, authHeaders);
+    // 6. Legitimate Pro Key Activation Test (with formatted JSON spacing)
+    const formattedPayload = JSON.stringify({ licenseKey: 'CTV-PRO-8892-98B4' }, null, 2);
+    const legitAct = await post('/api/license/activate', JSON.parse(formattedPayload), authHeaders);
     assert.strictEqual(legitAct.status, 200, 'Valid cryptographically signed key activates Pro');
     assert.strictEqual(legitAct.data.isPro, true, 'Pro tier entitlement granted');
     console.log('  PASS: Valid cryptographically signed license activates Pro');
+
+    // 7. DNS Rebinding & Host Header Validation
+    const rebinding = await get('/api/adb-status', { Host: 'evil-attacker-website.com' });
+    assert.strictEqual(rebinding.status, 400, 'Host header spoofing blocked with HTTP 400 Bad Request');
+    console.log('  PASS: Host header validation blocks DNS rebinding attacks');
+
+    // 8. Payload Too Large (DoS Protection)
+    const hugePayload = 'A'.repeat(3 * 1024 * 1024);
+    const hugeReq = await post('/api/packages', { data: hugePayload }, authHeaders);
+    assert.strictEqual(hugeReq.status, 413, 'Payloads exceeding 2MB blocked with HTTP 413 Payload Too Large');
+    console.log('  PASS: Large request payload blocked with 413 Payload Too Large');
 
     console.log('\n[SUCCESS] All Security & Anti-Backdoor penetration tests PASSED.\n');
   } finally {

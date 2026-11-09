@@ -85,7 +85,7 @@ $targetSerial = ""
 if ($TvHost) {
   $targetSerial = if ($TvHost -match ':') { $TvHost } else { "$TvHost`:5555" }
 } else {
-  $defaultIp = "192.168.0.159"
+  $defaultIp = "192.168.1.100"
 
   # Try to infer TV IP from backup getprop if available
   if ($chosenBackup) {

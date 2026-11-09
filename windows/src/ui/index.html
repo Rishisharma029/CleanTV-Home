@@ -3,58 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CleanTV Home Desktop Manager</title>
+  <title>CleanTV Desktop Manager</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Ambient Gradient Background Mesh -->
-  <div class="ambient-mesh">
-    <div class="mesh-glow mesh-1"></div>
-    <div class="mesh-glow mesh-2"></div>
-    <div class="mesh-glow mesh-3"></div>
+  <!-- Ambient Backlight Elements -->
+  <div class="ambient-glow-layer">
+    <div class="ambient-orb orb-top-left"></div>
+    <div class="ambient-orb orb-bottom-right"></div>
   </div>
 
-  <div class="window-shell">
-    <!-- Top Acrylic Navigation Bar -->
-    <header class="titlebar">
-      <div class="app-branding">
-        <div class="app-icon-badge">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="url(#cyanGlow)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <defs>
-              <linearGradient id="cyanGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#38bdf8"/>
-                <stop offset="100%" stop-color="#818cf8"/>
-              </linearGradient>
-            </defs>
+  <div class="app-shell">
+    <!-- Custom Windows Titlebar -->
+    <header class="custom-titlebar">
+      <div class="titlebar-brand">
+        <div class="titlebar-logo">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="7" width="20" height="13" rx="2.5"></rect>
             <path d="M17 2l-5 5-5-5"></path>
           </svg>
         </div>
-        <div class="brand-text-group">
-          <span class="app-title">CleanTV <span class="app-title-sub">Desktop Manager</span></span>
-          <span class="app-version-badge">v4.0.0 · PRO EDITION</span>
+        <div class="titlebar-title-wrap">
+          <span class="titlebar-title">CleanTV Desktop Manager</span>
+          <span class="titlebar-badge">v4.0.0</span>
         </div>
       </div>
 
-      <div class="header-right-group">
-        <!-- Live Device Status Pill -->
-        <div class="device-pill" id="deviceStatusPill" title="Click to refresh connection">
-          <span class="status-beacon disconnected" id="statusDot">
-            <span class="beacon-core"></span>
-            <span class="beacon-ring"></span>
-          </span>
-          <span class="status-label" id="statusText">Scanning Devices...</span>
+      <div class="titlebar-actions">
+        <!-- Live Connection Status Pill -->
+        <div class="global-status-pill" id="globalStatusPill" title="ADB Connection Status">
+          <span class="status-dot disconnected" id="globalStatusDot"></span>
+          <span id="globalStatusText">Scanning Devices...</span>
         </div>
 
-        <!-- CleanTV Pro Badge -->
-        <div class="pro-tier-pill" id="headerTierBadge" title="CleanTV Pro Status">
-          <span class="crown-icon">👑</span>
-          <span id="headerTierText">PRO Lifetime</span>
+        <!-- CleanTV Pro Tag -->
+        <div class="titlebar-tier-tag" id="titlebarProTag" title="CleanTV Pro Status">
+          <span>👑</span>
+          <span id="titlebarTierLabel">PRO Lifetime</span>
         </div>
 
-        <!-- Quick Refresh Button -->
-        <button class="header-icon-btn" id="btnRefreshAdb" title="Refresh ADB & Connection">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <!-- Quick Refresh -->
+        <button class="titlebar-icon-btn" id="btnQuickRefresh" title="Refresh ADB & Connection">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <path d="M23 4v6h-6"></path>
             <path d="M1 20v-6h6"></path>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
@@ -62,8 +52,8 @@
         </button>
 
         <!-- License Modal Trigger -->
-        <button class="header-icon-btn" id="btnOpenLicenseModal" title="License Keys & Activation">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+        <button class="titlebar-icon-btn" id="btnHeaderLicense" title="License Keys & Activation">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
@@ -71,574 +61,717 @@
       </div>
     </header>
 
-    <!-- Main Application Layout -->
-    <div class="main-body">
-      <!-- Modern Cyber-Luxe Sidebar -->
-      <nav class="sidebar">
-        <div class="nav-section-label">NAVIGATION</div>
+    <!-- Workspace Container (Sidebar + Content) -->
+    <div class="workspace-container">
+      <!-- 240px Navigation Sidebar -->
+      <nav class="nav-sidebar">
+        <div class="nav-branding-header">
+          <div class="nav-brand-title">CleanTV</div>
+          <div class="nav-brand-subtitle">TV CONTROL CENTER</div>
+        </div>
 
-        <button class="nav-item active" data-tab="tab-connect">
-          <div class="nav-icon-wrap">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-          </div>
-          <span class="nav-text">Connect</span>
-          <span class="active-neon-glow"></span>
-        </button>
+        <!-- Group: DEVICE -->
+        <div class="nav-group">
+          <div class="nav-group-title">DEVICE</div>
+          <button class="nav-btn active" data-page="page-connect">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span>Connect</span>
+          </button>
+          <button class="nav-btn" data-page="page-overview">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+            <span>Device Overview</span>
+          </button>
+          <button class="nav-btn" data-page="page-apps">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="4"></rect><path d="M7 7h.01M12 7h.01M17 7h.01M7 12h.01M12 12h.01M17 12h.01M7 17h.01M12 17h.01M17 17h.01"></path></svg>
+            <span>Applications</span>
+          </button>
+          <button class="nav-btn" data-page="page-debloater">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <span>TV Debloater</span>
+          </button>
+          <button class="nav-btn" data-page="page-remote">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"></rect><circle cx="12" cy="8" r="3"></circle><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="12" y1="17" x2="12" y2="17.01"></line></svg>
+            <span>Virtual Remote</span>
+          </button>
+        </div>
 
-        <button class="nav-item" data-tab="tab-launcher">
-          <div class="nav-icon-wrap">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-            </svg>
-          </div>
-          <span class="nav-text">CleanTV APK</span>
-        </button>
+        <!-- Group: TOOLS -->
+        <div class="nav-group">
+          <div class="nav-group-title">TOOLS</div>
+          <button class="nav-btn" data-page="page-apk">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>CleanTV APK</span>
+          </button>
+          <button class="nav-btn" data-page="page-ai">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+            <span>Voice & AI</span>
+          </button>
+          <button class="nav-btn" data-page="page-diagnostics">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            <span>Diagnostics</span>
+          </button>
+          <button class="nav-btn" data-page="page-backups">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <span>Backup & Restore</span>
+          </button>
+        </div>
 
-        <button class="nav-item" data-tab="tab-debloater">
-          <div class="nav-icon-wrap">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-            </svg>
-          </div>
-          <span class="nav-text">TV Debloater</span>
-        </button>
+        <!-- Group: ACCOUNT -->
+        <div class="nav-group">
+          <div class="nav-group-title">ACCOUNT</div>
+          <button class="nav-btn" data-page="page-pro">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>CleanTV Pro</span>
+            <span class="nav-badge badge-pro">PRO</span>
+          </button>
+          <button class="nav-btn" data-page="page-settings">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
+          </button>
+          <button class="nav-btn" data-page="page-about">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>About</span>
+          </button>
+        </div>
 
-        <button class="nav-item" data-tab="tab-remote">
-          <div class="nav-icon-wrap">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="5" y="2" width="14" height="20" rx="3"></rect>
-              <circle cx="12" cy="8" r="3"></circle>
-              <line x1="12" y1="14" x2="12" y2="14.01"></line>
-              <line x1="12" y1="17" x2="12" y2="17.01"></line>
-            </svg>
+        <!-- Sidebar Bottom Box -->
+        <div class="sidebar-footer-card">
+          <div class="pro-card-header">
+            <span class="pro-card-title">CleanTV Pro</span>
+            <span class="pro-status-chip" id="sidebarProStatus">Active</span>
           </div>
-          <span class="nav-text">Virtual Remote</span>
-        </button>
-
-        <button class="nav-item" data-tab="tab-ai">
-          <div class="nav-icon-wrap">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
-            </svg>
-          </div>
-          <span class="nav-text">Voice & AI</span>
-        </button>
-
-        <button class="nav-item" data-tab="tab-pro">
-          <div class="nav-icon-wrap pro-icon-wrap">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            </svg>
-          </div>
-          <span class="nav-text">Ad-Shield & Pro</span>
-          <span class="sidebar-mini-badge">PRO</span>
-        </button>
-
-        <!-- Sidebar Bottom Footer -->
-        <div class="sidebar-footer">
-          <div class="sidebar-pro-card" id="sidebarProCard">
-            <div class="pro-card-header">
-              <div class="pro-sparkle">👑</div>
-              <div class="pro-card-info">
-                <span class="pro-card-title">CleanTV Pro</span>
-                <span class="pro-card-sub" id="sidebarProStatus">Lifetime Active</span>
-              </div>
-            </div>
-            <button class="btn btn-xs btn-pro-glow" id="btnSidebarActivate">Enter Key</button>
-          </div>
-
-          <div class="sidebar-port-pill">
-            <span class="port-dot"></span>
-            <span id="sidebarPortText">ADB Port 5555 · Ready</span>
-          </div>
+          <button class="btn-sidebar-pro" id="btnSidebarKeyModal">Enter Product Key</button>
         </div>
       </nav>
 
-      <!-- Content Viewport -->
-      <main class="content-viewport">
+      <!-- Main Workspace Pages -->
+      <main class="main-viewport">
         <!-- ========================================== -->
-        <!-- TAB 1: CONNECT VIEW                        -->
+        <!-- 1. CONNECT PAGE                            -->
         <!-- ========================================== -->
-        <section class="tab-pane active" id="tab-connect">
-          <!-- Hero Connection Card -->
-          <div class="glass-card header-connection-card">
-            <div class="card-meta-tag">HIGH-SPEED WIRELESS & USB ADB BRIDGE</div>
-            <h2 class="card-heading">Wireless Android TV Connection</h2>
-            <p class="card-description">
-              Connect CleanTV Desktop Manager to your Realme TV or Android TV over ADB to manage launcher applications, eliminate bloatware, and unlock system Ad-Shield.
-            </p>
+        <section class="page-view active" id="page-connect">
+          <div>
+            <div class="page-eyebrow">DEVICE CONNECTION</div>
+            <h1 class="page-heading">Connect your television.</h1>
+            <p class="page-subtitle">Discover, connect, and manage your Android TV devices over your local network.</p>
+          </div>
 
-            <div class="connect-action-bar">
-              <div class="ip-input-wrap">
-                <span class="input-icon">📡</span>
-                <input type="text" id="tvIpInput" class="input-text-cyber" placeholder="192.168.0.159:5555" value="192.168.0.159:5555">
-                <span class="port-tag">PORT 5555</span>
+          <!-- Connection Panel -->
+          <div class="connection-hero-panel">
+            <div>
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                Wireless ADB Connection
               </div>
-              <button class="btn btn-primary btn-glow" id="btnConnect">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                Connect to TV
-              </button>
-              <button class="btn btn-glass" id="btnScan">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                Auto-Scan
-              </button>
-              <button class="btn btn-glass" id="btnEmu">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                Connect Emulator
-              </button>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
+                Enter your Smart TV's IP address and ADB port to establish an encrypted bridge.
+              </p>
+
+              <div class="connection-form-strip">
+                <div class="ip-port-group">
+                  <input type="text" id="inputIpAddress" class="input-text-dark" placeholder="192.168.0.159" value="192.168.0.159" style="width: 170px;">
+                  <span style="color: var(--text-muted); font-family: var(--font-mono);">:</span>
+                  <input type="text" id="inputPort" class="input-text-dark" placeholder="5555" value="5555" style="width: 75px;">
+                </div>
+                <button class="btn btn-primary" id="btnConnectDevice">Connect Device</button>
+                <button class="btn btn-secondary" id="btnDiscoverDevices">Discover Devices</button>
+                <button class="btn btn-secondary" id="btnConnectEmulator">Connect Emulator</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Connected Device Experience Banner (Dynamically shown when connected) -->
+          <div class="card-surface elevated" id="connectedBanner" style="display: none; border-color: rgba(66, 230, 164, 0.4);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 38px; height: 38px; border-radius: var(--radius-sm); background: rgba(66, 230, 164, 0.15); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                  ✓
+                </div>
+                <div>
+                  <h3 style="font-size: 15px; font-weight: 600; color: var(--text-primary);">Your TV is connected.</h3>
+                  <p style="font-size: 12.5px; color: var(--text-secondary);" id="connectedBannerSub">Realme Smart TV 4K · 192.168.0.159:5555 · ADB Online</p>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary btn-sm" id="btnQuickManageApps">Manage Apps</button>
+                <button class="btn btn-secondary btn-sm" id="btnQuickLaunchRemote">Launch Remote</button>
+              </div>
             </div>
           </div>
 
           <!-- Bottom Grid: Device Telemetry & Quick Actions -->
-          <div class="grid-two-panels">
-            <!-- Active Device Information Panel -->
-            <div class="glass-card telemetry-card">
-              <div class="panel-header">
-                <div class="panel-title-group">
-                  <span class="panel-icon">📺</span>
-                  <h3>Active Device Information</h3>
-                </div>
-                <button class="btn-icon-tiny" id="btnRefreshDevice" title="Refresh Hardware Info">🔄</button>
+          <div class="grid-two-cards">
+            <!-- Device Identity & System Dashboard -->
+            <div class="card-surface">
+              <div class="card-header-row">
+                <span class="card-title">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                  Device Identity & System
+                </span>
+                <button class="btn btn-secondary btn-sm" id="btnRefreshTelemetry">Refresh</button>
               </div>
 
-              <div class="telemetry-rows">
-                <div class="telemetry-row">
-                  <div class="telemetry-label">
-                    <span class="row-icon">🏷️</span>
-                    <span>Device Model</span>
-                  </div>
-                  <div class="telemetry-value">
-                    <span class="val-badge badge-primary" id="infoDeviceName">Realme Smart TV / Android TV</span>
-                  </div>
+              <div>
+                <div class="telemetry-item-row">
+                  <span class="telemetry-key">Device Name</span>
+                  <span class="telemetry-val highlight" id="valDeviceModel">Realme Smart TV 4K</span>
                 </div>
-
-                <div class="telemetry-row">
-                  <div class="telemetry-label">
-                    <span class="row-icon">⚡</span>
-                    <span>ADB Status</span>
-                  </div>
-                  <div class="telemetry-value">
-                    <span class="val-badge badge-status" id="infoAdbStatus">
-                      <span class="dot-status offline" id="dotAdbStatus"></span>
-                      <span id="textAdbStatus">Offline</span>
-                    </span>
-                  </div>
+                <div class="telemetry-item-row">
+                  <span class="telemetry-key">Manufacturer</span>
+                  <span class="telemetry-val" id="valManufacturer">realme</span>
                 </div>
-
-                <div class="telemetry-row">
-                  <div class="telemetry-label">
-                    <span class="row-icon">🛡️</span>
-                    <span>Launcher State</span>
-                  </div>
-                  <div class="telemetry-value">
-                    <span class="val-badge badge-launcher" id="infoLauncherState">CleanTV Home v4.0 Active</span>
-                  </div>
+                <div class="telemetry-item-row">
+                  <span class="telemetry-key">Android Version</span>
+                  <span class="telemetry-val" id="valAndroidVersion">Android 11 (API 30)</span>
                 </div>
-
-                <div class="telemetry-row column-row">
-                  <div class="memory-info-header">
-                    <div class="telemetry-label">
-                      <span class="row-icon">💾</span>
-                      <span>System RAM & Memory</span>
-                    </div>
-                    <span class="val-memory-text" id="infoMemory">1.7 GB Free / 2.0 GB Total</span>
-                  </div>
-                  <div class="memory-track">
-                    <div class="memory-bar-fill" id="infoMemoryFill" style="width: 85%;"></div>
-                  </div>
+                <div class="telemetry-item-row">
+                  <span class="telemetry-key">ADB Status</span>
+                  <span class="telemetry-val success" id="valAdbState">Online (Port 5555)</span>
                 </div>
-
-                <div class="telemetry-row">
-                  <div class="telemetry-label">
-                    <span class="row-icon">📶</span>
-                    <span>Network Ping Latency</span>
+                <div class="telemetry-item-row">
+                  <span class="telemetry-key">CleanTV Launcher</span>
+                  <span class="telemetry-val success" id="valLauncherStatus">Active & Running</span>
+                </div>
+                <div style="padding-top: 10px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                    <span>RAM Usage</span>
+                    <span id="valRamText" style="font-family: var(--font-mono); color: var(--primary);">1.7 GB Free / 2.0 GB Total</span>
                   </div>
-                  <div class="telemetry-value">
-                    <span class="val-badge badge-ping" id="infoPing">⚡ 12 ms</span>
+                  <div class="progress-track">
+                    <div class="progress-fill success" id="valRamFill" style="width: 85%;"></div>
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- Quick Actions Panel -->
-            <div class="glass-card actions-card">
-              <div class="panel-header">
-                <div class="panel-title-group">
-                  <span class="panel-icon">⚡</span>
-                  <h3>Quick Actions</h3>
-                </div>
+            <div class="card-surface">
+              <div class="card-header-row">
+                <span class="card-title">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                  Quick Actions
+                </span>
               </div>
 
-              <div class="action-tiles-grid">
-                <button class="action-tile-btn" id="btnPingTv">
-                  <div class="tile-icon-box amber-glow">⚡</div>
-                  <div class="tile-content">
-                    <span class="tile-title">Ping & Verify Connection</span>
-                    <span class="tile-desc">Test socket bridge latency & connection stability</span>
+              <div class="action-tiles-container">
+                <div class="action-tile-item" id="qaPing">
+                  <div class="tile-info-block">
+                    <div class="tile-icon-badge">⚡</div>
+                    <div>
+                      <div class="tile-title-main">Ping Device</div>
+                      <div class="tile-subtitle-muted">Measure ADB socket response latency</div>
+                    </div>
                   </div>
-                  <div class="tile-arrow">➔</div>
-                </button>
+                  <span style="font-family: var(--font-mono); font-size: 12px; color: var(--primary);" id="valPingLatency">-- ms</span>
+                </div>
 
-                <button class="action-tile-btn" id="btnWakeTv">
-                  <div class="tile-icon-box cyan-glow">📺</div>
-                  <div class="tile-content">
-                    <span class="tile-title">Wake / Sleep TV Screen</span>
-                    <span class="tile-desc">Toggle display power state instantly over ADB</span>
+                <div class="action-tile-item" id="qaWakeTv">
+                  <div class="tile-info-block">
+                    <div class="tile-icon-badge">📺</div>
+                    <div>
+                      <div class="tile-title-main">Wake / Sleep TV</div>
+                      <div class="tile-subtitle-muted">Toggle TV display power state instantly</div>
+                    </div>
                   </div>
-                  <div class="tile-arrow">➔</div>
-                </button>
+                  <span style="color: var(--text-muted); font-size: 13px;">➔</span>
+                </div>
 
-                <button class="action-tile-btn" id="btnOpenWebRemote">
-                  <div class="tile-icon-box violet-glow">🌐</div>
-                  <div class="tile-content">
-                    <span class="tile-title">Open Browser Web Remote</span>
-                    <span class="tile-desc">Launch touch-friendly companion on your phone or PC</span>
+                <div class="action-tile-item" id="qaWebRemote">
+                  <div class="tile-info-block">
+                    <div class="tile-icon-badge">🌐</div>
+                    <div>
+                      <div class="tile-title-main">Open Web Remote</div>
+                      <div class="tile-subtitle-muted">Launch touch controller in browser window</div>
+                    </div>
                   </div>
-                  <div class="tile-arrow">➔</div>
-                </button>
+                  <span style="color: var(--text-muted); font-size: 13px;">➔</span>
+                </div>
 
-                <button class="action-tile-btn" id="btnToggleAdShield">
-                  <div class="tile-icon-box emerald-glow">🛡️</div>
-                  <div class="tile-content">
-                    <span class="tile-title">Toggle Ad-Shield DNS</span>
-                    <span class="tile-desc" id="adShieldTileSub">AdGuard System Ad-Blocker (Active)</span>
+                <div class="action-tile-item" id="qaAdShield">
+                  <div class="tile-info-block">
+                    <div class="tile-icon-badge">🛡️</div>
+                    <div>
+                      <div class="tile-title-main">Toggle Ad-Shield DNS</div>
+                      <div class="tile-subtitle-muted" id="qaAdShieldSub">AdGuard Private DNS (Active)</div>
+                    </div>
                   </div>
-                  <div class="tile-arrow">➔</div>
-                </button>
+                  <span style="color: var(--success); font-size: 12px; font-weight: 600;">ACTIVE</span>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         <!-- ========================================== -->
-        <!-- TAB 2: CLEANTV APK INSTALLER               -->
+        <!-- 2. DEVICE OVERVIEW PAGE                    -->
         <!-- ========================================== -->
-        <section class="tab-pane" id="tab-launcher">
-          <div class="glass-card">
-            <div class="card-meta-tag">1-CLICK HIGH-SPEED DEPLOYMENT</div>
-            <h2 class="card-heading">CleanTV Home Launcher Installer</h2>
-            <p class="card-description">
-              Deploy the official ad-free CleanTV Home Launcher to your Android TV directly over wireless ADB with zero Google Play Store requirement.
-            </p>
+        <section class="page-view" id="page-overview">
+          <div>
+            <div class="page-eyebrow">SYSTEM TELEMETRY</div>
+            <h1 class="page-heading">Device Overview</h1>
+            <p class="page-subtitle">Real-time hardware specifications, memory distribution, and connection diagnostics.</p>
+          </div>
 
-            <div class="apk-showcase-box">
-              <div class="apk-icon-large">🚀</div>
-              <div class="apk-details">
-                <div class="apk-badge-row">
-                  <span class="badge badge-emerald">OFFICIAL RELEASE</span>
-                  <span class="badge badge-cyan">v4.0.0 PRO</span>
-                  <span class="badge badge-muted">APK (~715 KB)</span>
-                </div>
-                <h3>CleanTV Home Smart TV Launcher</h3>
-                <p>Features ultra-clean glassmorphic UI, high-speed app docking, ad-shield filtering, voice AI HUD, and background telemetry removal.</p>
-              </div>
+          <div class="grid-two-cards">
+            <div class="card-surface">
+              <div class="card-title" style="margin-bottom: 14px;">Hardware Profile</div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Model</span><span class="telemetry-val" id="ovModel">Realme Smart TV 4K</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Brand</span><span class="telemetry-val" id="ovBrand">realme</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Architecture</span><span class="telemetry-val" id="ovArch">ARMv8-A (64-bit)</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Display Resolution</span><span class="telemetry-val">3840 × 2160 (4K UHD)</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Build Number</span><span class="telemetry-val" id="ovBuild">RMX_TV_V4.0.0_REL</span></div>
             </div>
 
-            <div class="apk-install-actions">
-              <button class="btn btn-primary btn-large btn-glow" id="btnInstallApk">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                1-Click Install CleanTV to TV
-              </button>
-              <button class="btn btn-glass btn-large" id="btnSetDefaultHome">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                Set as Default TV Launcher
-              </button>
-            </div>
-
-            <div class="progress-container" id="apkProgressContainer" style="display: none;">
-              <div class="progress-label-row">
-                <span id="apkProgressStatus">Installing package over ADB...</span>
-                <span id="apkProgressPercent">45%</span>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-fill" id="apkProgressBarFill" style="width: 45%;"></div>
-              </div>
+            <div class="card-surface">
+              <div class="card-title" style="margin-bottom: 14px;">Memory & Storage Telemetry</div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Total RAM</span><span class="telemetry-val">2.0 GB LPDDR4</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Free Available RAM</span><span class="telemetry-val highlight" id="ovRamFree">1.7 GB (85%)</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Internal Storage</span><span class="telemetry-val">16.0 GB eMMC 5.1</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Storage Free</span><span class="telemetry-val highlight">11.4 GB Available</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">ADB Port</span><span class="telemetry-val">5555 (Standard Wireless)</span></div>
             </div>
           </div>
         </section>
 
         <!-- ========================================== -->
-        <!-- TAB 3: TV DEBLOATER                        -->
+        <!-- 3. APPLICATIONS MANAGER                    -->
         <!-- ========================================== -->
-        <section class="tab-pane" id="tab-debloater">
-          <div class="glass-card">
-            <div class="debloater-header-bar">
+        <section class="page-view" id="page-apps">
+          <div>
+            <div class="page-eyebrow">APPLICATION MANAGEMENT</div>
+            <h1 class="page-heading">Applications</h1>
+            <p class="page-subtitle">Inspect, disable, or restore installed Android TV packages with complete package isolation.</p>
+          </div>
+
+          <div class="apps-controls-bar">
+            <input type="text" id="inputAppSearch" class="input-text-dark" placeholder="Search packages, e.g. 'netflix', 'youtube'..." style="width: 320px;">
+            <div class="filter-chips-strip">
+              <button class="chip-btn active" data-filter="all">All Packages (<span id="countTotalApps">0</span>)</button>
+              <button class="chip-btn" data-filter="user">User Apps (<span id="countUserApps">0</span>)</button>
+              <button class="chip-btn" data-filter="system">System (<span id="countSysApps">0</span>)</button>
+              <button class="chip-btn" data-filter="disabled">Disabled (<span id="countDisApps">0</span>)</button>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnRefreshAppList">Reload Packages</button>
+          </div>
+
+          <div class="app-list-grid" id="appsListContainer">
+            <!-- Dynamically populated from /api/packages -->
+            <div style="padding: 24px; text-align: center; color: var(--text-muted);">
+              Connecting to device to load package inventory...
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 4. TV DEBLOATER                            -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-debloater">
+          <div>
+            <div class="page-eyebrow">SYSTEM OPTIMIZATION & PRIVACY</div>
+            <h1 class="page-heading">Take control of your TV.</h1>
+            <p class="page-subtitle">Remove unnecessary applications, telemetry daemons, and sponsored rows without rooting.</p>
+          </div>
+
+          <div class="card-surface">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
               <div>
-                <div class="card-meta-tag">SYSTEM OPTIMIZATION & PRIVACY</div>
-                <h2 class="card-heading">Universal TV Debloater</h2>
-                <p class="card-description">
-                  Safely disable OEM adware, sponsored content launchers, and background tracking daemons without rooting.
+                <span class="card-title">Debloat Profile Preset</span>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+                  Select your Smart TV OEM brand to load audited safe debloat lists.
                 </p>
               </div>
+              <select id="selectDebloatPreset" class="select-dark">
+                <option value="realme" selected>Realme Smart TV (Anoki, Homwee, PONT)</option>
+                <option value="sony">Sony Bravia (Samba TV, Sony Select)</option>
+                <option value="xiaomi">Xiaomi / Mi TV (PatchWall, Analytics)</option>
+                <option value="oneplus">OnePlus TV (OxygenPlay, Services)</option>
+                <option value="firetv">Amazon Fire TV (Amazon Ads, Shopper)</option>
+                <option value="google">Google TV (Stock Launcher Sponsored Shelf)</option>
+              </select>
+            </div>
 
-              <div class="preset-selector-wrap">
-                <label for="presetSelect">TV Brand Preset:</label>
-                <select id="presetSelect" class="cyber-select">
-                  <option value="realme" selected>Realme Smart TV (Anoki, Homwee, PONT)</option>
-                  <option value="sony">Sony Bravia (Samba TV, Sony Select)</option>
-                  <option value="xiaomi">Xiaomi / Mi TV (PatchWall, Analytics)</option>
-                  <option value="oneplus">OnePlus TV (OxygenPlay, Services)</option>
-                  <option value="firetv">Amazon Fire TV (Amazon Ads, Shopper)</option>
-                  <option value="google">Google TV (Stock Launcher Ads)</option>
-                </select>
+            <!-- Debloat Metrics Ribbon -->
+            <div class="debloat-hero-metrics">
+              <div class="metric-stat-box">
+                <div class="metric-num" id="statDebloatCount">14</div>
+                <div class="metric-label">Bloatware Packages Audited</div>
+              </div>
+              <div class="metric-stat-box">
+                <div class="metric-num" style="color: var(--primary);" id="statDebloatRam">~185 MB</div>
+                <div class="metric-label">Estimated Memory Saved</div>
+              </div>
+              <div class="metric-stat-box">
+                <div class="metric-num" style="color: var(--success);">100% SAFE</div>
+                <div class="metric-label">Non-Destructive User Disable</div>
               </div>
             </div>
 
-            <!-- Debloat Stats Ribbon -->
-            <div class="debloat-stats-ribbon">
-              <div class="debloat-stat-card">
-                <span class="stat-number" id="statPackages">14</span>
-                <span class="stat-desc">Ad & Telemetry Packages</span>
-              </div>
-              <div class="debloat-stat-card">
-                <span class="stat-number" id="statRam">~185 MB</span>
-                <span class="stat-desc">RAM Free Up Potential</span>
-              </div>
-              <div class="debloat-stat-card">
-                <span class="stat-number emerald" id="statSafety">100% SAFE</span>
-                <span class="stat-desc">Non-Destructive User Disable</span>
-              </div>
+            <!-- Package Table -->
+            <div class="package-table-container" id="debloatPackageTable">
+              <!-- Dynamically populated -->
             </div>
 
-            <!-- Dynamic Package List -->
-            <div class="package-list-wrapper" id="packageList">
-              <!-- Populated by JavaScript -->
-            </div>
-
-            <!-- Debloat Action Footer -->
-            <div class="debloat-footer-actions">
-              <button class="btn btn-danger btn-glow" id="btnRunDebloat">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                1-Click Safe Debloat
-              </button>
-              <button class="btn btn-glass" id="btnRunRestore">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-                Factory Restore All
-              </button>
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+              <button class="btn btn-primary" id="btnExecuteDebloat">⚡ 1-Click Safe Debloat</button>
+              <button class="btn btn-secondary" id="btnExecuteRestore">🔄 Factory Restore All</button>
             </div>
           </div>
         </section>
 
         <!-- ========================================== -->
-        <!-- TAB 4: VIRTUAL REMOTE                      -->
+        <!-- 5. VIRTUAL REMOTE                          -->
         <!-- ========================================== -->
-        <section class="tab-pane" id="tab-remote">
-          <div class="remote-view-layout">
-            <!-- Hardware Controller Simulation -->
-            <div class="remote-hardware-shell">
-              <div class="remote-header-bar">
-                <button class="remote-key-round btn-power" data-key="26" title="Power TV">⚡</button>
-                <span class="remote-brand">CleanTV</span>
-                <button class="remote-key-round btn-menu" data-key="82" title="Menu">☰</button>
+        <section class="page-view" id="page-remote">
+          <div>
+            <div class="page-eyebrow">HARDWARE CONTROLLER</div>
+            <h1 class="page-heading">Virtual Remote</h1>
+            <p class="page-subtitle">Tactile hardware companion simulating a physical remote with low-latency ADB keyevents.</p>
+          </div>
+
+          <div class="remote-workspace-grid">
+            <!-- Physical Remote Simulation -->
+            <div class="tactile-remote-chassis">
+              <div class="remote-power-bar">
+                <button class="remote-round-key btn-remote-power" data-key="26" title="Power">⚡</button>
+                <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.15em; color: var(--text-muted);">CLEANTV</span>
+                <button class="remote-round-key" data-key="82" title="Menu">☰</button>
               </div>
 
-              <!-- D-Pad Navigation Wheel -->
-              <div class="dpad-controller">
-                <button class="dpad-btn dpad-up" data-key="19" title="Up">▲</button>
-                <button class="dpad-btn dpad-left" data-key="21" title="Left">◀</button>
-                <button class="dpad-btn dpad-center" data-key="23" title="Select / OK">OK</button>
-                <button class="dpad-btn dpad-right" data-key="22" title="Right">▶</button>
-                <button class="dpad-btn dpad-down" data-key="20" title="Down">▼</button>
+              <!-- D-Pad -->
+              <div class="dpad-circular-ring">
+                <button class="dpad-nav-btn dpad-pos-up" data-key="19" title="Up">▲</button>
+                <button class="dpad-nav-btn dpad-pos-left" data-key="21" title="Left">◀</button>
+                <button class="dpad-center-ok" data-key="23" title="Select / OK">OK</button>
+                <button class="dpad-nav-btn dpad-pos-right" data-key="22" title="Right">▶</button>
+                <button class="dpad-nav-btn dpad-pos-down" data-key="20" title="Down">▼</button>
               </div>
 
-              <!-- Nav Key Row -->
-              <div class="remote-key-row">
-                <button class="remote-pill-btn" data-key="4">↩ Back</button>
-                <button class="remote-pill-btn" data-key="3">🏠 Home</button>
+              <div class="remote-row-keys">
+                <button class="remote-nav-pill" data-key="4">↩ Back</button>
+                <button class="remote-nav-pill" data-key="3">🏠 Home</button>
               </div>
 
-              <!-- Quick Feature Row -->
-              <div class="remote-key-row">
-                <button class="remote-pill-btn accent-ai" id="btnRemoteAi">✨ Voice AI</button>
-                <button class="remote-pill-btn accent-hud" id="btnRemoteCc">🎛️ Control</button>
+              <div class="remote-row-keys">
+                <button class="remote-nav-pill" id="btnTriggerAiHud">✨ AI HUD</button>
+                <button class="remote-nav-pill" id="btnTriggerControlCenter">🎛️ Control</button>
               </div>
 
-              <!-- Volume Slider Group -->
-              <div class="remote-volume-row">
-                <button class="remote-vol-btn" data-key="25">🔉 -</button>
-                <button class="remote-vol-btn btn-mute" data-key="164">🔇</button>
-                <button class="remote-vol-btn" data-key="24">🔊 +</button>
+              <div class="remote-row-keys">
+                <button class="remote-nav-pill" data-key="25">🔉 Vol -</button>
+                <button class="remote-nav-pill" data-key="164">🔇 Mute</button>
+                <button class="remote-nav-pill" data-key="24">🔊 Vol +</button>
               </div>
             </div>
 
-            <!-- Remote Live Event Terminal -->
-            <div class="glass-card remote-terminal-card">
-              <div class="panel-header">
-                <div class="panel-title-group">
-                  <span class="panel-icon">💻</span>
-                  <h3>Live Remote Event Log</h3>
-                </div>
-                <button class="btn-icon-tiny" id="btnClearLog">Clear</button>
+            <!-- Live Event Console -->
+            <div class="card-surface" style="display: flex; flex-direction: column;">
+              <div class="card-header-row">
+                <span class="card-title">Low-Latency Event Stream</span>
+                <button class="btn btn-secondary btn-sm" id="btnClearRemoteLog">Clear Stream</button>
               </div>
-              <p class="card-description">Instant ADB socket transmission over low-latency connection.</p>
-              <div class="cyber-console-log" id="remoteConsole">
-                <span class="log-line">[SYSTEM] CleanTV Remote Bridge v4.0 initialized.</span>
-                <span class="log-line">[BRIDGE] Socket connected to ADB host.</span>
-                <span class="log-line">[READY] Remote controller online.</span>
+              <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 12px;">
+                Direct socket transmission to TV ADB daemon over port 5555.
+              </p>
+              <div class="remote-console-feed" id="remoteConsoleFeed">
+                <span>[INIT] CleanTV Remote Bridge v4.0 active.</span>
+                <span>[INFO] Ready for tactile input.</span>
               </div>
             </div>
           </div>
         </section>
 
         <!-- ========================================== -->
-        <!-- TAB 5: VOICE & AI CONTROLLER               -->
+        <!-- 6. CLEANTV APK DEPLOYMENT                  -->
         <!-- ========================================== -->
-        <section class="tab-pane" id="tab-ai">
-          <div class="glass-card ai-hero-card">
-            <div class="ai-orb-centerpiece">
-              <div class="ai-pulsing-rings"></div>
-              <div class="ai-core-orb">✨</div>
-            </div>
-
-            <div class="card-meta-tag">INTELLIGENT LOCAL & CLOUD ASSISTANT</div>
-            <h2 class="card-heading">Personal AI TV Controller</h2>
-            <p class="card-description">
-              Speak or type TV commands. CleanTV parses the intent locally and controls the TV instantly, with zero latency.
-            </p>
-
-            <div class="ai-command-bar">
-              <div class="ai-input-wrap">
-                <span class="ai-input-icon">🎤</span>
-                <input type="text" id="aiTextInput" class="input-text-cyber" placeholder="Type a TV command, e.g. 'open YouTube', 'volume 40%', 'sleep timer'...">
-              </div>
-              <button class="btn btn-primary btn-glow" id="btnAiSend">Execute Command</button>
-            </div>
-
-            <!-- Quick Suggestion Chips -->
-            <div class="ai-chips-row">
-              <button class="ai-chip" data-cmd="open YouTube">▶ Open YouTube</button>
-              <button class="ai-chip" data-cmd="open settings">⚙️ Open Settings</button>
-              <button class="ai-chip" data-cmd="volume 50%">🔊 Volume 50%</button>
-              <button class="ai-chip" data-cmd="mute">🔇 Mute</button>
-              <button class="ai-chip" data-cmd="screensaver">🖼️ Aerial Screensaver</button>
-              <button class="ai-chip" data-cmd="sleep timer">⏱️ Sleep Timer 30m</button>
-              <button class="ai-chip" data-cmd="who is the president">💡 Ask Assistant</button>
-            </div>
-
-            <!-- Execution Status Result -->
-            <div class="ai-result-card" id="aiExecutionCard">
-              <div class="ai-result-icon">⚡</div>
-              <div class="ai-result-content">
-                <span class="result-badge" id="aiIntentBadge">READY</span>
-                <h4 id="aiActionTitle">Awaiting Command</h4>
-                <p id="aiActionSubtitle">Click any quick chip above or enter your TV command.</p>
-              </div>
-            </div>
+        <section class="page-view" id="page-apk">
+          <div>
+            <div class="page-eyebrow">OFFICIAL BUNDLED RELEASE</div>
+            <h1 class="page-heading">CleanTV Home Launcher</h1>
+            <p class="page-subtitle">Deploy the official ad-free CleanTV Home APK directly to your Smart TV over ADB.</p>
           </div>
-        </section>
 
-        <!-- ========================================== -->
-        <!-- TAB 6: CLEAN TV PRO & AD-SHIELD            -->
-        <!-- ========================================== -->
-        <section class="tab-pane" id="tab-pro">
-          <div class="glass-card pro-hero-card">
-            <div class="card-meta-tag">PREMIUM SUITE & MONETIZATION</div>
-            <h2 class="card-heading">CleanTV Pro & System Ad-Shield</h2>
-            <p class="card-description">
-              Unlock the comprehensive AdGuard private DNS system ad-blocker, premium voice AI integration, and advanced system debloater.
-            </p>
-
-            <!-- Pro Status Card -->
-            <div class="pro-license-banner">
-              <div class="banner-badge-icon">👑</div>
-              <div class="banner-details">
-                <div class="banner-title-row">
-                  <span class="banner-title">Current Plan: <strong class="highlight-gold" id="proStatusPlanName">Pro Lifetime Edition</strong></span>
-                  <span class="badge badge-emerald" id="proStatusActiveBadge">ACTIVE & VERIFIED</span>
-                </div>
-                <p class="banner-sub">All premium features are unlocked: System Ad-Shield, Unlimited Debloater, AI Remote, and Priority Updates.</p>
+          <div class="card-surface">
+            <div style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px;">
+              <div style="width: 72px; height: 72px; border-radius: var(--radius-md); background: var(--surface-elevated); border: 1px solid var(--border-active); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 32px;">
+                🚀
               </div>
-            </div>
-
-            <!-- 2-Column Grid: License Key Activation & Ad-Shield Switch -->
-            <div class="grid-two-panels">
-              <!-- License Key Form -->
-              <div class="glass-card inner-card">
-                <div class="panel-header">
-                  <div class="panel-title-group">
-                    <span class="panel-icon">🔑</span>
-                    <h3>License Key Activation</h3>
-                  </div>
-                </div>
-                <p class="card-description">Enter your 16-character license key to activate Pro.</p>
-
-                <div class="license-input-wrap">
-                  <input type="text" id="licenseKeyInput" class="input-text-cyber" placeholder="CTV-PRO-XXXX-XXXX" value="CTV-PRO-8892-98B4">
-                  <button class="btn btn-primary btn-glow" id="btnActivateLicense">Activate Key</button>
-                </div>
-
-                <div class="quick-keys-list">
-                  <span class="quick-key-label">Lifetime Pro Keys:</span>
-                  <div class="key-pills">
-                    <button class="key-pill" data-key="CTV-PRO-8892-98B4">CTV-PRO-8892-98B4</button>
-                    <button class="key-pill" data-key="CTV-PRO-7721-9580">CTV-PRO-7721-9580</button>
-                    <button class="key-pill" data-key="CTV-PRO-TEST-9999">CTV-PRO-TEST-9999</button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- System Ad-Shield Switch -->
-              <div class="glass-card inner-card">
-                <div class="panel-header">
-                  <div class="panel-title-group">
-                    <span class="panel-icon">🛡️</span>
-                    <h3>In-System Ad-Shield DNS</h3>
-                  </div>
-                  <div class="toggle-switch-wrap">
-                    <input type="checkbox" id="adShieldToggle" class="switch-checkbox" checked>
-                    <label for="adShieldToggle" class="switch-label"></label>
-                  </div>
-                </div>
-                <p class="card-description">
-                  Routes all Smart TV DNS queries through encrypted AdGuard DNS (<code>dns.adguard.com</code>) to block ads across YouTube TV, streaming apps, sponsored rows, and telemetry daemons.
+              <div>
+                <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary);">CleanTV Home v4.0.0 Pro Edition</h3>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
+                  Built-in Ad-Shield DNS, ultra-lightweight footprint (~715 KB), zero stock telemetry, and dedicated Voice AI HUD.
                 </p>
-                <div class="adblock-status-pill">
-                  <span class="status-dot-shield active"></span>
-                  <span id="adShieldDetailedStatus">AdGuard Encrypted DNS Active</span>
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                  <span class="risk-tag risk-safe">OFFICIAL RELEASE</span>
+                  <span class="risk-tag risk-caution">ARM64 / ARMv7</span>
                 </div>
               </div>
             </div>
+
+            <div style="display: flex; gap: 12px;">
+              <button class="btn btn-primary" id="btnDeployApk">⚡ 1-Click Install to TV</button>
+              <button class="btn btn-secondary" id="btnSetAsDefaultHome">Set Default Launcher</button>
+            </div>
+
+            <div id="deployProgressBox" style="display: none; margin-top: 20px;">
+              <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">
+                <span id="deployStatusText">Streaming APK over ADB socket...</span>
+                <span id="deployPercentText" style="font-family: var(--font-mono);">45%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="deployProgressFill" style="width: 45%;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 7. VOICE & AI CONTROLLER                   -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-ai">
+          <div>
+            <div class="page-eyebrow">INTELLIGENT COMMANDS</div>
+            <h1 class="page-heading">Personal AI TV Assistant</h1>
+            <p class="page-subtitle">Speak or type natural language TV commands. CleanTV parses intent locally and routes to the TV subsystem.</p>
+          </div>
+
+          <div class="card-surface" style="text-align: center; padding: 36px 32px;">
+            <div class="ai-waveform-container">
+              <div class="waveform-bar" style="height: 18px;"></div>
+              <div class="waveform-bar"></div>
+              <div class="waveform-bar"></div>
+              <div class="waveform-bar"></div>
+              <div class="waveform-bar"></div>
+              <div class="waveform-bar"></div>
+              <div class="waveform-bar" style="height: 18px;"></div>
+            </div>
+
+            <div style="display: flex; gap: 10px; max-width: 600px; margin: 0 auto;">
+              <input type="text" id="inputAiCommand" class="input-text-dark" placeholder="Type a TV command, e.g. 'open YouTube', 'volume 40%', 'sleep timer'..." style="flex: 1;">
+              <button class="btn btn-primary" id="btnSubmitAiCommand">Execute</button>
+            </div>
+
+            <div class="chips-suggestions-row" style="justify-content: center; max-width: 680px; margin: 18px auto 0;">
+              <button class="chip-btn" data-cmd="open YouTube">▶ Open YouTube</button>
+              <button class="chip-btn" data-cmd="open settings">⚙️ Open Settings</button>
+              <button class="chip-btn" data-cmd="volume 50%">🔊 Volume 50%</button>
+              <button class="chip-btn" data-cmd="mute">🔇 Mute</button>
+              <button class="chip-btn" data-cmd="screensaver">🖼️ Aerial Screensaver</button>
+              <button class="chip-btn" data-cmd="sleep timer 30m">⏱️ Sleep Timer 30m</button>
+            </div>
+
+            <div class="card-surface elevated" id="aiResultCard" style="max-width: 580px; margin: 24px auto 0; text-align: left; display: flex; align-items: center; gap: 14px;">
+              <div style="font-size: 24px; color: var(--primary);">⚡</div>
+              <div>
+                <div style="font-size: 13.5px; font-weight: 600; color: var(--text-primary);" id="aiResultTitle">AI Engine Ready</div>
+                <div style="font-size: 12px; color: var(--text-secondary);" id="aiResultSubtitle">Click any quick suggestion or type a command above.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 8. DIAGNOSTICS                             -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-diagnostics">
+          <div>
+            <div class="page-eyebrow">SYSTEM INTEGRITY</div>
+            <h1 class="page-heading">Diagnostics & Health</h1>
+            <p class="page-subtitle">Continuous background audit of ADB socket integrity, Wi-Fi latency, and memory allocation.</p>
+          </div>
+
+          <div class="grid-two-cards">
+            <div class="card-surface">
+              <div class="card-title" style="margin-bottom: 12px;">Socket Health</div>
+              <div class="telemetry-item-row"><span class="telemetry-key">ADB Host</span><span class="telemetry-val">127.0.0.1:5037 (Local daemon)</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Bridge Target</span><span class="telemetry-val highlight" id="diagTarget">192.168.0.159:5555</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Ping Latency</span><span class="telemetry-val success" id="diagPing">12 ms (Optimal)</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">Packet Loss</span><span class="telemetry-val success">0.0%</span></div>
+            </div>
+
+            <div class="card-surface">
+              <div class="card-title" style="margin-bottom: 12px;">System Partitions</div>
+              <div class="telemetry-item-row"><span class="telemetry-key">/system</span><span class="telemetry-val">Mounted Read-Only (Non-Rooted)</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">/data</span><span class="telemetry-val">Encrypted FBE</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">SELinux State</span><span class="telemetry-val success">Enforcing</span></div>
+              <div class="telemetry-item-row"><span class="telemetry-key">OEM Adware Filter</span><span class="telemetry-val success">Active (14 Disabled)</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 9. BACKUP & RESTORE                        -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-backups">
+          <div>
+            <div class="page-eyebrow">DATA SAFETY</div>
+            <h1 class="page-heading">Backup & Restore</h1>
+            <p class="page-subtitle">Save snapshots of your TV's package states and restore OEM defaults anytime.</p>
+          </div>
+
+          <div class="card-surface">
+            <div class="card-header-row">
+              <span class="card-title">Local Restore Points</span>
+              <button class="btn btn-primary btn-sm" id="btnCreateBackup">Create Restore Point</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="action-tile-item">
+                <div class="tile-info-block">
+                  <div class="tile-icon-badge">💾</div>
+                  <div>
+                    <div class="tile-title-main">CleanTV Debloat Snapshot (Auto-Generated)</div>
+                    <div class="tile-subtitle-muted">14 packages disabled · Created today</div>
+                  </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btnRestoreSnapshot">Restore</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 10. CLEANTV PRO & AD-SHIELD                -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-pro">
+          <div>
+            <div class="page-eyebrow">MONETIZATION & PRIVACY</div>
+            <h1 class="page-heading">CleanTV Pro & Ad-Shield</h1>
+            <p class="page-subtitle">Unlock private encrypted AdGuard system DNS, unlimited TV debloating, and advanced AI controls.</p>
+          </div>
+
+          <div class="pro-hero-banner">
+            <div>
+              <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">Lifetime Pro Plan Active</div>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
+                Your license is cryptographically verified and bound to your Windows PC.
+              </p>
+            </div>
+            <div style="font-size: 32px;">👑</div>
+          </div>
+
+          <div class="grid-two-cards">
+            <!-- Product Key Activation Form -->
+            <div class="card-surface">
+              <div class="card-title" style="margin-bottom: 12px;">License Key Activation</div>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+                Enter a genuine 16-character CleanTV Pro product key:
+              </p>
+
+              <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+                <input type="text" id="inputLicenseKey" class="input-text-dark" placeholder="CTV-PRO-XXXX-XXXX" value="CTV-PRO-8892-98B4" style="flex: 1;">
+                <button class="btn btn-primary" id="btnActivateKey">Activate Key</button>
+              </div>
+
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">Lifetime Pro Keys:</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button class="chip-btn" data-key="CTV-PRO-8892-98B4">CTV-PRO-8892-98B4</button>
+                <button class="chip-btn" data-key="CTV-PRO-7721-9580">CTV-PRO-7721-9580</button>
+                <button class="chip-btn" data-key="CTV-PRO-TEST-9999">CTV-PRO-TEST-9999</button>
+              </div>
+            </div>
+
+            <!-- In-System Ad-Shield DNS -->
+            <div class="card-surface">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div class="card-title">System-Wide Ad-Shield DNS</div>
+                <div class="switch-toggle-box">
+                  <input type="checkbox" id="toggleAdShieldDns" class="switch-input" checked>
+                  <label for="toggleAdShieldDns" class="switch-slider"></label>
+                </div>
+              </div>
+
+              <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                Enforces encrypted private DNS (<code>dns.adguard.com</code>) across your Android TV to eliminate sponsored video ads, telemetry tracking, and promotional rows.
+              </p>
+
+              <div style="margin-top: 16px; padding: 8px 12px; background: rgba(66, 230, 164, 0.1); border: 1px solid rgba(66, 230, 164, 0.25); border-radius: var(--radius-sm); font-size: 12px; color: var(--success); font-weight: 600;">
+                ✓ AdGuard Private DNS Active
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 11. SETTINGS                               -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-settings">
+          <div>
+            <div class="page-eyebrow">PREFERENCES</div>
+            <h1 class="page-heading">Settings</h1>
+            <p class="page-subtitle">Configure desktop application behavior, theme, ADB discovery, and network options.</p>
+          </div>
+
+          <div class="card-surface">
+            <div class="telemetry-item-row">
+              <div>
+                <div class="tile-title-main">Auto-Connect on Startup</div>
+                <div class="tile-subtitle-muted">Automatically connect to the last known Android TV IP</div>
+              </div>
+              <input type="checkbox" id="setOptAutoConnect" class="switch-input" checked style="width: 20px; height: 20px; opacity: 1;">
+            </div>
+
+            <div class="telemetry-item-row">
+              <div>
+                <div class="tile-title-main">Desktop Notifications</div>
+                <div class="tile-subtitle-muted">Show notifications for ADB connection changes and debloat completions</div>
+              </div>
+              <input type="checkbox" id="setOptNotifications" class="switch-input" checked style="width: 20px; height: 20px; opacity: 1;">
+            </div>
+
+            <div class="telemetry-item-row">
+              <div>
+                <div class="tile-title-main">Design System Theme</div>
+                <div class="tile-subtitle-muted">Visual palette and surface contrast</div>
+              </div>
+              <span class="telemetry-val highlight">Neon Obsidian (Default)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 12. ABOUT                                  -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-about">
+          <div>
+            <div class="page-eyebrow">CREDITS & CERTIFICATION</div>
+            <h1 class="page-heading">About CleanTV</h1>
+            <p class="page-subtitle">CleanTV Home Desktop Manager v4.0.0 Commercial Edition.</p>
+          </div>
+
+          <div class="card-surface">
+            <div class="telemetry-item-row"><span class="telemetry-key">Application</span><span class="telemetry-val">CleanTV Home Desktop Manager</span></div>
+            <div class="telemetry-item-row"><span class="telemetry-key">Version</span><span class="telemetry-val highlight">4.0.0 (Production Release)</span></div>
+            <div class="telemetry-item-row"><span class="telemetry-key">Lead Engineer</span><span class="telemetry-val">Rishi Sharma</span></div>
+            <div class="telemetry-item-row"><span class="telemetry-key">Microsoft Partner Center ID</span><span class="telemetry-val">97061920</span></div>
+            <div class="telemetry-item-row"><span class="telemetry-key">Repository</span><span class="telemetry-val" style="color: var(--primary);">github.com/Rishisharma029/CleanTV-Home</span></div>
           </div>
         </section>
       </main>
     </div>
   </div>
 
-  <!-- License Key Activation Modal -->
-  <div class="modal-backdrop" id="licenseModal" style="display: none;">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <span class="modal-icon">👑</span>
-          <h3>Activate CleanTV Pro</h3>
-        </div>
-        <button class="btn-close-modal" id="btnCloseLicenseModal">✕</button>
+  <!-- Global License Modal -->
+  <div class="modal-overlay" id="modalLicenseOverlay" style="display: none;">
+    <div class="modal-content-card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="font-size: 16px; font-weight: 600; color: var(--text-primary);">Enter CleanTV Pro License Key</h3>
+        <button id="btnCloseModalX" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px;">✕</button>
       </div>
 
-      <div class="modal-body">
-        <p>Enter your genuine CleanTV Pro product key below to unlock the system ad-blocker and unlimited debloating capabilities.</p>
-        <div class="modal-input-wrap">
-          <input type="text" id="modalKeyInput" class="input-text-cyber" placeholder="CTV-PRO-XXXX-XXXX" value="CTV-PRO-8892-98B4">
-        </div>
-        <div class="modal-key-suggestions">
-          <button class="pill-suggest" data-key="CTV-PRO-8892-98B4">CTV-PRO-8892-98B4 (Lifetime)</button>
-          <button class="pill-suggest" data-key="CTV-PRO-TEST-9999">CTV-PRO-TEST-9999 (Master)</button>
-        </div>
-      </div>
+      <p style="font-size: 13px; color: var(--text-secondary);">
+        Unlock lifetime Ad-Shield DNS, unlimited OEM debloating, and premium Voice AI controls.
+      </p>
 
-      <div class="modal-footer">
-        <button class="btn btn-glass" id="btnCancelModal">Cancel</button>
-        <button class="btn btn-primary btn-glow" id="btnSubmitModalKey">Activate License</button>
+      <input type="text" id="modalInputKey" class="input-text-dark" placeholder="CTV-PRO-XXXX-XXXX" value="CTV-PRO-8892-98B4">
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+        <button class="btn btn-secondary btn-sm" id="btnCancelModalKey">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnSubmitModalKey">Activate License</button>
       </div>
     </div>
   </div>
 
   <!-- Toast Notification Stack -->
-  <div class="toast-stack" id="toastStack"></div>
+  <div class="toast-container-stack" id="toastContainerStack"></div>
 
   <script src="app.js"></script>
 </body>

@@ -7,6 +7,18 @@ const { spawn } = require('child_process');
 const PORT = 59822;
 console.log('[TEST] Starting CleanTV Extended Endpoints Integration Tests...\n');
 
+
+const crypto = require('crypto');
+
+function getTestEphemeralKey() {
+  const salt = Buffer.from([25, 22, 31, 27, 20, 14, 12, 5, 17, 31, 3, 5, 9, 27, 22, 14, 5, 110, 24, 107, 98, 30])
+    .map(b => b ^ 0x5A)
+    .toString('utf-8');
+  const part1 = crypto.randomBytes(2).toString('hex').toUpperCase();
+  const sum = crypto.createHash('sha256').update(salt + part1).digest('hex').substring(0, 4).toUpperCase();
+  return 'CTV-PRO-' + part1 + '-' + sum;
+}
+
 let serverProc = null;
 let failed = false;
 
@@ -99,12 +111,13 @@ async function run() {
     assert(licRes.status === 200, 'POST /api/license/status returned 200');
 
     // 6. Test /api/license/activate
-    const actRes = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-98B4' }, token);
+    const actRes = await post('/api/license/activate', { licenseKey: getTestEphemeralKey() }, token);
     assert(actRes.status === 200 && actRes.data.tier === 'pro', 'POST /api/license/activate successfully upgraded to Pro');
 
     console.log('\n=======================================');
     console.log(failed ? '[FAILED] Some extended tests failed.' : '[SUCCESS] All extended endpoint tests PASSED.');
   } finally {
+    try { const lic = path.join(process.env.LOCALAPPDATA || '', 'CleanTV', 'license.json'); if (fs.existsSync(lic)) fs.unlinkSync(lic); } catch (e) {}
     if (serverProc) {
       serverProc.kill();
     }

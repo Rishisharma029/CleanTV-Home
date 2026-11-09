@@ -1496,13 +1496,27 @@ namespace CleanTV.Desktop
             return pkg;
         }
 
-        private const string LicenseSigningSecret = "CLEANTV_LOCAL_SIGNING_SALT_9F82A4";
-        private const string LicenseKeySecret = "CLEANTV_KEY_SALT_4B18D";
+        private static readonly byte[] ObfKeyBytes = new byte[] { 25, 22, 31, 27, 20, 14, 12, 5, 17, 31, 3, 5, 9, 27, 22, 14, 5, 110, 24, 107, 98, 30 };
+        private static readonly byte[] ObfSignBytes = new byte[] { 25, 22, 31, 27, 20, 14, 12, 5, 22, 21, 25, 27, 22, 5, 9, 19, 29, 20, 19, 20, 29, 5, 9, 27, 22, 14, 5, 99, 28, 98, 104, 27, 110 };
+
+        private static string GetLicenseKeySecret()
+        {
+            var res = new char[ObfKeyBytes.Length];
+            for (int i = 0; i < ObfKeyBytes.Length; i++) res[i] = (char)(ObfKeyBytes[i] ^ 0x5A);
+            return new string(res);
+        }
+
+        private static string GetLicenseSigningSecret()
+        {
+            var res = new char[ObfSignBytes.Length];
+            for (int i = 0; i < ObfSignBytes.Length; i++) res[i] = (char)(ObfSignBytes[i] ^ 0x5A);
+            return new string(res);
+        }
 
         private static string ComputeLicenseSignature(string tier, string key, string plan, string activatedAt)
         {
             string data = tier + "|" + (key ?? "") + "|" + (plan ?? "") + "|" + (activatedAt ?? "");
-            using (var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(LicenseSigningSecret)))
+            using (var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(GetLicenseSigningSecret())))
             {
                 byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
                 var sb = new StringBuilder();
@@ -1542,7 +1556,7 @@ namespace CleanTV.Desktop
 
             using (var sha = System.Security.Cryptography.SHA256.Create())
             {
-                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(LicenseKeySecret + part1));
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(GetLicenseKeySecret() + part1));
                 var sb = new StringBuilder();
                 for (int i = 0; i < 2; i++) sb.Append(hash[i].ToString("X2"));
                 string expectedSum = sb.ToString();

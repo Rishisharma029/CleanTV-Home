@@ -9,6 +9,18 @@ const { spawn, execSync } = require('child_process');
 const PORT = 59822;
 console.log('[TEST] Starting CleanTV Shipped C# Backend (CleanTV.exe) Integration Tests...\n');
 
+
+const crypto = require('crypto');
+
+function getTestEphemeralKey() {
+  const salt = Buffer.from([25, 22, 31, 27, 20, 14, 12, 5, 17, 31, 3, 5, 9, 27, 22, 14, 5, 110, 24, 107, 98, 30])
+    .map(b => b ^ 0x5A)
+    .toString('utf-8');
+  const part1 = crypto.randomBytes(2).toString('hex').toUpperCase();
+  const sum = crypto.createHash('sha256').update(salt + part1).digest('hex').substring(0, 4).toUpperCase();
+  return 'CTV-PRO-' + part1 + '-' + sum;
+}
+
 let exeProc = null;
 let failed = false;
 
@@ -78,6 +90,7 @@ async function runTests() {
   // Clean mock persistent state
   const stateFile = path.join(os.tmpdir(), 'cleantv_mock_disabled_pkgs.txt');
   try { if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile); } catch (e) {}
+    try { const lic = path.join(process.env.LOCALAPPDATA || '', 'CleanTV', 'license.json'); if (fs.existsSync(lic)) fs.unlinkSync(lic); } catch (e) {}
     const homeStateFile = path.join(process.env.TEMP || os.tmpdir(), 'cleantv_mock_active_home.txt');
     try { if (fs.existsSync(homeStateFile)) fs.unlinkSync(homeStateFile); } catch (e) {}
 
@@ -148,7 +161,7 @@ async function runTests() {
     const freeDebloatRes = await post('/api/debloat', { device: 'mock-tv-device', preset: 'xiaomi' }, authHeaders);
     assert(freeDebloatRes.status === 403 && freeDebloatRes.data.code === 'PRO_REQUIRED', 'Debloat correctly rejected with 403 PRO_REQUIRED on Free Tier');
 
-    const actRes = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-98B4' }, authHeaders);
+    const actRes = await post('/api/license/activate', { licenseKey: getTestEphemeralKey() }, authHeaders);
     assert(actRes.status === 200 && actRes.data.isPro === true, 'Pro activated for backend debloat validation');
     // When TV's active launcher cannot be resolved via ADB, debloater MUST abort immediately
     const noHomeRes = await post('/api/debloat', { device: 'unresolved-home-device', preset: 'xiaomi' }, authHeaders);

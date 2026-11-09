@@ -3,7 +3,17 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
+
+function getTestEphemeralKey() {
+  const salt = Buffer.from([25, 22, 31, 27, 20, 14, 12, 5, 17, 31, 3, 5, 9, 27, 22, 14, 5, 110, 24, 107, 98, 30])
+    .map(b => b ^ 0x5A)
+    .toString('utf-8');
+  const part1 = crypto.randomBytes(2).toString('hex').toUpperCase();
+  const sum = crypto.createHash('sha256').update(salt + part1).digest('hex').substring(0, 4).toUpperCase();
+  return `CTV-PRO-${part1}-${sum}`;
+}
 
 const PORT = 59822;
 console.log('[TEST] Starting CleanTV Licensing & Pro Monetization Tests...\n');
@@ -104,7 +114,7 @@ async function run() {
     assert(badFmt.data.message.includes('CTV-PRO') || badFmt.data.message.includes('CTV-MON'), 'Error message instructs on correct CTV-PRO / CTV-MON format');
 
     // Test 6: Activation rejection: invalid checksum
-    const badSum = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-0000' }, token);
+    const badSum = await post('/api/license/activate', { licenseKey: 'CTV-PRO-AAAA-0000' }, token);
     assert(badSum.status === 400, 'Rejects fabricated key with bad checksum with HTTP 400');
     assert(badSum.data.message.includes('checksum'), 'Error message explicitly reports checksum failure');
 
@@ -113,8 +123,9 @@ async function run() {
     assert(revoked.status === 400, 'Rejects revoked license key with HTTP 400');
     assert(revoked.data.message.includes('revoked'), 'Error message reports license is revoked');
 
-    // Test 8: Valid Activation: algorithmic key verification succeeds
-    const validAct = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-98B4' }, token);
+    // Test 8: Valid Activation: algorithmic key verification succeeds with dynamic ephemeral key
+    const validEphemeralKey = getTestEphemeralKey();
+    const validAct = await post('/api/license/activate', { licenseKey: validEphemeralKey }, token);
     assert(validAct.status === 200, 'Valid key activation succeeds with HTTP 200');
     assert(validAct.data.isPro === true && validAct.data.tier === 'pro', 'Entitlement upgraded to Pro');
     assert(fs.existsSync(licFile), 'Verified license persisted to %LOCALAPPDATA%\\CleanTV\\license.json');
@@ -137,13 +148,17 @@ async function run() {
     assert(statusTampered.data.tampered === true, 'Tampered flag reported in status');
 
     // Test 12: Re-activate and test Restore Purchases
-    await post('/api/license/activate', { licenseKey: 'CTV-PRO-4105-2113' }, token);
+    const restoreEphemeralKey = getTestEphemeralKey();
+    await post('/api/license/activate', { licenseKey: restoreEphemeralKey }, token);
     const restoreRes = await post('/api/license/restore', {}, token);
     assert(restoreRes.status === 200 && restoreRes.data.restored === true && restoreRes.data.isPro === true, 'Restore purchase successfully re-verifies legitimate Pro entitlement');
 
     console.log('\n=======================================');
     console.log(failed ? '[FAILED] Some licensing tests failed.' : '[SUCCESS] All Licensing & Anti-Tamper Tests PASSED.');
   } finally {
+    if (fs.existsSync(licFile)) {
+      try { fs.unlinkSync(licFile); } catch (_) {}
+    }
     if (serverProc) {
       serverProc.kill();
     }

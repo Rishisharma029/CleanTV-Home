@@ -245,7 +245,15 @@ public final class CleanTvProDialog {
         }
     }
 
-    private static final String LICENSE_KEY_SECRET = "CLEANTV_KEY_SALT_4B18D";
+    private static final byte[] OBF_KEY_BYTES = new byte[] { 25, 22, 31, 27, 20, 14, 12, 5, 17, 31, 3, 5, 9, 27, 22, 14, 5, 110, 24, 107, 98, 30 };
+
+    private static String getLicenseKeySecret() {
+        char[] chars = new char[OBF_KEY_BYTES.length];
+        for (int i = 0; i < OBF_KEY_BYTES.length; i++) {
+            chars[i] = (char) (OBF_KEY_BYTES[i] ^ 0x5A);
+        }
+        return new String(chars);
+    }
 
     public static boolean verifyLicenseKey(String rawKey, String[] outPlan) {
         if (rawKey == null) return false;
@@ -261,7 +269,7 @@ public final class CleanTvProDialog {
 
         try {
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest((LICENSE_KEY_SECRET + part1).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            byte[] hash = md.digest((getLicenseKeySecret() + part1).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 2; i++) {
                 sb.append(String.format("%02X", hash[i]));

@@ -246,12 +246,19 @@ function classifyPackage(pkg, systemSet, userSet, disabledSet) {
 }
 
 // ─── Cryptographic Licensing & Anti-Tamper Engine ───────────────────────────
-const LICENSE_SIGNING_SECRET = 'CLEANTV_LOCAL_SIGNING_SALT_9F82A4';
-const LICENSE_KEY_SECRET = 'CLEANTV_KEY_SALT_4B18D';
+const OBF_KEY_BYTES = [25, 22, 31, 27, 20, 14, 12, 5, 17, 31, 3, 5, 9, 27, 22, 14, 5, 110, 24, 107, 98, 30];
+const OBF_SIGN_BYTES = [25, 22, 31, 27, 20, 14, 12, 5, 22, 21, 25, 27, 22, 5, 9, 19, 29, 20, 19, 20, 29, 5, 9, 27, 22, 14, 5, 99, 28, 98, 104, 27, 110];
+
+function getLicenseKeySecret() {
+  return Buffer.from(OBF_KEY_BYTES.map(b => b ^ 0x5A)).toString('utf-8');
+}
+function getLicenseSigningSecret() {
+  return Buffer.from(OBF_SIGN_BYTES.map(b => b ^ 0x5A)).toString('utf-8');
+}
 
 function computeLicenseSignature(tier, key, plan, activatedAt) {
   const data = `${tier}|${key || ''}|${plan || ''}|${activatedAt || ''}`;
-  return crypto.createHmac('sha256', LICENSE_SIGNING_SECRET).update(data).digest('hex');
+  return crypto.createHmac('sha256', getLicenseSigningSecret()).update(data).digest('hex');
 }
 
 function verifyLicenseKey(rawKey) {
@@ -273,7 +280,7 @@ function verifyLicenseKey(rawKey) {
 
 
   // Algorithmic SHA-256 checksum verification
-  const expectedSum = crypto.createHash('sha256').update(LICENSE_KEY_SECRET + part1).digest('hex').substring(0, 4).toUpperCase();
+  const expectedSum = crypto.createHash('sha256').update(getLicenseKeySecret() + part1).digest('hex').substring(0, 4).toUpperCase();
   if (part2 !== expectedSum) {
     return { valid: false, error: 'Invalid license key checksum. Please verify the code from your purchase receipt.' };
   }

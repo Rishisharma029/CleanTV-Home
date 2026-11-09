@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     packages: [],
     packageFilter: 'all',
     packageSearch: '',
-    adShieldActive: true,
+    adShieldActive: false,
     license: {
       isPro: true,
       tier: 'Lifetime Pro',
@@ -671,11 +671,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (res && (res.status === 'ok' || res.installed)) {
         if (progressBar) progressBar.style.width = '90%';
         if (progressPct) progressPct.textContent = '90%';
-        if (progressPhase) progressPhase.textContent = 'Activating AdGuard Private DNS...';
-        if (progressSub) progressSub.textContent = 'Configuring zero-telemetry Ad-Shield and launching CleanTV Home...';
+        if (progressPhase) progressPhase.textContent = 'Launching CleanTV Home...';
+        if (progressSub) progressSub.textContent = 'Registering Leanback launcher on TV screen...';
 
         try {
-          await apiCall('/api/adblock/toggle', { device: dev.serial, mode: 'adguard' });
           await apiCall('/api/key', { device: dev.serial, key: '3' }); // KEYCODE_HOME
         } catch (_) {}
 

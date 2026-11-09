@@ -961,6 +961,54 @@ const server = http.createServer((req, res) => {
       return jsonOk(res, { restored: false, tier: 'free', message: 'No active CleanTV Pro license found for this device.' });
     }
 
+    // POST /api/adblock/status - get TV system Private DNS status
+    if (url === '/api/adblock/status') {
+      adbExec(['-s', device, 'shell', 'settings', 'get', 'global', 'private_dns_mode'], (err1, out1) => {
+        const mode = (out1 || '').trim().toLowerCase();
+        adbExec(['-s', device, 'shell', 'settings', 'get', 'global', 'private_dns_specifier'], (err2, out2) => {
+          const specifier = (out2 || '').trim();
+          const enabled = (mode === 'hostname' && specifier.length > 0);
+          return jsonOk(res, {
+            enabled,
+            mode,
+            specifier,
+            provider: specifier || (enabled ? 'AdGuard DNS' : 'None')
+          });
+        });
+      });
+      return;
+    }
+
+    // POST /api/adblock/toggle - toggle system-wide Ad-Shielding on TV
+    if (url === '/api/adblock/toggle') {
+      const action = (data.action || 'enable').toLowerCase();
+      const provider = (data.provider || 'adguard').toLowerCase();
+      const hostnames = {
+        adguard: 'dns.adguard-dns.com',
+        family: 'family.adguard-dns.com',
+        controld: 'p2.freedns.controld.com',
+        mullvad: 'adblock.dns.mullvad.net'
+      };
+      const hostname = hostnames[provider] || hostnames.adguard;
+
+      adbExec(['-s', device, 'shell', 'pm', 'grant', 'com.gathin.tvhome', 'android.permission.WRITE_SECURE_SETTINGS'], () => {
+        if (action === 'disable') {
+          adbExec(['-s', device, 'shell', 'settings', 'put', 'global', 'private_dns_mode', 'off'], () => {
+            adbExec(['-s', device, 'shell', 'settings', 'delete', 'global', 'private_dns_specifier'], () => {
+              return jsonOk(res, { enabled: false, mode: 'off', message: 'System-wide ad blocker disabled.' });
+            });
+          });
+        } else {
+          adbExec(['-s', device, 'shell', 'settings', 'put', 'global', 'private_dns_mode', 'hostname'], () => {
+            adbExec(['-s', device, 'shell', 'settings', 'put', 'global', 'private_dns_specifier', hostname], () => {
+              return jsonOk(res, { enabled: true, mode: 'hostname', specifier: hostname, message: 'System-wide ad blocker activated via ' + hostname });
+            });
+          });
+        }
+      });
+      return;
+    }
+
     // POST /api/ai/command — launch MainActivity with query extra via ADB intent
     if (url === '/api/ai/command') {
       const query = (data.query || '').replace(/"/g, '\\"');

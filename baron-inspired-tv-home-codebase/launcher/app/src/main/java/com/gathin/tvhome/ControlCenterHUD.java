@@ -823,28 +823,23 @@ public final class ControlCenterHUD {
         // 7. Ad-Blocker Card (1-Click Private DNS / Host Blocking)
 
         View cardAdBlock = hudRoot.findViewById(R.id.cardAdBlock);
-
         TextView ccAdBlockStatus = hudRoot.findViewById(R.id.ccAdBlockStatus);
-
         ImageView ccAdBlockIcon = hudRoot.findViewById(R.id.ccAdBlockIcon);
-
         if (cardAdBlock != null) {
-
             applyCardFocusEffect(cardAdBlock);
-
             updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
-
             cardAdBlock.setOnClickListener(v -> {
-
                 int next = AdBlockManager.cycleNext(activity);
-
                 updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
-
             });
-
+            cardAdBlock.setOnLongClickListener(v -> {
+                AdBlockManager.showProviderSelectionDialog(activity);
+                return true;
+            });
+            AdBlockManager.registerListener((mode, modeName, hostname) -> {
+                updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
+            });
         }
-
-
 
         // 8. Smart Home Tile (Doorbell Camera & Smart Room Lights)
 

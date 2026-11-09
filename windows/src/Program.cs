@@ -1130,6 +1130,44 @@ namespace CleanTV.Desktop
                     jsonResponse = "{\"status\":\"ok\",\"restored\":false,\"tier\":\"free\",\"message\":\"No active CleanTV Pro license found for this device.\"}";
                 }
             }
+            else if (endpoint == "/api/adblock/status")
+            {
+                string modeOut = (RunAdb("-s " + device + " shell settings get global private_dns_mode").StdOut ?? "").Trim().ToLower();
+                string hostOut = (RunAdb("-s " + device + " shell settings get global private_dns_specifier").StdOut ?? "").Trim();
+                bool enabled = (modeOut == "hostname" && hostOut.Length > 0);
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"enabled\":{0},\"mode\":{1},\"specifier\":{2},\"provider\":{3}}}",
+                    enabled ? "true" : "false", ToJsonString(modeOut), ToJsonString(hostOut), ToJsonString(hostOut.Length > 0 ? hostOut : "None"));
+            }
+            else if (endpoint == "/api/adblock/toggle")
+            {
+                string action = ExtractJsonField(body, "action");
+                if (string.IsNullOrEmpty(action)) action = "enable";
+                action = action.ToLower();
+
+                string provider = ExtractJsonField(body, "provider");
+                if (string.IsNullOrEmpty(provider)) provider = "adguard";
+                provider = provider.ToLower();
+
+                string hostname = "dns.adguard-dns.com";
+                if (provider == "family") hostname = "family.adguard-dns.com";
+                else if (provider == "controld") hostname = "p2.freedns.controld.com";
+                else if (provider == "mullvad") hostname = "adblock.dns.mullvad.net";
+
+                RunAdb("-s " + device + " shell pm grant com.gathin.tvhome android.permission.WRITE_SECURE_SETTINGS");
+
+                if (action == "disable")
+                {
+                    RunAdb("-s " + device + " shell settings put global private_dns_mode off");
+                    RunAdb("-s " + device + " shell settings delete global private_dns_specifier");
+                    jsonResponse = "{\"status\":\"ok\",\"enabled\":false,\"mode\":\"off\",\"message\":\"System-wide ad blocker disabled.\"}";
+                }
+                else
+                {
+                    RunAdb("-s " + device + " shell settings put global private_dns_mode hostname");
+                    RunAdb("-s " + device + " shell settings put global private_dns_specifier " + hostname);
+                    jsonResponse = string.Format("{{\"status\":\"ok\",\"enabled\":true,\"mode\":\"hostname\",\"specifier\":{0},\"message\":\"System-wide ad blocker activated.\"}}", ToJsonString(hostname));
+                }
+            }
             else if (endpoint == "/api/ai/command")
             {
                 string query = (ExtractJsonField(body, "query") ?? "").Trim();

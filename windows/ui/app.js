@@ -1448,6 +1448,70 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ─── Initialization ─────────────────────────────────────────────────────────
+  
+  // ── Ad-Shield System-Wide DNS Manager ──────────────────────────────────────
+  let adShieldActive = false;
+
+  async function checkAdShieldStatus() {
+    if (!state.device) return;
+    try {
+      const res = await api('/api/adblock/status', { device: state.device });
+      const badge = document.getElementById('adShieldBadge');
+      const btn = document.getElementById('btnToggleAdShield');
+      if (!badge || !btn) return;
+
+      if (res && res.enabled) {
+        adShieldActive = true;
+        badge.textContent = '🟢 Active: ' + (res.provider || 'AdGuard DNS');
+        badge.style.background = 'rgba(52, 211, 153, 0.15)';
+        badge.style.color = '#34d399';
+        badge.style.border = '1px solid rgba(52, 211, 153, 0.3)';
+        btn.className = 'btn btn-secondary';
+        btn.innerHTML = '<span>❌ Disable Ad-Blocker</span>';
+      } else {
+        adShieldActive = false;
+        badge.textContent = '⚪ Inactive (Stock DNS)';
+        badge.style.background = 'rgba(255, 255, 255, 0.06)';
+        badge.style.color = 'var(--text-secondary)';
+        badge.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+        btn.className = 'btn btn-primary';
+        btn.innerHTML = '<span>🛡️ Enable System-Wide AdBlock</span>';
+      }
+    } catch (e) {
+      console.warn('AdShield status query error:', e);
+    }
+  }
+
+  const btnToggleAdShield = document.getElementById('btnToggleAdShield');
+  if (btnToggleAdShield) {
+    btnToggleAdShield.addEventListener('click', async () => {
+      if (!state.device) {
+        showToast('Please connect to your Android TV first.', 'warning');
+        return;
+      }
+      const select = document.getElementById('adShieldProviderSelect');
+      const provider = select ? select.value : 'adguard';
+      const action = adShieldActive ? 'disable' : 'enable';
+
+      btnToggleAdShield.disabled = true;
+      btnToggleAdShield.innerHTML = '<span>⏳ Updating TV DNS...</span>';
+
+      try {
+        const res = await api('/api/adblock/toggle', {
+          device: state.device,
+          action: action,
+          provider: provider
+        });
+        showToast(res.message || 'Ad-Blocker updated on TV!', 'success');
+        await checkAdShieldStatus();
+      } catch (e) {
+        showToast('Failed to update Ad-Blocker: ' + (e.message || e), 'error');
+      } finally {
+        btnToggleAdShield.disabled = false;
+      }
+    });
+  }
+
   checkAdbEngine();
   fetchLicenseStatus();
   renderActivityList();

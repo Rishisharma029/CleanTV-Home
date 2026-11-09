@@ -100,7 +100,7 @@ async function runTests() {
     // Test 1: Static UI HTML serving with injected session token
     const htmlRes = await get('/index.html');
     assert(htmlRes.status === 200, 'GET /index.html returns HTTP 200');
-    assert(htmlRes.body.includes('CleanTV Home Desktop Manager'), 'index.html contains app title');
+    assert(htmlRes.body.includes('CleanTV Desktop Manager') || htmlRes.body.includes('CleanTV Home Desktop Manager'), 'index.html contains app title');
     assert(htmlRes.body.includes('cleantv-token'), 'index.html contains injected session token');
 
     const tokenMatch = htmlRes.body.match(/<meta name="cleantv-token" content="([a-zA-Z0-9_-]+)">/);

@@ -271,8 +271,7 @@ function verifyLicenseKey(rawKey) {
     return { valid: false, error: 'This CleanTV license key has been revoked.' };
   }
 
-  // Testing & store keys
-  if (part1 === 'TEST' && part2 === '9999') return { valid: true, key, plan };
+  // Store keys
   if (part1 === 'STOR') return { valid: true, key, plan };
 
   // Algorithmic SHA-256 checksum verification
@@ -540,6 +539,10 @@ const server = http.createServer((req, res) => {
 
     // POST /api/debloat — real pm disable-user for each package in preset
     if (url === '/api/debloat') {
+      const lic = getVerifiedLicense();
+      if (!lic.isPro) {
+        return json(res, { status: 'error', code: 'PRO_REQUIRED', message: 'System-Wide TV Debloating requires an active CleanTV Pro license. Please upgrade to unlock.' }, 403);
+      }
       const presetName = (data.preset || 'realme').toLowerCase();
       const { file, packages } = loadPreset(presetName);
 
@@ -1017,6 +1020,10 @@ const server = http.createServer((req, res) => {
 
     // POST /api/ai/command — launch MainActivity with query extra via ADB intent
     if (url === '/api/ai/command') {
+      const lic = getVerifiedLicense();
+      if (!lic.isPro) {
+        return json(res, { status: 'error', code: 'PRO_REQUIRED', message: 'CleanTV Voice & AI Neural Assistant requires an active CleanTV Pro license. Please upgrade to unlock.' }, 403);
+      }
       const query = (data.query || '').replace(/"/g, '\\"');
       if (!query) return jsonErr(res, 'Empty query', 400);
       adbExec(['-s', device, 'shell', 'am', 'start',

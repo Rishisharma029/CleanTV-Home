@@ -539,6 +539,14 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/debloat")
             {
+                string lk, lp, la;
+                if (!GetVerifiedLicense(out lk, out lp, out la))
+                {
+                    statusCode = 403;
+                    jsonResponse = "{\"status\":\"error\",\"code\":\"PRO_REQUIRED\",\"message\":\"System-Wide TV Debloating requires an active CleanTV Pro license. Please upgrade to unlock.\"}";
+                    SendResponse(res, statusCode, jsonResponse);
+                    return;
+                }
                 string preset = (ExtractJsonField(body, "preset") ?? req.QueryString["preset"] ?? "realme").ToLower();
                 string fileName = ResolvePresetFileName(preset);
                 string filePath = FindPresetFile(fileName);
@@ -1124,7 +1132,7 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/license/activate")
             {
-                string rawKey = ExtractJsonField(body, "licenseKey");
+                string rawKey = ExtractJsonField(body, "licenseKey") ?? ExtractJsonField(body, "key") ?? req.QueryString["key"] ?? req.QueryString["licenseKey"];
                 string validKey, validPlan, err;
                 if (!VerifyLicenseKey(rawKey, out validKey, out validPlan, out err))
                 {
@@ -1216,7 +1224,15 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/ai/command")
             {
-                string query = (ExtractJsonField(body, "query") ?? "").Trim();
+                string lk, lp, la;
+                if (!GetVerifiedLicense(out lk, out lp, out la))
+                {
+                    statusCode = 403;
+                    jsonResponse = "{\"status\":\"error\",\"code\":\"PRO_REQUIRED\",\"message\":\"CleanTV Voice & AI Neural Assistant requires an active CleanTV Pro license. Please upgrade to unlock.\"}";
+                    SendResponse(res, statusCode, jsonResponse);
+                    return;
+                }
+                string query = (ExtractJsonField(body, "query") ?? ExtractJsonField(body, "cmd") ?? req.QueryString["cmd"] ?? req.QueryString["query"] ?? "").Trim();
                 if (string.IsNullOrEmpty(query))
                 {
                     statusCode = 400;
@@ -1432,7 +1448,6 @@ namespace CleanTV.Desktop
                 return false;
             }
 
-            if (part1 == "TEST" && part2 == "9999") return true;
             if (part1 == "STOR") return true;
 
             using (var sha = System.Security.Cryptography.SHA256.Create())

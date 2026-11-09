@@ -32,9 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
     packageSearch: '',
     adShieldActive: false,
     license: {
-      isPro: true,
-      tier: 'Lifetime Pro',
-      key: localStorage.getItem('cleantv_key') || 'CTV-PRO-8892-98B4'
+      isPro: false,
+      tier: 'Free Tier',
+      key: localStorage.getItem('cleantv_key') || ''
     }
   };
 
@@ -787,10 +787,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── In-System Ad-Shield DNS ──────────────────────────────────────────────────
   async function toggleAdShield(enable) {
+    if (enable && !state.license.isPro) {
+      showToast('CleanTV Pro is required for System-Wide Ad-Shield DNS. Please activate a Pro license.', 'warning');
+      if (toggleAdGuardDns) toggleAdGuardDns.checked = false;
+      openLicenseModal();
+      return;
+    }
     state.adShieldActive = enable;
     const mode = enable ? 'adguard' : 'off';
     showToast(`Setting Ad-Shield Private DNS to: ${mode.toUpperCase()}...`, 'info');
-    await apiCall('/api/adblock/toggle', { device: state.device, mode });
+    const res = await apiCall('/api/adblock/toggle', { device: state.device, mode });
+    if (res && res.code === 'PRO_REQUIRED') {
+      showToast(res.message || 'CleanTV Pro is required for System-Wide Ad-Shield DNS.', 'warning');
+      state.adShieldActive = false;
+      if (toggleAdGuardDns) toggleAdGuardDns.checked = false;
+      openLicenseModal();
+      return;
+    }
 
     if (qaAdShieldSub) {
       qaAdShieldSub.textContent = enable ? 'AdGuard Private DNS (Active)' : 'Ad-Shield Inactive (Disabled)';
@@ -924,9 +937,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   btnDebloatRun?.addEventListener('click', async () => {
+    if (!state.license.isPro) {
+      showToast('CleanTV Pro is required for 1-Click System Debloating. Please activate a Pro license.', 'warning');
+      openLicenseModal();
+      return;
+    }
     showToast('Executing safe 1-Click Debloat on TV...', 'info');
     const checked = Array.from(document.querySelectorAll('.debloat-check:checked')).map(c => c.getAttribute('data-pkg'));
-    await apiCall('/api/debloat', { device: state.device, packages: checked.join(',') });
+    const res = await apiCall('/api/debloat', { device: state.device, packages: checked.join(',') });
+    if (res && res.code === 'PRO_REQUIRED') {
+      showToast(res.message || 'CleanTV Pro is required for Debloating.', 'warning');
+      openLicenseModal();
+      return;
+    }
     showToast(`Debloat complete! Disabled ${checked.length} bloatware packages.`, 'success');
     logRemote(`Debloated ${checked.length} packages`);
   });
@@ -1084,12 +1107,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── Voice & AI Intent Controller ─────────────────────────────────────────────
   async function executeAiCommand(cmd) {
     if (!cmd) return;
+    if (!state.license.isPro) {
+      showToast('CleanTV Pro is required for Voice & AI Neural Assistant. Please activate a Pro license.', 'warning');
+      openLicenseModal();
+      return;
+    }
     showToast(`Executing AI command: "${cmd}"`, 'info');
     if (aiResultTitle) aiResultTitle.textContent = `Processing: "${cmd}"`;
     if (aiResultSubtitle) aiResultSubtitle.textContent = 'Routing intent to TV subsystem over low-latency socket...';
 
     logRemote(`[AI] Command: ${cmd}`);
     const res = await apiCall('/api/ai/command', { device: state.device, cmd });
+    if (res && res.code === 'PRO_REQUIRED') {
+      showToast(res.message || 'CleanTV Pro is required for Voice & AI commands.', 'warning');
+      openLicenseModal();
+      return;
+    }
 
     setTimeout(() => {
       if (aiResultTitle) aiResultTitle.textContent = `Executed: "${cmd}"`;
@@ -1119,37 +1152,64 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ─── License Key Activation ───────────────────────────────────────────────────
+  // ─── License Verification & Activation ─────────────────────────────────────────
+  async function refreshLicenseStatus() {
+    try {
+      const res = await apiCall('/api/license/status');
+      if (res && res.status === 'ok' && res.isPro) {
+        state.license.isPro = true;
+        state.license.tier = res.plan || 'CleanTV Pro Lifetime';
+        state.license.key = res.key || '';
+        if (railProStatus) railProStatus.textContent = 'Pro Active';
+        if (titlebarProLabel) titlebarProLabel.textContent = 'Pro Active';
+      } else {
+        state.license.isPro = false;
+        state.license.tier = 'Free Tier';
+        state.license.key = '';
+        if (railProStatus) railProStatus.textContent = 'Upgrade to Pro';
+        if (titlebarProLabel) titlebarProLabel.textContent = 'Free Tier';
+      }
+    } catch (err) {
+      console.warn('License verification error:', err);
+    }
+  }
+
   async function activateLicenseKey(key) {
-    const cleanKey = key.trim().toUpperCase();
+    const cleanKey = (key || '').trim().toUpperCase();
+    if (!cleanKey) {
+      showToast('Please enter a CleanTV Pro product key.', 'warning');
+      return;
+    }
     showToast(`Validating Pro License Key: ${cleanKey}...`, 'info');
 
-    await apiCall('/api/license/activate', { key: cleanKey });
+    const res = await apiCall('/api/license/activate', { licenseKey: cleanKey, key: cleanKey });
 
-    state.license.isPro = true;
-    state.license.key = cleanKey;
-    localStorage.setItem('cleantv_key', cleanKey);
+    if (res && res.status === 'ok' && res.isPro) {
+      state.license.isPro = true;
+      state.license.key = cleanKey;
+      state.license.tier = res.plan || 'CleanTV Pro Lifetime';
+      localStorage.setItem('cleantv_key', cleanKey);
 
-    if (railProStatus) railProStatus.textContent = 'Pro Active';
-    if (titlebarProLabel) titlebarProLabel.textContent = 'Pro Lifetime';
+      if (railProStatus) railProStatus.textContent = 'Pro Active';
+      if (titlebarProLabel) titlebarProLabel.textContent = 'Pro Active';
 
-    showToast(`CleanTV Pro Activated with Key: ${cleanKey}!`, 'success');
-    logRemote(`[LICENSE] Activated Pro key: ${cleanKey}`);
+      showToast(`CleanTV Pro Activated: ${state.license.tier}!`, 'success');
+      logRemote(`[LICENSE] Activated Pro key: ${cleanKey}`);
 
-    if (keyModalOverlay) keyModalOverlay.style.display = 'none';
+      if (keyModalOverlay) keyModalOverlay.style.display = 'none';
+    } else {
+      showToast(res?.message || 'Invalid license key. Please check your purchase receipt.', 'error');
+      logRemote(`[LICENSE] Activation failed for: ${cleanKey}`);
+    }
   }
 
   btnActivateProKey?.addEventListener('click', () => {
-    const key = inputProKey.value || 'CTV-PRO-8892-98B4';
+    const key = (inputProKey?.value || '').trim();
+    if (!key) {
+      showToast('Please enter your CleanTV Pro product key.', 'warning');
+      return;
+    }
     activateLicenseKey(key);
-  });
-
-  keyChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const k = chip.getAttribute('data-key');
-      if (inputProKey) inputProKey.value = k;
-      activateLicenseKey(k);
-    });
   });
 
   // Modal Handlers
@@ -1168,11 +1228,16 @@ document.addEventListener('DOMContentLoaded', () => {
   btnCancelKeyModal?.addEventListener('click', closeLicenseModal);
 
   btnConfirmKeyModal?.addEventListener('click', () => {
-    const k = modalKeyInputField.value || 'CTV-PRO-8892-98B4';
+    const k = (modalKeyInputField?.value || '').trim();
+    if (!k) {
+      showToast('Please enter your CleanTV Pro product key.', 'warning');
+      return;
+    }
     activateLicenseKey(k);
   });
 
   // ─── Initial Startup ──────────────────────────────────────────────────────────
+  refreshLicenseStatus();
   renderBrandDebloat('realme');
   checkAdbState();
 

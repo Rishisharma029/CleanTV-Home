@@ -107,7 +107,7 @@ async function runTests() {
     // Test 1: Static UI serving from C# HttpListener
     const htmlRes = await get('/index.html');
     assert(htmlRes.status === 200, 'CleanTV.exe serves /index.html with HTTP 200');
-    assert(htmlRes.body.includes('CleanTV Home Desktop Manager'), 'Served HTML contains correct title');
+    assert(htmlRes.body.includes('CleanTV Desktop Manager') || htmlRes.body.includes('CleanTV Home Desktop Manager'), 'Served HTML contains correct title');
     assert(htmlRes.body.includes('cleantv-token'), 'Served HTML has injected session security token');
 
     // Extract session token from <meta name="cleantv-token" content="...">
@@ -144,7 +144,12 @@ async function runTests() {
       assert(pRes.data && pRes.data.packages && pRes.data.packages.length > 0, `Preset [${p}] contains active packages (${pRes.data.packages.length})`);
     }
 
-    // Test 6: Fail-Closed Active Launcher Protection
+    // Test 6: Pro Gating & Fail-Closed Active Launcher Protection
+    const freeDebloatRes = await post('/api/debloat', { device: 'mock-tv-device', preset: 'xiaomi' }, authHeaders);
+    assert(freeDebloatRes.status === 403 && freeDebloatRes.data.code === 'PRO_REQUIRED', 'Debloat correctly rejected with 403 PRO_REQUIRED on Free Tier');
+
+    const actRes = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-98B4' }, authHeaders);
+    assert(actRes.status === 200 && actRes.data.isPro === true, 'Pro activated for backend debloat validation');
     // When TV's active launcher cannot be resolved via ADB, debloater MUST abort immediately
     const noHomeRes = await post('/api/debloat', { device: 'unresolved-home-device', preset: 'xiaomi' }, authHeaders);
     assert(noHomeRes.status === 500, 'POST /api/debloat fails closed with HTTP 500 when active launcher cannot be identified');

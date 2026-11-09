@@ -99,7 +99,7 @@ async function run() {
     assert(licRes.status === 200, 'POST /api/license/status returned 200');
 
     // 6. Test /api/license/activate
-    const actRes = await post('/api/license/activate', { licenseKey: 'CTV-PRO-TEST-9999' }, token);
+    const actRes = await post('/api/license/activate', { licenseKey: 'CTV-PRO-8892-98B4' }, token);
     assert(actRes.status === 200 && actRes.data.tier === 'pro', 'POST /api/license/activate successfully upgraded to Pro');
 
     console.log('\n=======================================');

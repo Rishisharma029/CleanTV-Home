@@ -221,6 +221,29 @@
             android:noHistory="true"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
 
+        <!-- CleanTV Shield Web Streamer (Brave Browser-Style Video Ad-Skipper & Player) -->
+        <activity
+            android:name=".CleanTvShieldStreamerActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:hardwareAccelerated="true"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+
+        <!-- CleanTV Background Ad-Shield Service (Auto-Skip & Auto-Mute for Prime Video & Streaming Apps) -->
+        <service
+            android:name=".CleanTvAdShieldAccessibilityService"
+            android:label="@string/ad_shield_service_name"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/clean_tv_ad_shield_service" />
+        </service>
+
         <!-- stock_home_redirect at boot: HomeKeyService opens this invisible activity once, so the screen behind
              it sends a window event when it closes (HomeKeyService.probeAtBoot). -->
         <activity

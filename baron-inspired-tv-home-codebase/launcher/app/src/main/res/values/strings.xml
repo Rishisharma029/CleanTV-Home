@@ -173,4 +173,6 @@
     <string name="catalog_key_clear">Clear</string>
     <string name="voice_ai">Voice AI</string>
     <string name="voice_ai_pill">AI</string>
+    <string name="ad_shield_service_name">CleanTV Ad-Shield Background Service</string>
+    <string name="ad_shield_service_description">Automatically skips and mutes commercial video ads across streaming apps like Prime Video, YouTube, and Hotstar with Brave-style fast-forward heuristics.</string>
 </resources>

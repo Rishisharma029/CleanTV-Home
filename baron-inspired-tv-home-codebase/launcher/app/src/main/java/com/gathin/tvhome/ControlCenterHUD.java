@@ -830,18 +830,17 @@ public final class ControlCenterHUD {
             updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
             cardAdBlock.setOnClickListener(v -> {
                 if (!CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_AD_BLOCK)) {
-                    CleanTvProDialog.show(activity, "👑 System-Wide Ad-Shield & Telemetry Blocker is exclusive to CleanTV Pro members.\n\nUpgrade now to block banner ads, trackers, and OEM telemetry across all TV apps!");
+                    CleanTvProDialog.show(activity, "👑 CleanTV Ad-Shield Engine (Brave Video Blocker) is exclusive to CleanTV Pro members.\n\nUpgrade now to eliminate video ads on Prime Video, YouTube, and all TV streaming apps!");
                     return;
                 }
-                int next = AdBlockManager.cycleNext(activity);
-                updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
+                CleanTvAdShieldDialog.show(activity);
             });
             cardAdBlock.setOnLongClickListener(v -> {
                 if (!CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_AD_BLOCK)) {
-                    CleanTvProDialog.show(activity, "👑 System-Wide Ad-Shield & Telemetry Blocker is exclusive to CleanTV Pro members.\n\nUpgrade now to select advanced ad-blocking DNS providers!");
+                    CleanTvProDialog.show(activity, "👑 CleanTV Ad-Shield Engine is exclusive to CleanTV Pro members.\n\nUpgrade now to configure Brave-style video ad skipping!");
                     return true;
                 }
-                AdBlockManager.showProviderSelectionDialog(activity);
+                CleanTvAdShieldDialog.show(activity);
                 return true;
             });
             AdBlockManager.registerListener((mode, modeName, hostname) -> {

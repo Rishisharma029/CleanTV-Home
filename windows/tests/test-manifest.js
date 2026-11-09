@@ -5,7 +5,7 @@ const path = require('path');
 const WINDOWS_DIR = path.resolve(__dirname, '..');
 const ROOT_DIR    = path.resolve(__dirname, '..', '..');
 const MANIFEST_PATH = path.join(WINDOWS_DIR, 'AppxManifest.xml');
-const DIST_MSIX     = path.join(WINDOWS_DIR, 'dist', 'CleanTV-Desktop-Manager-v4.0.0.msix');
+const DIST_MSIX     = path.join(WINDOWS_DIR, 'dist', 'CleanTV-Desktop-Manager-v4.1.0.msix');
 const PRESETS_DIR   = path.join(ROOT_DIR, 'presets');
 
 console.log('[TEST] Starting Windows MSIX, Manifest & Preset Validation...\n');
@@ -31,7 +31,7 @@ assert(manifestContent.includes('<Identity Name="RishiSharma.CleanTV"'), 'Identi
 assert(manifestContent.includes('Publisher="CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2"'), 'Publisher is official Microsoft Store ID CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2');
 assert(manifestContent.includes('<PublisherDisplayName>Rishi Sharma</PublisherDisplayName>'), 'PublisherDisplayName is Rishi Sharma');
 assert(manifestContent.includes('<DisplayName>CleanTV</DisplayName>'), 'DisplayName matches reserved Store name CleanTV');
-assert(manifestContent.includes('Version="4.0.0.0"'), 'Package Version is 4.0.0.0');
+assert(manifestContent.includes('Version="4.1.0.0"'), 'Package Version is 4.1.0.0');
 assert(manifestContent.includes('ProcessorArchitecture="x64"'), 'ProcessorArchitecture is x64');
 
 // 3. Executable and EntryPoint

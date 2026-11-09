@@ -99,7 +99,7 @@ def main():
     windows_dir = os.path.dirname(script_dir)
     dist_dir = os.path.join(windows_dir, "dist")
     staging_dir = os.path.join(windows_dir, "build_staging")
-    out_msix = os.path.join(dist_dir, "CleanTV-Desktop-Manager-v4.0.0.msix")
+    out_msix = os.path.join(dist_dir, "CleanTV-Desktop-Manager-v4.1.0.msix")
 
     os.makedirs(dist_dir, exist_ok=True)
     if os.path.exists(staging_dir):

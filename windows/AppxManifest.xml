@@ -7,7 +7,7 @@
 
   <Identity Name="RishiSharma.CleanTV"
             Publisher="CN=4C22920B-E5FC-4E8E-BFF1-7F166D6008F2"
-            Version="4.0.0.0"
+            Version="4.1.0.0"
             ProcessorArchitecture="x64" />
 
   <Properties>

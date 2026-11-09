@@ -136,6 +136,11 @@ public final class AdBlockManager {
     public static boolean setMode(Activity activity, int mode) {
         if (activity == null) return false;
 
+        if (mode != MODE_OFF && !CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_AD_BLOCK)) {
+            CleanTvProDialog.show(activity, "System-Wide Ad-Shield & Telemetry Blocker is reserved for CleanTV Pro members.\n\nUpgrade to Pro Lifetime to block ads, banner popups, and telemetry across all TV apps!");
+            return false;
+        }
+
         SharedPreferences prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putInt(KEY_DNS_MODE, mode).apply();
 
@@ -199,6 +204,11 @@ public final class AdBlockManager {
 
     public static void showProviderSelectionDialog(Activity activity) {
         if (activity == null || activity.isFinishing()) return;
+
+        if (!CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_AD_BLOCK)) {
+            CleanTvProDialog.show(activity, "System-Wide Ad-Shield & Telemetry Blocker is reserved for CleanTV Pro members.\n\nUpgrade to Pro Lifetime to access premium ad-blocking DNS providers!");
+            return;
+        }
 
         String[] providers = {
                 "🛡️ AdGuard DNS (Recommended - Full Ad & Tracker Shield)",

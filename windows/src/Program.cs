@@ -1132,14 +1132,25 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/adblock/status")
             {
+                string lk, lp, la;
+                bool isPro = GetVerifiedLicense(out lk, out lp, out la);
                 string modeOut = (RunAdb("-s " + device + " shell settings get global private_dns_mode").StdOut ?? "").Trim().ToLower();
                 string hostOut = (RunAdb("-s " + device + " shell settings get global private_dns_specifier").StdOut ?? "").Trim();
                 bool enabled = (modeOut == "hostname" && hostOut.Length > 0);
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"enabled\":{0},\"mode\":{1},\"specifier\":{2},\"provider\":{3}}}",
-                    enabled ? "true" : "false", ToJsonString(modeOut), ToJsonString(hostOut), ToJsonString(hostOut.Length > 0 ? hostOut : "None"));
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"enabled\":{0},\"mode\":{1},\"specifier\":{2},\"provider\":{3},\"isPro\":{4}}}",
+                    enabled ? "true" : "false", ToJsonString(modeOut), ToJsonString(hostOut), ToJsonString(hostOut.Length > 0 ? hostOut : "None"), isPro ? "true" : "false");
             }
             else if (endpoint == "/api/adblock/toggle")
             {
+                string lk, lp, la;
+                if (!GetVerifiedLicense(out lk, out lp, out la))
+                {
+                    statusCode = 403;
+                    jsonResponse = "{\"status\":\"error\",\"code\":\"PRO_REQUIRED\",\"message\":\"System-Wide Ad-Blocker & Telemetry Shield requires an active CleanTV Pro license. Please upgrade to unlock.\"}";
+                    SendResponse(res, statusCode, jsonResponse);
+                    return;
+                }
+
                 string action = ExtractJsonField(body, "action");
                 if (string.IsNullOrEmpty(action)) action = "enable";
                 action = action.ToLower();

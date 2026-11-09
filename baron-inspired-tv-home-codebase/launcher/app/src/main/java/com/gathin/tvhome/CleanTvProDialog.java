@@ -38,6 +38,7 @@ public final class CleanTvProDialog {
     public static final String FEATURE_VOICE_AI = "voice_ai";
     public static final String FEATURE_DEEP_DEBLOAT = "deep_debloat";
     public static final String FEATURE_BATCH_TOOLS = "batch_tools";
+    public static final String FEATURE_AD_BLOCK = "ad_block";
 
     private CleanTvProDialog() {}
 
@@ -50,13 +51,18 @@ public final class CleanTvProDialog {
         return sp.getString(KEY_PLAN, PLAN_BASIC);
     }
 
-    public static boolean isFeatureUnlocked(Context context, String feature) {
+    public static boolean isPro(Context context) {
         String plan = getActivePlan(context);
-        if (PLAN_LIFETIME.equals(plan) || PLAN_MONTHLY.equals(plan)) {
+        return PLAN_LIFETIME.equals(plan) || PLAN_MONTHLY.equals(plan);
+    }
+
+    public static boolean isFeatureUnlocked(Context context, String feature) {
+        if (isPro(context)) {
             return true;
         }
-        // Basic tier restricts Voice AI, deep 150+ debloat, and batch tools
-        if (FEATURE_VOICE_AI.equals(feature) || FEATURE_DEEP_DEBLOAT.equals(feature) || FEATURE_BATCH_TOOLS.equals(feature)) {
+        // Basic tier restricts Voice AI, deep 150+ debloat, batch tools, and System-Wide Ad-Shield
+        if (FEATURE_VOICE_AI.equals(feature) || FEATURE_DEEP_DEBLOAT.equals(feature)
+                || FEATURE_BATCH_TOOLS.equals(feature) || FEATURE_AD_BLOCK.equals(feature)) {
             return false;
         }
         return true;

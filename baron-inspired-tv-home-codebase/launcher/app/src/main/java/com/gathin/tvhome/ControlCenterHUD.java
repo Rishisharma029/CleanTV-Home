@@ -829,10 +829,18 @@ public final class ControlCenterHUD {
             applyCardFocusEffect(cardAdBlock);
             updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
             cardAdBlock.setOnClickListener(v -> {
+                if (!CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_AD_BLOCK)) {
+                    CleanTvProDialog.show(activity, "👑 System-Wide Ad-Shield & Telemetry Blocker is exclusive to CleanTV Pro members.\n\nUpgrade now to block banner ads, trackers, and OEM telemetry across all TV apps!");
+                    return;
+                }
                 int next = AdBlockManager.cycleNext(activity);
                 updateAdBlockUI(ccAdBlockStatus, ccAdBlockIcon);
             });
             cardAdBlock.setOnLongClickListener(v -> {
+                if (!CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_AD_BLOCK)) {
+                    CleanTvProDialog.show(activity, "👑 System-Wide Ad-Shield & Telemetry Blocker is exclusive to CleanTV Pro members.\n\nUpgrade now to select advanced ad-blocking DNS providers!");
+                    return true;
+                }
                 AdBlockManager.showProviderSelectionDialog(activity);
                 return true;
             });
@@ -864,27 +872,24 @@ public final class ControlCenterHUD {
 
 
     private void updateAdBlockUI(TextView statusView, ImageView iconView) {
-
         if (statusView == null) return;
 
-        int mode = AdBlockManager.getCurrentMode(activity);
-
-        statusView.setText(AdBlockManager.getModeName(mode));
-
-        if (mode != AdBlockManager.MODE_OFF) {
-
-            statusView.setTextColor(0xFF34D399);
-
-            if (iconView != null) iconView.setColorFilter(0xFF10B981);
-
-        } else {
-
-            statusView.setTextColor(0x99FFFFFF);
-
-            if (iconView != null) iconView.setColorFilter(0xFF64748B);
-
+        if (!CleanTvProDialog.isFeatureUnlocked(activity, CleanTvProDialog.FEATURE_AD_BLOCK)) {
+            statusView.setText("PRO Required");
+            statusView.setTextColor(0xFFFBBF24);
+            if (iconView != null) iconView.setColorFilter(0xFFF59E0B);
+            return;
         }
 
+        int mode = AdBlockManager.getCurrentMode(activity);
+        statusView.setText(AdBlockManager.getModeName(mode));
+        if (mode != AdBlockManager.MODE_OFF) {
+            statusView.setTextColor(0xFF34D399);
+            if (iconView != null) iconView.setColorFilter(0xFF10B981);
+        } else {
+            statusView.setTextColor(0x99FFFFFF);
+            if (iconView != null) iconView.setColorFilter(0xFF64748B);
+        }
     }
 
 

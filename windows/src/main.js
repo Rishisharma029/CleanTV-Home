@@ -963,6 +963,7 @@ const server = http.createServer((req, res) => {
 
     // POST /api/adblock/status - get TV system Private DNS status
     if (url === '/api/adblock/status') {
+      const lic = getVerifiedLicense();
       adbExec(['-s', device, 'shell', 'settings', 'get', 'global', 'private_dns_mode'], (err1, out1) => {
         const mode = (out1 || '').trim().toLowerCase();
         adbExec(['-s', device, 'shell', 'settings', 'get', 'global', 'private_dns_specifier'], (err2, out2) => {
@@ -972,7 +973,8 @@ const server = http.createServer((req, res) => {
             enabled,
             mode,
             specifier,
-            provider: specifier || (enabled ? 'AdGuard DNS' : 'None')
+            provider: specifier || (enabled ? 'AdGuard DNS' : 'None'),
+            isPro: lic.isPro
           });
         });
       });
@@ -981,6 +983,10 @@ const server = http.createServer((req, res) => {
 
     // POST /api/adblock/toggle - toggle system-wide Ad-Shielding on TV
     if (url === '/api/adblock/toggle') {
+      const lic = getVerifiedLicense();
+      if (!lic.isPro) {
+        return jsonErr(res, 'System-Wide Ad-Blocker & Telemetry Shield requires an active CleanTV Pro license. Please upgrade to unlock.', 403, 'PRO_REQUIRED');
+      }
       const action = (data.action || 'enable').toLowerCase();
       const provider = (data.provider || 'adguard').toLowerCase();
       const hostnames = {

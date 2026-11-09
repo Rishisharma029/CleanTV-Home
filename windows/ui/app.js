@@ -1460,6 +1460,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('btnToggleAdShield');
       if (!badge || !btn) return;
 
+      if (!state.isPro) {
+        badge.textContent = '👑 PRO Required';
+        badge.style.background = 'rgba(245, 158, 11, 0.15)';
+        badge.style.color = '#fbbf24';
+        badge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+        btn.className = 'btn btn-primary';
+        btn.style.background = 'linear-gradient(135deg, #d97706, #b45309)';
+        btn.innerHTML = '<span>👑 Unlock Ad-Shield (Pro Only)</span>';
+        return;
+      }
+
+      btn.style.background = '';
       if (res && res.enabled) {
         adShieldActive = true;
         badge.textContent = '🟢 Active: ' + (res.provider || 'AdGuard DNS');
@@ -1485,6 +1497,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnToggleAdShield = document.getElementById('btnToggleAdShield');
   if (btnToggleAdShield) {
     btnToggleAdShield.addEventListener('click', async () => {
+      if (!state.isPro) {
+        showProGate('System-Wide Ad-Blocker & Telemetry Shield', 'Eliminating ads, video trackers, banners, and OEM telemetry across all TV apps is an exclusive CleanTV Pro feature.\n\nUpgrade to Pro Lifetime for ₹199 ($6.99) or enter your activation key to unlock.');
+        return;
+      }
       if (!state.device) {
         showToast('Please connect to your Android TV first.', 'warning');
         return;

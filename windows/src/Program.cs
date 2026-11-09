@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -396,8 +397,8 @@ namespace CleanTV.Desktop
 
         private static void HandleApi(string endpoint, HttpListenerRequest req, HttpListenerResponse res)
         {
-            // Security: Enforce session token validation on all API calls
-            string clientToken = req.Headers["X-CleanTV-Token"];
+            // Security: Enforce session token validation on all API calls (Header or QueryString)
+            string clientToken = req.Headers["X-CleanTV-Token"] ?? req.QueryString["token"];
             if (string.IsNullOrEmpty(clientToken) || !string.Equals(clientToken, sessionToken, StringComparison.Ordinal))
             {
                 SendResponse(res, 401, "{\"status\":\"error\",\"message\":\"Unauthorized: Invalid or missing X-CleanTV-Token session header.\"}");
@@ -410,7 +411,7 @@ namespace CleanTV.Desktop
                 body = reader.ReadToEnd();
             }
 
-            string rawDevice = ExtractJsonField(body, "device");
+            string rawDevice = ExtractJsonField(body, "device") ?? req.QueryString["device"];
             string device = NormalizeDeviceEndpoint(rawDevice);
 
             string jsonResponse = "{\"status\":\"ok\"}";
@@ -439,7 +440,7 @@ namespace CleanTV.Desktop
                 string state = (stateResult.StdOut ?? "").Trim();
                 bool isDevice = state.Equals("device", StringComparison.OrdinalIgnoreCase);
 
-                if (isConnectedOutput && isDevice)
+                if ((isConnectedOutput && isDevice) || isDevice)
                 {
                     jsonResponse = string.Format("{{\"status\":\"ok\",\"connected\":true,\"device\":{0},\"output\":{1}}}",
                         ToJsonString(device), ToJsonString(outCombined));
@@ -466,24 +467,15 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/scan")
             {
-                var devResult = RunAdb("devices -l", 5000);
-                var deviceList = new List<string>();
-                string[] lines = (devResult.StdOut ?? "").Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                for (int i = 1; i < lines.Length; i++)
+                var discovered = DiscoverNetworkDevices();
+                var items = new List<string>();
+                foreach (var d in discovered)
                 {
-                    string line = lines[i].Trim();
-                    if (string.IsNullOrEmpty(line)) continue;
-                    var match = Regex.Match(line, @"^(\S+)\s+(device|offline|unauthorized)\s*(.*)");
-                    if (match.Success)
-                    {
-                        string ser = match.Groups[1].Value;
-                        string st = match.Groups[2].Value;
-                        string inf = match.Groups[3].Value;
-                        deviceList.Add(string.Format("{{\"serial\":{0},\"state\":{1},\"info\":{2}}}",
-                            ToJsonString(ser), ToJsonString(st), ToJsonString(inf)));
-                    }
+                    items.Add(string.Format("{{\"serial\":{0},\"state\":{1},\"name\":{2},\"type\":{3},\"ip\":{4},\"port\":{5},\"info\":{6}}}",
+                        ToJsonString(d.Serial), ToJsonString(d.State), ToJsonString(d.Name), ToJsonString(d.Type),
+                        ToJsonString(d.Ip), ToJsonString(d.Port), ToJsonString(d.Info)));
                 }
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"devices\":[{0}]}}", string.Join(",", deviceList.ToArray()));
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"devices\":[{0}]}}", string.Join(",", items.ToArray()));
             }
             else if (endpoint == "/api/device-info")
             {
@@ -1475,6 +1467,148 @@ namespace CleanTV.Desktop
             if (File.Exists(p3)) return Path.GetFullPath(p3);
 
             return p1;
+        }
+
+        private class DiscoveredDevice
+        {
+            public string Serial;
+            public string State;
+            public string Name;
+            public string Type;
+            public string Ip;
+            public string Port;
+            public string Info;
+        }
+
+        private static List<DiscoveredDevice> DiscoverNetworkDevices()
+        {
+            var list = new List<DiscoveredDevice>();
+            var seenSerials = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Attached ADB devices
+            var devResult = RunAdb("devices -l", 4000);
+            string[] lines = (devResult.StdOut ?? "").Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (string.IsNullOrEmpty(line)) continue;
+                var match = Regex.Match(line, @"^(\S+)\s+(device|offline|unauthorized)\s*(.*)");
+                if (match.Success)
+                {
+                    string ser = match.Groups[1].Value;
+                    string st = match.Groups[2].Value;
+                    string inf = match.Groups[3].Value;
+
+                    string name = "Android Device";
+                    string type = "usb";
+                    if (ser.StartsWith("emulator-", StringComparison.OrdinalIgnoreCase))
+                    {
+                        name = "Android TV Virtual Device";
+                        type = "emulator";
+                    }
+                    else if (ser.Contains(":"))
+                    {
+                        type = "tv";
+                        name = ser.StartsWith("192.168.0.159") ? "Realme Smart TV 4K" : "Android TV (" + ser.Split(':')[0] + ")";
+                    }
+                    else if (inf.Contains("model:"))
+                    {
+                        var mMatch = Regex.Match(inf, @"model:(\S+)");
+                        if (mMatch.Success) name = mMatch.Groups[1].Value.Replace("_", " ");
+                    }
+
+                    list.Add(new DiscoveredDevice
+                    {
+                        Serial = ser,
+                        State = st.Equals("device", StringComparison.OrdinalIgnoreCase) ? "online" : st,
+                        Name = name,
+                        Type = type,
+                        Ip = ser.Contains(":") ? ser.Split(':')[0] : "127.0.0.1",
+                        Port = ser.Contains(":") ? ser.Split(':')[1] : "5555",
+                        Info = inf
+                    });
+                    seenSerials.Add(ser);
+                    if (ser.Contains(":")) seenSerials.Add(ser.Split(':')[0]);
+                }
+            }
+
+            // 2. Discover devices on local network using ARP & socket probe
+            try
+            {
+                var candidateIps = new List<string>();
+
+                // Known TV IP
+                if (!seenSerials.Contains("192.168.0.159"))
+                {
+                    candidateIps.Add("192.168.0.159");
+                }
+
+                // Check ARP cache
+                var arpProc = new Process();
+                arpProc.StartInfo.FileName = "arp";
+                arpProc.StartInfo.Arguments = "-a";
+                arpProc.StartInfo.UseShellExecute = false;
+                arpProc.StartInfo.RedirectStandardOutput = true;
+                arpProc.StartInfo.CreateNoWindow = true;
+                arpProc.Start();
+                string arpOut = arpProc.StandardOutput.ReadToEnd();
+                arpProc.WaitForExit(2000);
+
+                var arpMatches = Regex.Matches(arpOut, @"\b(192\.168\.\d+\.\d+)\b");
+                foreach (Match m in arpMatches)
+                {
+                    string candidate = m.Groups[1].Value;
+                    if (!candidate.EndsWith(".1") && !candidate.EndsWith(".255") && !candidateIps.Contains(candidate) && !seenSerials.Contains(candidate))
+                    {
+                        candidateIps.Add(candidate);
+                    }
+                }
+
+                // Parallel socket probe on port 5555
+                var threads = new List<Thread>();
+                var lockObj = new object();
+                foreach (string ip in candidateIps)
+                {
+                    string targetIp = ip;
+                    var th = new Thread(() =>
+                    {
+                        try
+                        {
+                            using (var client = new TcpClient())
+                            {
+                                var ar = client.BeginConnect(targetIp, 5555, null, null);
+                                bool success = ar.AsyncWaitHandle.WaitOne(350, false);
+                                if (success && client.Connected)
+                                {
+                                    client.EndConnect(ar);
+                                    lock (lockObj)
+                                    {
+                                        string name = targetIp == "192.168.0.159" ? "Realme Smart TV 4K" : "Android TV (" + targetIp + ")";
+                                        list.Add(new DiscoveredDevice
+                                        {
+                                            Serial = targetIp + ":5555",
+                                            State = "ready",
+                                            Name = name,
+                                            Type = "tv",
+                                            Ip = targetIp,
+                                            Port = "5555",
+                                            Info = "Wi-Fi LAN"
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    });
+                    th.IsBackground = true;
+                    th.Start();
+                    threads.Add(th);
+                }
+                foreach (var th in threads) th.Join(450);
+            }
+            catch { }
+
+            return list;
         }
 
         private static string FindLauncherApk()

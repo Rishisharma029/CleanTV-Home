@@ -153,9 +153,29 @@
                 <span style="color: var(--text-muted); font-family: var(--font-mono);">:</span>
                 <input type="text" id="inputTargetPort" class="input-dark" placeholder="5555" value="5555" style="width: 65px;">
                 <button class="btn btn-primary" id="btnConnectAdb">Connect Device</button>
-                <button class="btn btn-secondary" id="btnDiscoverAdb">Discover Devices</button>
+                <button class="btn btn-secondary" id="btnDiscoverAdb">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                  Discover Devices
+                </button>
                 <button class="btn btn-secondary" id="btnConnectEmu">Connect Emulator</button>
               </div>
+            </div>
+          </div>
+
+          <!-- Discovered Devices Nearby Container -->
+          <div class="surface-card" id="discoveredDevicesContainer" style="display: none; border-color: rgba(139, 124, 255, 0.4);">
+            <div class="card-title-bar">
+              <span class="card-title-text">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                Discovered Devices Nearby (<span id="discoveredCountBadge" style="color: var(--accent-primary);">0</span>)
+              </span>
+              <button class="btn btn-secondary btn-sm" id="btnDismissDiscover">✕ Close</button>
+            </div>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px;">
+              Click any device below to send an ADB connection request and automatically install CleanTV Home.
+            </p>
+            <div class="discovered-grid" id="discoveredDevicesList">
+              <!-- Dynamically populated -->
             </div>
           </div>
 
@@ -686,6 +706,35 @@
       <div style="display: flex; justify-content: flex-end; gap: 8px;">
         <button class="btn btn-secondary btn-sm" id="btnCancelKeyModal">Cancel</button>
         <button class="btn btn-primary btn-sm" id="btnConfirmKeyModal">Activate License</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Automated TV Setup & Installation Wizard Modal -->
+  <div class="modal-screen-cover" id="setupWizardOverlay" style="display: none;">
+    <div class="modal-dialog-panel" style="width: 520px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 20px;">📺</div>
+          <div>
+            <h3 style="font-size: 15px; font-weight: 600; color: var(--text-primary);" id="wizardTitle">Setting up Device</h3>
+            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);" id="wizardTargetSubtitle">192.168.0.159:5555</div>
+          </div>
+        </div>
+        <button id="btnCloseWizard" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px;">✕</button>
+      </div>
+
+      <!-- Step Indicator -->
+      <div class="wizard-steps-strip">
+        <div class="wizard-step active" id="step1Dot">1. ADB Connect</div>
+        <div class="wizard-step" id="step2Dot">2. Telemetry</div>
+        <div class="wizard-step" id="step3Dot">3. Install CleanTV</div>
+        <div class="wizard-step" id="step4Dot">4. Complete</div>
+      </div>
+
+      <!-- Wizard Dynamic Body Content -->
+      <div id="wizardBodyContent">
+        <!-- Rendered by JavaScript based on state -->
       </div>
     </div>
   </div>

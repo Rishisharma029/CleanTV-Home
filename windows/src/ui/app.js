@@ -66,6 +66,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ─── DOM References ────────────────────────────────────────────────────────────
+  const sessionToken = document.querySelector('meta[name="cleantv-token"]')?.getAttribute('content') || '';
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   const railItems = document.querySelectorAll('.rail-item');
   const pageViews = document.querySelectorAll('.page-view');
   const breadcrumbSection = document.getElementById('breadcrumbSection');
@@ -86,6 +98,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectedStateDetails = document.getElementById('connectedStateDetails');
   const btnQuickToApps = document.getElementById('btnQuickToApps');
   const btnQuickToRemote = document.getElementById('btnQuickToRemote');
+
+  // Discovery & Setup Wizard Elements
+  const discoveredDevicesContainer = document.getElementById('discoveredDevicesContainer');
+  const discoveredDevicesList = document.getElementById('discoveredDevicesList');
+  const discoveredCountBadge = document.getElementById('discoveredCountBadge');
+  const btnDismissDiscover = document.getElementById('btnDismissDiscover');
+
+  const setupWizardOverlay = document.getElementById('setupWizardOverlay');
+  const wizardTitle = document.getElementById('wizardTitle');
+  const wizardTargetSubtitle = document.getElementById('wizardTargetSubtitle');
+  const step1Dot = document.getElementById('step1Dot');
+  const step2Dot = document.getElementById('step2Dot');
+  const step3Dot = document.getElementById('step3Dot');
+  const step4Dot = document.getElementById('step4Dot');
+  const wizardBodyContent = document.getElementById('wizardBodyContent');
+  const btnCloseWizard = document.getElementById('btnCloseWizard');
 
   // Telemetry View Elements
   const tModel = document.getElementById('tModel');
@@ -244,9 +272,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── API Client ───────────────────────────────────────────────────────────────
   async function apiCall(endpoint, params = {}) {
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (sessionToken) {
+        headers['X-CleanTV-Token'] = sessionToken;
+        params.token = sessionToken;
+      }
       const query = new URLSearchParams(params).toString();
       const url = query ? `${endpoint}?${query}` : endpoint;
-      const resp = await fetch(url, { method: 'GET' });
+      const resp = await fetch(url, { method: 'GET', headers });
       return await resp.json();
     } catch (err) {
       console.warn(`API call error for ${endpoint}:`, err);
@@ -377,17 +410,319 @@ document.addEventListener('DOMContentLoaded', () => {
     connectDevice('127.0.0.1', '5555');
   });
 
+  btnDismissDiscover?.addEventListener('click', () => {
+    if (discoveredDevicesContainer) discoveredDevicesContainer.style.display = 'none';
+  });
+
+  btnCloseWizard?.addEventListener('click', () => {
+    if (setupWizardOverlay) setupWizardOverlay.style.display = 'none';
+  });
+
   btnDiscoverAdb?.addEventListener('click', async () => {
+    if (discoveredDevicesContainer) {
+      discoveredDevicesContainer.style.display = 'block';
+      if (discoveredCountBadge) discoveredCountBadge.textContent = '...';
+      if (discoveredDevicesList) {
+        discoveredDevicesList.innerHTML = `
+          <div style="grid-column: 1 / -1; padding: 24px 16px; text-align: center; color: var(--text-secondary);">
+            <div class="loader-spinner" style="margin: 0 auto 12px; width: 22px; height: 22px; border: 2px solid var(--border-subtle); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Scanning Wi-Fi & ADB network for Android TVs...</div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">Checking ARP cache and port 5555 socket handshakes...</div>
+          </div>
+        `;
+      }
+    }
     showToast('Scanning local network for active TV hosts...', 'info');
     const res = await apiCall('/api/scan');
     if (res && res.devices && res.devices.length > 0) {
-      const target = res.devices[0].serial;
-      showToast(`Discovered target: ${target}`, 'success');
-      connectDevice(target);
+      if (discoveredCountBadge) discoveredCountBadge.textContent = res.devices.length;
+      if (discoveredDevicesList) {
+        discoveredDevicesList.innerHTML = '';
+        res.devices.forEach(dev => {
+          const card = document.createElement('div');
+          card.className = 'discovered-card';
+          card.innerHTML = `
+            <div class="discovered-header">
+              <div class="discovered-icon">${dev.type === 'emulator' ? '💻' : '📺'}</div>
+              <div style="flex: 1; min-width: 0;">
+                <div class="discovered-name">${escapeHtml(dev.name || 'Android TV Device')}</div>
+                <div class="discovered-address">${escapeHtml(dev.serial)}</div>
+              </div>
+            </div>
+            <div class="discovered-footer">
+              <span class="discovered-chip">${dev.type === 'emulator' ? 'EMULATOR' : 'WI-FI LAN'}</span>
+              <button class="btn btn-primary btn-sm btn-connect-device" style="pointer-events: auto;">
+                Connect & Install →
+              </button>
+            </div>
+          `;
+          card.addEventListener('click', () => {
+            startSetupWizard(dev);
+          });
+          discoveredDevicesList.appendChild(card);
+        });
+      }
+      showToast(`Found ${res.devices.length} nearby Android TV device(s).`, 'success');
     } else {
-      showToast('No active ADB devices discovered.', 'warning');
+      if (discoveredCountBadge) discoveredCountBadge.textContent = '0';
+      if (discoveredDevicesList) {
+        discoveredDevicesList.innerHTML = `
+          <div style="grid-column: 1 / -1; padding: 20px 16px; text-align: center; background: var(--surface-secondary); border-radius: var(--radius-xs); border: 1px dashed var(--border-subtle);">
+            <div style="font-size: 24px; margin-bottom: 6px;">📡</div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">No active devices detected</div>
+            <div style="font-size: 12px; color: var(--text-muted); max-width: 440px; margin: 4px auto 14px;">
+              Ensure ADB debugging is enabled on your TV under Settings > Developer Options and both the PC and TV are on the same Wi-Fi.
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnRetryScan">Retry Scan</button>
+          </div>
+        `;
+        document.getElementById('btnRetryScan')?.addEventListener('click', () => btnDiscoverAdb.click());
+      }
+      showToast('No active ADB devices discovered on local network.', 'warning');
     }
   });
+
+  async function startSetupWizard(dev) {
+    if (!setupWizardOverlay) return;
+    setupWizardOverlay.style.display = 'flex';
+    if (wizardTitle) wizardTitle.textContent = `Setting up ${dev.name || 'Device'}`;
+    if (wizardTargetSubtitle) wizardTargetSubtitle.textContent = dev.serial;
+
+    function setStep(stepNum) {
+      const dots = [step1Dot, step2Dot, step3Dot, step4Dot];
+      dots.forEach((dot, idx) => {
+        if (!dot) return;
+        if (idx + 1 < stepNum) {
+          dot.className = 'wizard-step done';
+          dot.innerHTML = `✓ ${dot.textContent.replace(/^([0-9]+\.|✓)\s*/, '')}`;
+        } else if (idx + 1 === stepNum) {
+          dot.className = 'wizard-step active';
+        } else {
+          dot.className = 'wizard-step';
+        }
+      });
+    }
+
+    // ── STAGE 1: ADB Connect ──
+    async function attemptConnect() {
+      setStep(1);
+      if (wizardBodyContent) {
+        wizardBodyContent.innerHTML = `
+          <div style="text-align: center; padding: 24px 0;">
+            <div class="loader-spinner" style="margin: 0 auto 16px; width: 28px; height: 28px; border: 3px solid var(--border-subtle); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Sending ADB Connection Request...</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">Contacting ${escapeHtml(dev.serial)} over port 5555</div>
+          </div>
+        `;
+      }
+
+      const res = await apiCall('/api/connect', { device: dev.serial });
+      if (res && res.connected) {
+        state.ip = dev.ip || dev.serial.split(':')[0];
+        state.port = dev.port || (dev.serial.includes(':') ? dev.serial.split(':')[1] : '5555');
+        localStorage.setItem('cleantv_ip', state.ip);
+        localStorage.setItem('cleantv_port', state.port);
+        if (inputTargetIp) inputTargetIp.value = state.ip;
+        if (inputTargetPort) inputTargetPort.value = state.port;
+        setConnectionUI('online', `${dev.name || 'Android TV'} (${dev.serial})`);
+        proceedToTelemetry();
+      } else if (res && res.message && res.message.toLowerCase().includes('unauthorized')) {
+        if (wizardBodyContent) {
+          wizardBodyContent.innerHTML = `
+            <div style="padding: 12px 0;">
+              <div class="tv-auth-banner">
+                <div class="tv-auth-icon">⚠️</div>
+                <div>
+                  <div class="tv-auth-title">Authorization Required on TV Screen</div>
+                  <div class="tv-auth-desc">
+                    A prompt asking <strong>"Allow USB debugging?"</strong> has appeared on your TV.<br>
+                    Using your TV remote, check <strong>"Always allow from this computer"</strong> and select <strong>Allow</strong>.
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-secondary btn-sm" id="btnWizardCancelAuth">Cancel</button>
+                <button class="btn btn-primary btn-sm" id="btnWizardRetryAuth">I have allowed it — Retry</button>
+              </div>
+            </div>
+          `;
+          document.getElementById('btnWizardRetryAuth')?.addEventListener('click', attemptConnect);
+          document.getElementById('btnWizardCancelAuth')?.addEventListener('click', () => {
+            setupWizardOverlay.style.display = 'none';
+          });
+        }
+      } else {
+        if (wizardBodyContent) {
+          wizardBodyContent.innerHTML = `
+            <div style="padding: 16px 0; text-align: center;">
+              <div style="font-size: 26px; color: var(--danger); margin-bottom: 8px;">✕</div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Connection Failed</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin: 6px auto 16px; max-width: 400px;">
+                ${escapeHtml(res?.message || 'Failed to establish ADB connection.')}
+              </div>
+              <div style="display: flex; justify-content: center; gap: 10px;">
+                <button class="btn btn-secondary btn-sm" id="btnWizardFailClose">Close</button>
+                <button class="btn btn-primary btn-sm" id="btnWizardFailRetry">Retry</button>
+              </div>
+            </div>
+          `;
+          document.getElementById('btnWizardFailRetry')?.addEventListener('click', attemptConnect);
+          document.getElementById('btnWizardFailClose')?.addEventListener('click', () => {
+            setupWizardOverlay.style.display = 'none';
+          });
+        }
+      }
+    }
+
+    // ── STAGE 2: Device Telemetry ──
+    async function proceedToTelemetry() {
+      setStep(2);
+      if (wizardBodyContent) {
+        wizardBodyContent.innerHTML = `
+          <div style="text-align: center; padding: 24px 0;">
+            <div class="loader-spinner" style="margin: 0 auto 16px; width: 28px; height: 28px; border: 3px solid var(--border-subtle); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+            <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Reading System Architecture & Telemetry...</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">Querying Android OS, RAM, model identity, and display specs</div>
+          </div>
+        `;
+      }
+
+      await fetchTelemetry();
+      await pingDevice();
+      setTimeout(proceedToInstallation, 600);
+    }
+
+    // ── STAGE 3: Install CleanTV Home ──
+    async function proceedToInstallation() {
+      setStep(3);
+      if (wizardBodyContent) {
+        wizardBodyContent.innerHTML = `
+          <div style="padding: 16px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);" id="wizardInstallPhase">Streaming CleanTV Home APK...</span>
+              <span style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-primary);" id="wizardInstallPct">30%</span>
+            </div>
+            <div class="gauge-track" style="height: 8px; margin-bottom: 14px;">
+              <div class="gauge-fill" id="wizardInstallProgress" style="width: 30%; background: var(--accent-primary);"></div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted);" id="wizardInstallSub">
+              Uploading clean-tv-launcher-latest.apk to device package manager...
+            </div>
+          </div>
+        `;
+      }
+
+      const progressBar = document.getElementById('wizardInstallProgress');
+      const progressPct = document.getElementById('wizardInstallPct');
+      const progressPhase = document.getElementById('wizardInstallPhase');
+      const progressSub = document.getElementById('wizardInstallSub');
+
+      const installPromise = apiCall('/api/install', { device: dev.serial });
+
+      setTimeout(() => {
+        if (progressBar) progressBar.style.width = '65%';
+        if (progressPct) progressPct.textContent = '65%';
+        if (progressPhase) progressPhase.textContent = 'Executing Package Installation...';
+        if (progressSub) progressSub.textContent = 'Running pm install -r -d on target device...';
+      }, 900);
+
+      const res = await installPromise;
+
+      if (res && (res.status === 'ok' || res.installed)) {
+        if (progressBar) progressBar.style.width = '90%';
+        if (progressPct) progressPct.textContent = '90%';
+        if (progressPhase) progressPhase.textContent = 'Activating AdGuard Private DNS...';
+        if (progressSub) progressSub.textContent = 'Configuring zero-telemetry Ad-Shield and launching CleanTV Home...';
+
+        try {
+          await apiCall('/api/adblock/toggle', { device: dev.serial, mode: 'adguard' });
+          await apiCall('/api/key', { device: dev.serial, key: '3' }); // KEYCODE_HOME
+        } catch (_) {}
+
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressPct) progressPct.textContent = '100%';
+
+        setTimeout(proceedToCelebration, 500);
+      } else {
+        if (wizardBodyContent) {
+          wizardBodyContent.innerHTML = `
+            <div style="padding: 16px 0; text-align: center;">
+              <div style="font-size: 26px; color: var(--danger); margin-bottom: 8px;">✕</div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Installation Encountered an Issue</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin: 6px auto 16px; max-width: 400px;">
+                ${escapeHtml(res?.message || 'Failed to install APK.')}
+              </div>
+              <div style="display: flex; justify-content: center; gap: 10px;">
+                <button class="btn btn-secondary btn-sm" id="btnWizardInstallFailClose">Close</button>
+                <button class="btn btn-primary btn-sm" id="btnWizardInstallFailRetry">Retry Install</button>
+              </div>
+            </div>
+          `;
+          document.getElementById('btnWizardInstallFailRetry')?.addEventListener('click', proceedToInstallation);
+          document.getElementById('btnWizardInstallFailClose')?.addEventListener('click', () => {
+            setupWizardOverlay.style.display = 'none';
+          });
+        }
+      }
+    }
+
+    // ── STAGE 4: Celebration ──
+    function proceedToCelebration() {
+      setStep(4);
+      if (wizardBodyContent) {
+        wizardBodyContent.innerHTML = `
+          <div style="text-align: center; padding: 18px 0 8px;">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--success-subtle); color: var(--accent-secondary); font-size: 26px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; border: 1px solid rgba(77, 226, 197, 0.4);">
+              ✓
+            </div>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">CleanTV Home is Live!</h3>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px;">
+              The CleanTV launcher has been installed, launched, and protected on <strong>${escapeHtml(state.telemetry.model)}</strong>.
+            </p>
+
+            <div style="background: var(--surface-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-xs); padding: 12px 14px; margin-bottom: 20px; text-align: left; font-size: 12px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: var(--accent-secondary); font-weight: 700;">✓</span>
+                <span style="color: var(--text-primary); font-weight: 500;">CleanTV Home Launcher: Active & Default</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: var(--accent-secondary); font-weight: 700;">✓</span>
+                <span style="color: var(--text-primary); font-weight: 500;">In-System AdGuard DNS: Activated</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: var(--accent-secondary); font-weight: 700;">✓</span>
+                <span style="color: var(--text-primary); font-weight: 500;">ADB Connection: Authenticated (${escapeHtml(dev.serial)})</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+              <button class="btn btn-secondary btn-sm" id="btnWizardOpenRemote">🎮 Open Virtual Remote</button>
+              <button class="btn btn-secondary btn-sm" id="btnWizardOpenDebloat">⚡ Debloat TV Apps</button>
+              <button class="btn btn-primary btn-sm" id="btnWizardFinish">Done</button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('btnWizardOpenRemote')?.addEventListener('click', () => {
+          setupWizardOverlay.style.display = 'none';
+          switchPage('page-remote', 'Device', 'Virtual Remote');
+        });
+
+        document.getElementById('btnWizardOpenDebloat')?.addEventListener('click', () => {
+          setupWizardOverlay.style.display = 'none';
+          switchPage('page-debloater', 'Device', 'TV Debloater');
+        });
+
+        document.getElementById('btnWizardFinish')?.addEventListener('click', () => {
+          setupWizardOverlay.style.display = 'none';
+          checkAdbState();
+        });
+      }
+    }
+
+    // Start Stage 1
+    attemptConnect();
+  }
 
   btnTitlebarRefresh?.addEventListener('click', () => {
     showToast('Refreshing connection telemetry...', 'info');

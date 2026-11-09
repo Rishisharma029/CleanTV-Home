@@ -399,6 +399,22 @@
             <p class="page-header-desc">Tactile hardware controller simulating physical remotes with low-latency ADB keyevents.</p>
           </div>
 
+          <!-- Target Device Switcher & Quick Wake Bar -->
+          <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface-window); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px 16px; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="status-beacon-dot online"></span>
+              <span style="font-size: 12.5px; font-weight: 500; color: var(--text-secondary);">Target Device:</span>
+              <select id="selectRemoteTarget" class="select-obsidian" style="height: 32px; font-size: 12.5px; font-weight: 600; padding: 0 10px;">
+                <option value="192.168.0.159:5555">📺 Realme Smart TV 4K (192.168.0.159:5555)</option>
+                <option value="emulator-5554">💻 Android TV Emulator (emulator-5554)</option>
+                <option value="127.0.0.1:5555">💻 Localhost Port 5555 (127.0.0.1:5555)</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnRemoteWakeTv" style="display: flex; align-items: center; gap: 6px;">
+              <span style="color: var(--accent-primary);">⚡</span> Wake TV Screen & Bring Home
+            </button>
+          </div>
+
           <div class="remote-stage">
             <div class="physical-remote-body">
               <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">

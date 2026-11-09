@@ -166,9 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Remote Elements
   const feedLogs = document.getElementById('feedLogs');
   const btnClearFeed = document.getElementById('btnClearFeed');
-  const remoteKeyBtns = document.querySelectorAll('[data-key]');
+  const remoteKeyBtns = document.querySelectorAll('.physical-remote-body [data-key]');
   const btnRemoteAiHud = document.getElementById('btnRemoteAiHud');
   const btnRemoteCc = document.getElementById('btnRemoteCc');
+  const selectRemoteTarget = document.getElementById('selectRemoteTarget');
+  const btnRemoteWakeTv = document.getElementById('btnRemoteWakeTv');
 
   // APK Deployment Elements
   const btnDeployLauncher = document.getElementById('btnDeployLauncher');
@@ -308,6 +310,23 @@ document.addEventListener('DOMContentLoaded', () => {
         connectedStateBanner.style.display = 'block';
         if (connectedStateDetails) {
           connectedStateDetails.textContent = `${state.telemetry.model} · ${state.device} · ADB Online`;
+        }
+      }
+      if (selectRemoteTarget) {
+        let found = false;
+        for (let i = 0; i < selectRemoteTarget.options.length; i++) {
+          if (selectRemoteTarget.options[i].value === state.device || selectRemoteTarget.options[i].value.includes(state.ip)) {
+            selectRemoteTarget.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          const opt = document.createElement('option');
+          opt.value = state.device;
+          opt.textContent = `📺 ${state.telemetry.model || 'Device'} (${state.device})`;
+          opt.selected = true;
+          selectRemoteTarget.prepend(opt);
         }
       }
     } else if (status === 'connecting') {
@@ -938,6 +957,26 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => btn.style.transform = '', 120);
       await sendRemoteKey(keycode, label);
     });
+  });
+
+  selectRemoteTarget?.addEventListener('change', () => {
+    const val = selectRemoteTarget.value;
+    logRemote(`Switched remote target to: ${val}`);
+    showToast(`Target set to ${val}`, 'info');
+    connectDevice(val);
+  });
+
+  btnRemoteWakeTv?.addEventListener('click', async () => {
+    logRemote(`⚡ Waking screen and activating CleanTV Home on ${state.device}...`);
+    showToast('Waking screen & launching CleanTV Home...', 'info');
+    const res = await apiCall('/api/wake', { device: state.device });
+    if (res && res.status === 'ok') {
+      logRemote('✓ TV Screen Awake & CleanTV Home active!');
+      showToast('TV Screen is Awake & CleanTV Home is Active!', 'success');
+    } else {
+      logRemote(`✕ Wake attempt failed: ${res?.message || 'Timeout'}`);
+      showToast('Wake failed. Ensure TV is powered on.', 'error');
+    }
   });
 
   // Physical Keyboard Navigation for Virtual Remote

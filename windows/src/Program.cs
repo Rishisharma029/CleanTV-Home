@@ -278,6 +278,10 @@ namespace CleanTV.Desktop
                 }
 
                 // Serve Static Files
+                res.AddHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+                res.AddHeader("Pragma", "no-cache");
+                res.AddHeader("Expires", "0");
+
                 if (urlPath == "/" || string.IsNullOrEmpty(urlPath))
                 {
                     urlPath = "/index.html";
@@ -865,7 +869,7 @@ namespace CleanTV.Desktop
                 }
                 else
                 {
-                    var keyRes = RunAdb("-s " + device + " shell input keyevent " + key, 4000);
+                    var keyRes = RunAdb("-s " + device + " shell input keyevent " + key, 8000);
                     if (keyRes.ExitCode != 0)
                     {
                         statusCode = 500;
@@ -876,6 +880,13 @@ namespace CleanTV.Desktop
                         jsonResponse = string.Format("{{\"status\":\"ok\",\"key\":{0},\"sent\":true}}", ToJsonString(key));
                     }
                 }
+            }
+            else if (endpoint == "/api/wake")
+            {
+                RunAdb("-s " + device + " shell input keyevent 224", 6000);
+                RunAdb("-s " + device + " shell input keyevent 3", 6000);
+                RunAdb("-s " + device + " shell am start -n com.gathin.tvhome/.MainActivity", 6000);
+                jsonResponse = "{\"status\":\"ok\",\"message\":\"Wakeup sequence and Home activity dispatched.\"}";
             }
             else if (endpoint == "/api/packages")
             {

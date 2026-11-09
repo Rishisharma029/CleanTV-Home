@@ -7,7 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     ip: localStorage.getItem('cleantv_ip') || '192.168.0.159',
     port: localStorage.getItem('cleantv_port') || '5555',
-    get device() { return `${this.ip}:${this.port}`; },
+    get device() {
+      const s = (this.ip || '').trim();
+      if (!s) return '192.168.0.159:5555';
+      if (s.includes(':')) return s;
+      if (s.startsWith('emulator-') || !s.includes('.')) return s;
+      return `${s}:${this.port || '5555'}`;
+    },
     isConnected: false,
     isConnecting: false,
     latencyMs: null,
@@ -338,8 +344,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function connectDevice(ip, port = '5555') {
-    state.ip = ip.trim();
-    state.port = port.trim();
+    let cleanIp = (ip || '').trim();
+    let cleanPort = (port || '5555').trim();
+    if (cleanIp.includes(':')) {
+      const parts = cleanIp.split(':');
+      cleanIp = parts[0];
+      cleanPort = parts[1] || '5555';
+    } else if (cleanIp.startsWith('emulator-') || !cleanIp.includes('.')) {
+      cleanPort = '';
+    }
+    state.ip = cleanIp;
+    state.port = cleanPort;
     localStorage.setItem('cleantv_ip', state.ip);
     localStorage.setItem('cleantv_port', state.port);
 
@@ -900,13 +915,58 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ─── Virtual Remote ───────────────────────────────────────────────────────────
+  async function sendRemoteKey(keycode, label = '') {
+    if (!keycode) return;
+    const desc = label || `Key ${keycode}`;
+    logRemote(`Sending: ${desc} (Code ${keycode})...`);
+    const res = await apiCall('/api/key', { device: state.device, key: keycode });
+    if (res && res.status === 'ok') {
+      logRemote(`✓ ACK: ${desc} executed`);
+    } else {
+      const errMsg = res?.message || 'Device not responding';
+      logRemote(`✕ ERR: ${errMsg}`);
+      showToast(`Key failed: ${errMsg}`, 'error');
+    }
+  }
+
   remoteKeyBtns.forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
       const keycode = btn.getAttribute('data-key');
-      const label = btn.innerText.trim();
-      logRemote(`Key: ${label} (Keycode ${keycode})`);
-      await apiCall('/api/key', { device: state.device, key: keycode });
+      const label = btn.innerText.trim() || btn.getAttribute('title') || keycode;
+      btn.style.transform = 'scale(0.90)';
+      setTimeout(() => btn.style.transform = '', 120);
+      await sendRemoteKey(keycode, label);
     });
+  });
+
+  // Physical Keyboard Navigation for Virtual Remote
+  document.addEventListener('keydown', (e) => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    if (state.activePage !== 'page-remote') return;
+
+    const keyMap = {
+      'ArrowUp': { code: '19', label: 'Up ▲' },
+      'ArrowDown': { code: '20', label: 'Down ▼' },
+      'ArrowLeft': { code: '21', label: 'Left ◀' },
+      'ArrowRight': { code: '22', label: 'Right ▶' },
+      'Enter': { code: '23', label: 'Select OK' },
+      ' ': { code: '23', label: 'Select OK' },
+      'Escape': { code: '4', label: 'Back ↩' },
+      'Backspace': { code: '4', label: 'Back ↩' },
+      'Home': { code: '3', label: 'Home 🏠' },
+      '+': { code: '24', label: 'Vol + 🔊' },
+      '=': { code: '24', label: 'Vol + 🔊' },
+      '-': { code: '25', label: 'Vol - 🔉' },
+      '_': { code: '25', label: 'Vol - 🔉' },
+      'm': { code: '164', label: 'Mute 🔇' },
+      'M': { code: '164', label: 'Mute 🔇' }
+    };
+
+    if (keyMap[e.key]) {
+      e.preventDefault();
+      sendRemoteKey(keyMap[e.key].code, keyMap[e.key].label);
+    }
   });
 
   btnRemoteAiHud?.addEventListener('click', () => switchPage('page-ai', 'Tools', 'Voice & AI'));

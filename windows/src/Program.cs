@@ -511,7 +511,7 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/preset-list")
             {
-                string preset = (ExtractJsonField(body, "preset") ?? "realme").ToLower();
+                string preset = (ExtractJsonField(body, "preset") ?? req.QueryString["preset"] ?? "realme").ToLower();
                 string fileName = ResolvePresetFileName(preset);
                 string filePath = FindPresetFile(fileName);
 
@@ -535,7 +535,7 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/debloat")
             {
-                string preset = (ExtractJsonField(body, "preset") ?? "realme").ToLower();
+                string preset = (ExtractJsonField(body, "preset") ?? req.QueryString["preset"] ?? "realme").ToLower();
                 string fileName = ResolvePresetFileName(preset);
                 string filePath = FindPresetFile(fileName);
 
@@ -857,7 +857,7 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/key")
             {
-                string key = ExtractJsonField(body, "key") ?? "3";
+                string key = (ExtractJsonField(body, "key") ?? req.QueryString["key"] ?? "3").Trim();
                 if (!Regex.IsMatch(key, @"^\d+$"))
                 {
                     statusCode = 400;
@@ -1143,11 +1143,11 @@ namespace CleanTV.Desktop
                     return;
                 }
 
-                string action = ExtractJsonField(body, "action");
+                string action = ExtractJsonField(body, "action") ?? req.QueryString["action"] ?? req.QueryString["mode"];
                 if (string.IsNullOrEmpty(action)) action = "enable";
                 action = action.ToLower();
 
-                string provider = ExtractJsonField(body, "provider");
+                string provider = ExtractJsonField(body, "provider") ?? req.QueryString["provider"] ?? req.QueryString["mode"];
                 if (string.IsNullOrEmpty(provider)) provider = "adguard";
                 provider = provider.ToLower();
 

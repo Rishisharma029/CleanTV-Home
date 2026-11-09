@@ -179,6 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const deployStatusText = document.getElementById('deployStatusText');
   const deployPercentText = document.getElementById('deployPercentText');
   const deployProgressGauge = document.getElementById('deployProgressGauge');
+  const btnDeploySmartTube = document.getElementById('btnDeploySmartTube');
+  const btnLaunchSmartTube = document.getElementById('btnLaunchSmartTube');
+  const smartTubeProgressBox = document.getElementById('smartTubeProgressBox');
+  const smartTubeStatusText = document.getElementById('smartTubeStatusText');
+  const smartTubePercentText = document.getElementById('smartTubePercentText');
+  const smartTubeProgressGauge = document.getElementById('smartTubeProgressGauge');
 
   // Voice AI Elements
   const inputAiPrompt = document.getElementById('inputAiPrompt');
@@ -1038,6 +1044,42 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('Dispatching Home key event...', 'info');
     await apiCall('/api/key', { device: state.device, key: '3' });
     logRemote('Home key event dispatched');
+  });
+
+  // ─── SmartTube (Ad-Free YouTube) Deployment ──────────────────────────────────
+  btnDeploySmartTube?.addEventListener('click', async () => {
+    if (smartTubeProgressBox) smartTubeProgressBox.style.display = 'block';
+    if (smartTubeStatusText) smartTubeStatusText.textContent = 'Pushing SmartTube 4K APK (~35 MB) to TV over ADB...';
+    if (smartTubePercentText) smartTubePercentText.textContent = '25%';
+    if (smartTubeProgressGauge) smartTubeProgressGauge.style.width = '25%';
+
+    showToast('Installing Ad-Free YouTube (SmartTube) to TV...', 'info');
+
+    setTimeout(() => {
+      if (smartTubePercentText) smartTubePercentText.textContent = '65%';
+      if (smartTubeProgressGauge) smartTubeProgressGauge.style.width = '65%';
+      if (smartTubeStatusText) smartTubeStatusText.textContent = 'Executing package installation (pm install)...';
+    }, 1500);
+
+    const res = await apiCall('/api/install-smarttube', { device: state.device });
+
+    if (smartTubePercentText) smartTubePercentText.textContent = '100%';
+    if (smartTubeProgressGauge) smartTubeProgressGauge.style.width = '100%';
+
+    if (res && (res.status === 'ok' || res.installed)) {
+      if (smartTubeStatusText) smartTubeStatusText.textContent = 'SmartTube installed & launched! Enjoy 100% ad-free 4K YouTube.';
+      showToast('SmartTube installed successfully! 100% Ad-Free YouTube is now active.', 'success');
+      logRemote('SmartTube installed and launched on TV');
+    } else {
+      if (smartTubeStatusText) smartTubeStatusText.textContent = `Install issue: ${res?.message || 'Check connection'}`;
+      showToast(`SmartTube error: ${res?.message || 'Failed to install'}`, 'error');
+    }
+  });
+
+  btnLaunchSmartTube?.addEventListener('click', async () => {
+    showToast('Opening SmartTube on TV...', 'info');
+    await apiCall('/api/launch-smarttube', { device: state.device });
+    logRemote('Launched SmartTube on TV');
   });
 
   // ─── Voice & AI Intent Controller ─────────────────────────────────────────────

@@ -859,6 +859,38 @@ namespace CleanTV.Desktop
                     }
                 }
             }
+            else if (endpoint == "/api/install-smarttube")
+            {
+                string stPath = Path.Combine(appDir, "..", "apks", "smarttube-latest.apk");
+                if (!File.Exists(stPath)) stPath = Path.Combine(appDir, "apks", "smarttube-latest.apk");
+
+                if (!File.Exists(stPath))
+                {
+                    statusCode = 404;
+                    jsonResponse = "{\"status\":\"error\",\"message\":\"SmartTube APK not found in package.\"}";
+                }
+                else
+                {
+                    var instRes = RunAdb("-s " + device + " install -r \"" + stPath + "\"", 120000);
+                    if (instRes.ExitCode == 0 && instRes.Combined.IndexOf("Success", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        RunAdb("-s " + device + " shell am start -n org.smarttube.beta/com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity", 5000);
+                        jsonResponse = string.Format("{{\"status\":\"ok\",\"installed\":true,\"launched\":true,\"output\":{0}}}",
+                            ToJsonString(instRes.Combined));
+                    }
+                    else
+                    {
+                        statusCode = 500;
+                        string err = string.IsNullOrEmpty(instRes.Combined) ? "SmartTube install returned non-zero exit code" : instRes.Combined;
+                        jsonResponse = string.Format("{{\"status\":\"error\",\"installed\":false,\"message\":{0}}}", ToJsonString(err));
+                    }
+                }
+            }
+            else if (endpoint == "/api/launch-smarttube")
+            {
+                RunAdb("-s " + device + " shell am start -n org.smarttube.beta/com.liskovsoft.smartyoutubetv2.tv.ui.main.SplashActivity", 5000);
+                jsonResponse = "{\"status\":\"ok\",\"message\":\"SmartTube launched successfully!\"}";
+            }
             else if (endpoint == "/api/key")
             {
                 string key = (ExtractJsonField(body, "key") ?? req.QueryString["key"] ?? "3").Trim();

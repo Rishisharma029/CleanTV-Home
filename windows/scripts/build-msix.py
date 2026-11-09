@@ -19,12 +19,15 @@ BLOCK_SIZE = 65536  # 64 KB block size for AppxBlockMap
 
 def find_makeappx():
     # Check PATH first
-    path = shutil.which("makeappx.exe") or shutil.which("makeappx")
+    path = shutil.which("makeappx.exe") or shutil.which("makeappx") or shutil.which("MakeAppx.exe")
     if path:
         return path
 
-    # Check Windows Kits
+    # Check Windows Kits and WinGet MSIX-Toolkit
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
     patterns = [
+        os.path.join(local_app_data, r"Microsoft\WinGet\Packages\Microsoft.MSIX-Toolkit_*\MSIX-Toolkit.x64\MakeAppx.exe"),
+        os.path.join(local_app_data, r"Microsoft\WinGet\Links\makeappx.exe"),
         r"C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe",
         r"C:\Program Files\Windows Kits\10\bin\*\x64\makeappx.exe",
         r"C:\Program Files (x86)\Windows Kits\8.1\bin\x64\makeappx.exe"
@@ -32,7 +35,6 @@ def find_makeappx():
     for p in patterns:
         matches = glob.glob(p)
         if matches:
-            # Sort descending to pick latest SDK
             matches.sort(reverse=True)
             return matches[0]
     return None

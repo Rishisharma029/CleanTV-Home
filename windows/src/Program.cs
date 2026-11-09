@@ -40,6 +40,10 @@ namespace CleanTV.Desktop
         [STAThread]
         static void Main(string[] args)
         {
+            // Global crash guards: catch unobserved thread/domain exceptions
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => { };
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
@@ -186,16 +190,54 @@ namespace CleanTV.Desktop
                     CreateNoWindow = true
                 };
 
-                using (var p = Process.Start(psi))
+                using (var p = new Process())
                 {
-                    string stdout = p.StandardOutput.ReadToEnd();
-                    string stderr = p.StandardError.ReadToEnd();
-                    if (!p.WaitForExit(timeoutMs))
+                    p.StartInfo = psi;
+                    var stdoutSb = new StringBuilder();
+                    var stderrSb = new StringBuilder();
+
+                    using (var outputWaitHandle = new AutoResetEvent(false))
+                    using (var errorWaitHandle = new AutoResetEvent(false))
                     {
-                        try { p.Kill(); } catch { }
-                        return new AdbResult { ExitCode = -2, StdOut = stdout, StdErr = "Timeout after " + (timeoutMs / 1000) + "s" };
+                        p.OutputDataReceived += (sender, e) =>
+                        {
+                            if (e.Data == null)
+                            {
+                                try { outputWaitHandle.Set(); } catch { }
+                            }
+                            else
+                            {
+                                stdoutSb.AppendLine(e.Data);
+                            }
+                        };
+                        p.ErrorDataReceived += (sender, e) =>
+                        {
+                            if (e.Data == null)
+                            {
+                                try { errorWaitHandle.Set(); } catch { }
+                            }
+                            else
+                            {
+                                stderrSb.AppendLine(e.Data);
+                            }
+                        };
+
+                        p.Start();
+                        p.BeginOutputReadLine();
+                        p.BeginErrorReadLine();
+
+                        if (p.WaitForExit(timeoutMs) &&
+                            outputWaitHandle.WaitOne(Math.Min(timeoutMs, 2000)) &&
+                            errorWaitHandle.WaitOne(Math.Min(timeoutMs, 2000)))
+                        {
+                            return new AdbResult { ExitCode = p.ExitCode, StdOut = stdoutSb.ToString().TrimEnd(), StdErr = stderrSb.ToString().TrimEnd() };
+                        }
+                        else
+                        {
+                            try { p.Kill(); } catch { }
+                            return new AdbResult { ExitCode = -2, StdOut = stdoutSb.ToString().TrimEnd(), StdErr = "Timeout after " + (timeoutMs / 1000) + "s" };
+                        }
                     }
-                    return new AdbResult { ExitCode = p.ExitCode, StdOut = stdout, StdErr = stderr };
                 }
             }
             catch (Exception ex)
@@ -424,8 +466,10 @@ namespace CleanTV.Desktop
 
         private static void HandleApi(string endpoint, HttpListenerRequest req, HttpListenerResponse res)
         {
-            // Security: Enforce session token validation on all API calls (Header or QueryString)
-            string clientToken = req.Headers["X-CleanTV-Token"] ?? req.QueryString["token"];
+            try
+            {
+                // Security: Enforce session token validation on all API calls (Header or QueryString)
+                string clientToken = req.Headers["X-CleanTV-Token"] ?? req.QueryString["token"];
             if (string.IsNullOrEmpty(clientToken) || !string.Equals(clientToken, sessionToken, StringComparison.Ordinal))
             {
                 SendResponse(res, 401, "{\"status\":\"error\",\"message\":\"Unauthorized: Invalid or missing X-CleanTV-Token session header.\"}");
@@ -1328,7 +1372,12 @@ namespace CleanTV.Desktop
                 }
             }
 
-            SendResponse(res, statusCode, jsonResponse);
+                SendResponse(res, statusCode, jsonResponse);
+            }
+            catch (Exception ex)
+            {
+                SendResponse(res, 500, string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Internal server error: " + ex.Message)));
+            }
         }
 
         private static void SendResponse(HttpListenerResponse res, int statusCode, string jsonResponse)
@@ -1342,7 +1391,10 @@ namespace CleanTV.Desktop
                 res.OutputStream.Write(jsonBytes, 0, jsonBytes.Length);
                 res.Close();
             }
-            catch { }
+            catch
+            {
+                try { res.Abort(); } catch { }
+            }
         }
 
         private static HashSet<string> ParsePackageList(string output)
@@ -1694,7 +1746,13 @@ namespace CleanTV.Desktop
                     th.Start();
                     threads.Add(th);
                 }
-                foreach (var th in threads) th.Join(450);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                foreach (var th in threads)
+                {
+                    int remaining = 800 - (int)sw.ElapsedMilliseconds;
+                    if (remaining <= 0) break;
+                    th.Join(remaining);
+                }
             }
             catch { }
 

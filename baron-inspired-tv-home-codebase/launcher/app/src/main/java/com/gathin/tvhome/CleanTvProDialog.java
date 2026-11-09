@@ -245,6 +245,40 @@ public final class CleanTvProDialog {
         }
     }
 
+    private static final String LICENSE_KEY_SECRET = "CLEANTV_KEY_SALT_4B18D";
+
+    public static boolean verifyLicenseKey(String rawKey, String[] outPlan) {
+        if (rawKey == null) return false;
+        String key = rawKey.trim().toUpperCase();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^CTV-(PRO|MON)-([0-9A-Z]{4})-([0-9A-Z]{4})$").matcher(key);
+        if (!m.matches()) return false;
+
+        String prefix = m.group(1);
+        String part1 = m.group(2);
+        String part2 = m.group(3);
+
+        if (key.contains("REVOK")) return false;
+
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest((LICENSE_KEY_SECRET + part1).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 2; i++) {
+                sb.append(String.format("%02X", hash[i]));
+            }
+            String expectedSum = sb.toString();
+            if (!part2.equals(expectedSum)) {
+                return false;
+            }
+            if (outPlan != null && outPlan.length > 0) {
+                outPlan[0] = "MON".equals(prefix) ? PLAN_MONTHLY : PLAN_LIFETIME;
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static void promptKeyEntry(Activity activity, Dialog parentDialog,
                                        TextView tvHeaderBadge, TextView tvActiveNotice,
                                        Button btnBasic, Button btnMonthly, Button btnLifetime) {
@@ -259,30 +293,21 @@ public final class CleanTvProDialog {
                 .setView(input)
                 .setPositiveButton("Activate", (d, which) -> {
                     String enteredKey = input.getText().toString().trim().toUpperCase();
-                    if (enteredKey.contains("MON")) {
-                        // Monthly License
-                        setActivePlan(activity, PLAN_MONTHLY, enteredKey);
+                    String[] outPlan = new String[1];
+                    if (verifyLicenseKey(enteredKey, outPlan)) {
+                        String plan = outPlan[0];
+                        setActivePlan(activity, plan, enteredKey);
                         refreshDialogUI(activity, tvHeaderBadge, tvActiveNotice, btnBasic, btnMonthly, btnLifetime);
                         if (activity instanceof MainActivity) {
                             ((MainActivity) activity).updatePlanBadge();
                         }
-                        Toast.makeText(activity, "🎉 CleanTV Pro Monthly Plan Activated (₹99 / $5)!", Toast.LENGTH_LONG).show();
-                        if (parentDialog != null && parentDialog.isShowing()) {
-                            parentDialog.dismiss();
-                        }
-                    } else if (enteredKey.matches("^CTV-[A-Z0-9]{3,4}-[A-Z0-9]{4}-[A-Z0-9]{4}$") || enteredKey.startsWith("CTV-")) {
-                        // Lifetime License
-                        setActivePlan(activity, PLAN_LIFETIME, enteredKey);
-                        refreshDialogUI(activity, tvHeaderBadge, tvActiveNotice, btnBasic, btnMonthly, btnLifetime);
-                        if (activity instanceof MainActivity) {
-                            ((MainActivity) activity).updatePlanBadge();
-                        }
-                        Toast.makeText(activity, "🎉 CleanTV Pro Lifetime Plan Activated (₹200 / $7)!", Toast.LENGTH_LONG).show();
+                        String label = PLAN_MONTHLY.equals(plan) ? "Pro Monthly Plan (₹99 / $5)" : "Pro Lifetime Plan (₹200 / $7)";
+                        Toast.makeText(activity, "🎉 CleanTV " + label + " Activated!", Toast.LENGTH_LONG).show();
                         if (parentDialog != null && parentDialog.isShowing()) {
                             parentDialog.dismiss();
                         }
                     } else {
-                        Toast.makeText(activity, "Invalid format. Expected format: CTV-PRO-XXXX-XXXX or CTV-MON-XXXX-XXXX", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(activity, "Invalid license key or checksum. Please verify the key from your receipt.", Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("Cancel", null)

@@ -5,11 +5,11 @@
 document.addEventListener('DOMContentLoaded', () => {
   // ─── Application State ─────────────────────────────────────────────────────────
   const state = {
-    ip: localStorage.getItem('cleantv_ip') || '192.168.0.159',
+    ip: localStorage.getItem('cleantv_ip') || '127.0.0.1',
     port: localStorage.getItem('cleantv_port') || '5555',
     get device() {
       const s = (this.ip || '').trim();
-      if (!s) return '192.168.0.159:5555';
+      if (!s) return '127.0.0.1:5555';
       if (s.includes(':')) return s;
       if (s.startsWith('emulator-') || !s.includes('.')) return s;
       return `${s}:${this.port || '5555'}`;
@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── Button Listeners ─────────────────────────────────────────────────────────
   btnConnectAdb?.addEventListener('click', () => {
-    const ip = inputTargetIp.value || '192.168.0.159';
+    const ip = inputTargetIp?.value?.trim() || '127.0.0.1';
     const port = inputTargetPort.value || '5555';
     connectDevice(ip, port);
   });

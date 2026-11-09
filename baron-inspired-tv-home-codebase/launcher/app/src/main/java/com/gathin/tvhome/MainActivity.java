@@ -865,24 +865,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 return topBarKeyListener.onKey(v, keyCode, event);
             });
         }
-        if (getIntent() != null && getIntent().hasExtra("set_plan")) {
-            String p = getIntent().getStringExtra("set_plan");
-            if ("basic".equalsIgnoreCase(p)) {
-                CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_BASIC, "");
-            } else if ("monthly".equalsIgnoreCase(p)) {
-                CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_MONTHLY, "CTV-MON-TEST-2026");
-            } else if ("lifetime".equalsIgnoreCase(p)) {
-                CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_LIFETIME, "CTV-PRO-TEST-2026");
-            }
-        }
         if (getIntent() != null && getIntent().hasExtra("activate_license")) {
             String licKey = getIntent().getStringExtra("activate_license");
             if (licKey != null && !licKey.trim().isEmpty()) {
                 String key = licKey.trim().toUpperCase();
-                if (key.contains("MON")) {
-                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_MONTHLY, key);
-                } else {
-                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_LIFETIME, key);
+                String[] outPlan = new String[1];
+                if (CleanTvProDialog.verifyLicenseKey(key, outPlan)) {
+                    CleanTvProDialog.setActivePlan(this, outPlan[0], key);
                 }
             }
         }
@@ -1102,35 +1091,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        if (intent != null && intent.hasExtra("set_plan")) {
-            String p = intent.getStringExtra("set_plan");
-            if ("basic".equalsIgnoreCase(p)) {
-                CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_BASIC, "");
-                updatePlanBadge();
-                Toast.makeText(this, "CleanTV Plan: Basic (Free)", Toast.LENGTH_SHORT).show();
-            } else if ("monthly".equalsIgnoreCase(p)) {
-                CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_MONTHLY, "CTV-MON-TEST-2026");
-                updatePlanBadge();
-                Toast.makeText(this, "CleanTV Plan: Pro Monthly", Toast.LENGTH_SHORT).show();
-            } else if ("lifetime".equalsIgnoreCase(p)) {
-                CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_LIFETIME, "CTV-PRO-TEST-2026");
-                updatePlanBadge();
-                Toast.makeText(this, "CleanTV Plan: Pro Lifetime", Toast.LENGTH_SHORT).show();
-            }
-            return;
-        }
         if (intent != null && intent.hasExtra("activate_license")) {
             String licKey = intent.getStringExtra("activate_license");
             if (licKey != null && !licKey.trim().isEmpty()) {
                 String key = licKey.trim().toUpperCase();
-                if (key.contains("MON")) {
-                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_MONTHLY, key);
+                String[] outPlan = new String[1];
+                if (CleanTvProDialog.verifyLicenseKey(key, outPlan)) {
+                    CleanTvProDialog.setActivePlan(this, outPlan[0], key);
                     updatePlanBadge();
-                    Toast.makeText(this, "🎉 CleanTV Pro Monthly Plan Activated (₹99 / $5)!", Toast.LENGTH_LONG).show();
+                    String label = CleanTvProDialog.PLAN_MONTHLY.equals(outPlan[0]) ? "Pro Monthly Plan" : "Pro Lifetime Plan";
+                    Toast.makeText(this, "🎉 CleanTV " + label + " Activated!", Toast.LENGTH_LONG).show();
                 } else {
-                    CleanTvProDialog.setActivePlan(this, CleanTvProDialog.PLAN_LIFETIME, key);
-                    updatePlanBadge();
-                    Toast.makeText(this, "🎉 CleanTV Pro Lifetime Plan Activated (₹200 / $7)!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Activation failed: Invalid license key checksum", Toast.LENGTH_SHORT).show();
                 }
             }
             return;

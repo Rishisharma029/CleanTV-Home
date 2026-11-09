@@ -271,8 +271,6 @@ function verifyLicenseKey(rawKey) {
     return { valid: false, error: 'This CleanTV license key has been revoked.' };
   }
 
-  // Store keys
-  if (part1 === 'STOR') return { valid: true, key, plan };
 
   // Algorithmic SHA-256 checksum verification
   const expectedSum = crypto.createHash('sha256').update(LICENSE_KEY_SECRET + part1).digest('hex').substring(0, 4).toUpperCase();
@@ -434,7 +432,15 @@ const server = http.createServer((req, res) => {
 
   // ── Static file serving ──
   if (!url.startsWith('/api/')) {
-    let filePath = path.join(UI_DIR, url === '/' ? 'index.html' : url);
+    const fullUiDir = path.resolve(UI_DIR);
+    const rel = (url === '/' ? 'index.html' : url).replace(/^\/+/, '');
+    const filePath = path.resolve(fullUiDir, rel);
+
+    // Path traversal guard: must be strictly inside UI_DIR
+    if (!filePath.startsWith(fullUiDir + path.sep) && filePath !== path.join(fullUiDir, 'index.html')) {
+      res.writeHead(403); res.end('Forbidden: Access denied.');
+      return;
+    }
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       const ext = path.extname(filePath);
       const mimes = { '.html':'text/html','.css':'text/css','.js':'application/javascript','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon' };
@@ -460,7 +466,7 @@ const server = http.createServer((req, res) => {
 
   // ── API Routes ──
   parseBody(req, (_, data) => {
-    const device = (data.device || '192.168.0.159:5555').trim();
+    const device = (data.device || '127.0.0.1:5555').trim();
 
     // GET /api/adb-status — is ADB available?
     if (url === '/api/adb-status') {

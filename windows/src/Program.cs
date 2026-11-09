@@ -287,7 +287,19 @@ namespace CleanTV.Desktop
                     urlPath = "/index.html";
                 }
 
-                string filePath = Path.Combine(uiDir, urlPath.TrimStart('/').Replace('/', '\\'));
+                string fullUiDir = Path.GetFullPath(uiDir);
+                string cleanRelative = urlPath.TrimStart('/').Replace('/', '\\');
+                string filePath = Path.GetFullPath(Path.Combine(uiDir, cleanRelative));
+
+                // Path Traversal Guard: strictly verify file stays inside uiDir
+                if (!filePath.StartsWith(fullUiDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    res.StatusCode = 403;
+                    byte[] forbidden = Encoding.UTF8.GetBytes("Forbidden: Access denied.");
+                    res.OutputStream.Write(forbidden, 0, forbidden.Length);
+                    res.Close();
+                    return;
+                }
 
                 if (File.Exists(filePath))
                 {
@@ -328,8 +340,10 @@ namespace CleanTV.Desktop
 
         private static string NormalizeDeviceEndpoint(string dev)
         {
-            if (string.IsNullOrEmpty(dev)) return "192.168.0.159:5555";
+            if (string.IsNullOrEmpty(dev)) return "127.0.0.1:5555";
             dev = dev.Trim();
+            // Security: Reject spaces or shell metacharacters to prevent command injection
+            if (!Regex.IsMatch(dev, @"^[a-zA-Z0-9_\.\-:]+$")) return "127.0.0.1:5555";
             if (dev.Contains(":")) return dev;
             // Only append port if it's an IP address or hostname with dots / localhost
             if (dev.Contains(".") || dev.Equals("localhost", StringComparison.OrdinalIgnoreCase))
@@ -980,7 +994,7 @@ namespace CleanTV.Desktop
                 string pkg = (ExtractJsonField(body, "pkg") ?? "").Trim();
                 string action = (ExtractJsonField(body, "action") ?? "").Trim().ToLower();
 
-                if (string.IsNullOrEmpty(pkg) || !Regex.IsMatch(pkg, @"^[a-zA-Z0-9_]+(.[a-zA-Z0-9_]+)+$"))
+                if (string.IsNullOrEmpty(pkg) || !Regex.IsMatch(pkg, @"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$"))
                 {
                     statusCode = 400;
                     jsonResponse = string.Format("{{\"status\":\"error\",\"message\":{0}}}", ToJsonString("Invalid package identifier: " + pkg));
@@ -1062,7 +1076,15 @@ namespace CleanTV.Desktop
                     SendResponse(res, statusCode, jsonResponse);
                     return;
                 }
-                var pkgs = ExtractJsonStringArray(body, "packages");
+                var rawPkgs = ExtractJsonStringArray(body, "packages");
+                var pkgs = new List<string>();
+                foreach (var rp in rawPkgs)
+                {
+                    if (!string.IsNullOrEmpty(rp) && Regex.IsMatch(rp.Trim(), @"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$"))
+                    {
+                        pkgs.Add(rp.Trim());
+                    }
+                }
                 string action = (ExtractJsonField(body, "action") ?? "disable").ToLower();
 
                 if (pkgs.Count == 0)
@@ -1280,8 +1302,9 @@ namespace CleanTV.Desktop
                     }
                     else
                     {
-                        RunAdb("-s " + device + " shell am start -n com.gathin.tvhome/.MainActivity --es query \"" + query.Replace("\"", "\\\"") + "\"");
-                        actionTaken = "Dispatched intent query to TV: \"" + query + "\"";
+                        string safeQuery = Regex.Replace(query, @"[\r\n""`$\\]", " ");
+                        RunAdb("-s " + device + " shell am start -n com.gathin.tvhome/.MainActivity --es query \"" + safeQuery + "\"");
+                        actionTaken = "Dispatched intent query to TV: \"" + safeQuery + "\"";
                     }
 
                     jsonResponse = string.Format("{{\"status\":\"ok\",\"intent\":{0},\"action\":{1},\"message\":{2}}}",
@@ -1448,7 +1471,6 @@ namespace CleanTV.Desktop
                 return false;
             }
 
-            if (part1 == "STOR") return true;
 
             using (var sha = System.Security.Cryptography.SHA256.Create())
             {
@@ -1594,12 +1616,6 @@ namespace CleanTV.Desktop
             try
             {
                 var candidateIps = new List<string>();
-
-                // Known TV IP
-                if (!seenSerials.Contains("192.168.0.159"))
-                {
-                    candidateIps.Add("192.168.0.159");
-                }
 
                 // Check ARP cache
                 var arpProc = new Process();
@@ -1823,8 +1839,8 @@ namespace CleanTV.Desktop
             var menu = new ContextMenuStrip();
             menu.Items.Add("Open CleanTV Manager", null, (s, e) => LaunchAppWindow());
             menu.Items.Add("-");
-            menu.Items.Add("Connect Default TV (192.168.0.159)", null, (s, e) => {
-                ThreadPool.QueueUserWorkItem(_ => RunAdb("connect 192.168.0.159:5555"));
+            menu.Items.Add("Connect Local Device (127.0.0.1:5555)", null, (s, e) => {
+                ThreadPool.QueueUserWorkItem(_ => RunAdb("connect 127.0.0.1:5555"));
             });
             menu.Items.Add("-");
             menu.Items.Add("Exit", null, (s, e) => {

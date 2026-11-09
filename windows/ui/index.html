@@ -149,7 +149,7 @@
               </p>
 
               <div class="connection-input-strip">
-                <input type="text" id="inputTargetIp" class="input-dark" placeholder="192.168.0.159" value="192.168.0.159" style="width: 160px;">
+                <input type="text" id="inputTargetIp" class="input-dark" placeholder="192.168.1.100" style="width: 160px;">
                 <span style="color: var(--text-muted); font-family: var(--font-mono);">:</span>
                 <input type="text" id="inputTargetPort" class="input-dark" placeholder="5555" value="5555" style="width: 65px;">
                 <button class="btn btn-primary" id="btnConnectAdb">Connect Device</button>
@@ -188,7 +188,7 @@
                 </div>
                 <div>
                   <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);">Your TV is connected.</h3>
-                  <p style="font-size: 12px; color: var(--text-secondary);" id="connectedStateDetails">Realme Smart TV 4K · 192.168.0.159:5555 · ADB Online</p>
+                  <p style="font-size: 12px; color: var(--text-secondary);" id="connectedStateDetails">Android TV · 127.0.0.1:5555 · ADB Online</p>
                 </div>
               </div>
               <div style="display: flex; gap: 8px;">
@@ -405,7 +405,7 @@
               <span class="status-beacon-dot online"></span>
               <span style="font-size: 12.5px; font-weight: 500; color: var(--text-secondary);">Target Device:</span>
               <select id="selectRemoteTarget" class="select-obsidian" style="height: 32px; font-size: 12.5px; font-weight: 600; padding: 0 10px;">
-                <option value="192.168.0.159:5555">📺 Realme Smart TV 4K (192.168.0.159:5555)</option>
+                <option value="127.0.0.1:5555">📺 Local TV / Emulator (127.0.0.1:5555)</option>
                 <option value="emulator-5554">💻 Android TV Emulator (emulator-5554)</option>
                 <option value="127.0.0.1:5555">💻 Localhost Port 5555 (127.0.0.1:5555)</option>
               </select>
@@ -595,7 +595,7 @@
             <div class="surface-card">
               <div class="card-title-text" style="margin-bottom: 10px;">Socket Health</div>
               <div class="data-row"><span class="data-key">ADB Host</span><span class="data-val">127.0.0.1:5037 (Local daemon)</span></div>
-              <div class="data-row"><span class="data-key">Bridge Target</span><span class="data-val accent" id="diagBridgeTarget">192.168.0.159:5555</span></div>
+              <div class="data-row"><span class="data-key">Bridge Target</span><span class="data-val accent" id="diagBridgeTarget">127.0.0.1:5555</span></div>
               <div class="data-row"><span class="data-key">Ping Latency</span><span class="data-val mint" id="diagPingLatency">12 ms (Optimal)</span></div>
               <div class="data-row"><span class="data-key">Packet Loss</span><span class="data-val mint">0.0%</span></div>
             </div>
@@ -762,7 +762,7 @@
           <div style="font-size: 20px;">📺</div>
           <div>
             <h3 style="font-size: 15px; font-weight: 600; color: var(--text-primary);" id="wizardTitle">Setting up Device</h3>
-            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);" id="wizardTargetSubtitle">192.168.0.159:5555</div>
+            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);" id="wizardTargetSubtitle">127.0.0.1:5555</div>
           </div>
         </div>
         <button id="btnCloseWizard" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px;">✕</button>

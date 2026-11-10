@@ -463,26 +463,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         h.banner.setScaleY(focused && advancedEffects ? 1.035f : 1f);
         // A fully opaque banner covers the whole card (centerCrop), so the card's own fill under it is drawn for
         // nothing on every frame; keep it under banners with transparent parts and under icon tiles.
-        if (e.banner != null && e.banner.getOpacity() == PixelFormat.OPAQUE) {
-            h.card.setBackground(null);
-        } else if (uniformTiles && e.banner == null) {
+        h.card.setBackground(e.banner != null && e.banner.getOpacity() == PixelFormat.OPAQUE ? null : h.cardBackground);
+        if (uniformTiles && e.banner == null) {
             if (e.backdrop == null) e.backdrop = backdrop(e.icon, ambientColorAt(position));
             h.card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, e.backdrop));
-        } else {
-            boolean isDay = DockDecoration.isDayTime();
-            if (isDay) {
-                // Day Mode: Light iOS glass tile background
-                float density = h.card.getResources().getDisplayMetrics().density;
-                GradientDrawable dayCard = new GradientDrawable();
-                dayCard.setShape(GradientDrawable.RECTANGLE);
-                dayCard.setColor(0xE6F2F4F8);
-                dayCard.setCornerRadius(cornerRadius(h.card.getLayoutParams().width, density));
-                dayCard.setStroke((int) Math.max(1f, 1f * density), 0x22000000);
-                h.card.setBackground(dayCard);
-            } else {
-                // Night Mode: Dark iOS card background
-                h.card.setBackground(h.cardBackground);
-            }
         }
         if (e.banner != null) {
             h.banner.setImageDrawable(e.banner);

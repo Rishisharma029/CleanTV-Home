@@ -85,18 +85,6 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         }
     }
 
-    /**
-     * Light by day, Dark by night time schedule:
-     * 06:00 to 18:00 (6 AM - 6 PM) is Day Mode (Light Glass).
-     * 18:00 to 06:00 (6 PM - 6 AM) is Night Mode (Dark Smoked Glass).
-     */
-    public static boolean isDayTime() {
-        int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
-        return hour >= 6 && hour < 18;
-    }
-
-    private Boolean lastDayShader = null;
-
     @Override
     public void onDraw(@NonNull Canvas c, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
         if (!bandVisible) return;
@@ -123,46 +111,41 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         }
         if (!any) return;
         float pad = 14 * density;
+        // The band can only draw inside the grid, and the first and last dock tiles sit 12dp in from its
+        // edges: a full 14dp at the sides sliced the rounded ends flat (#454). Keep the sides, with the
+        // 1dp edge line, inside the grid; the top and bottom have room.
+        // 22dp at the sides (the grid's 10dp padding makes room): a focused first or last tile grows about 7dp
+        // outwards and still keeps about the band's top margin from its rounded end.
         float sidePad = 22 * density;
         float side = Math.max(0f, Math.min(sidePad, Math.min(rect.left, parent.getWidth() - rect.right) - density));
         float radius = AppAdapter.cornerRadius(cardWidth, density);
         if (evenPadding) {
+            // The same padding on all four sides, so the band's corners are concentric with the tiles' everywhere.
             int inner = parent.getWidth() - parent.getPaddingLeft() - parent.getPaddingRight();
+            // A single row's tiles can run off the screen, so only its top limits the padding; its ends are clamped below.
             float room = (singleRow ? rect.top : Math.min(rect.top, Math.min(rect.left, parent.getWidth() - rect.right))) - density;
             float even = evenPaddingPx(inner, dockSize, cardWidth, room);
             rect.inset(-even, -even);
             radius = radiusPx(radius, even);
         } else {
+            // dock_even_padding off: the band as before, with its fixed 26 dp corners.
             rect.inset(singleRow ? -sidePad : -side, -pad);
             radius = 26 * density;
         }
         if (singleRow) {
+            // Tiles past the screen's edge: the band stops at the grid's edge with its rounded end instead of being
+            // sliced square there.
             rect.left = Math.max(rect.left, density);
             rect.right = Math.min(rect.right, parent.getWidth() - density);
         }
         rect.bottom += namesRoom;
-
-        // Dynamic "Light by Day, Dark by Night" styling
-        boolean isDay = isDayTime();
-        if (lastDayShader == null || lastDayShader != isDay || rect.top != shaderTop || rect.bottom != shaderBottom) {
-            if (isDay) {
-                // Day Mode: Light Frosted Glass (Apple tvOS / iOS Day)
-                band.setShader(new LinearGradient(0, rect.top, 0, rect.bottom,
-                        0x99FFFFFF, 0x55FFFFFF, Shader.TileMode.CLAMP));
-                edge.setColor(0x80FFFFFF);
-                edge.setStrokeWidth(1.5f * density);
-            } else {
-                // Night Mode: Dark Smoked Glass (OLED Night)
-                band.setShader(new LinearGradient(0, rect.top, 0, rect.bottom,
-                        0x9018181C, 0xC0101014, Shader.TileMode.CLAMP));
-                edge.setColor(0x26FFFFFF);
-                edge.setStrokeWidth(1.0f * density);
-            }
-            lastDayShader = isDay;
+        if (lightGlass && (rect.top != shaderTop || rect.bottom != shaderBottom)) {
+            // The pills' glass (pill_bg: white, 18% fading to 8%), a little fainter over this much larger area.
+            band.setShader(new LinearGradient(0, rect.top, 0, rect.bottom, 0x24FFFFFF, 0x0DFFFFFF,
+                    Shader.TileMode.CLAMP));
             shaderTop = rect.top;
             shaderBottom = rect.bottom;
         }
-
         c.drawRoundRect(rect, radius, radius, band);
         c.drawRoundRect(rect, radius, radius, edge);
     }

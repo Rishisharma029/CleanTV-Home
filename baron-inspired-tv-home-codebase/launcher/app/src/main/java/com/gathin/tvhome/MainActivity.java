@@ -138,6 +138,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean coocaaSources;
 
     private AppAdapter adapter;
+    private boolean lastIsDay = DockDecoration.isDayTime();
     private RecyclerView grid;
     private FrameLayout root;
     private WallpaperPlayer wallpaperPlayer;
@@ -403,10 +404,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             updateClockVisibility();
         }
     };
+    private void checkDayNightTheme() {
+        boolean currentIsDay = DockDecoration.isDayTime();
+        if (currentIsDay != lastIsDay) {
+            lastIsDay = currentIsDay;
+            if (grid != null) {
+                grid.invalidateItemDecorations();
+                if (adapter != null) {
+                    adapter.notifyDataSetChanged();
+                }
+            }
+        }
+    }
+
     private final EventBroadcastEngine.ClockListener clockBroadcastListener = () -> {
         runOnUiThread(() -> {
             updateGreeting();
             updateRace();
+            checkDayNightTheme();
             if (festive) updateWifiLabel();
             sky.update();
             if (weatherParticles != null && ambientWeatherEnabled && !reducedMotion) {
@@ -1170,6 +1185,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         restartIdleClock();
         promptsPaused = false;
+        checkDayNightTheme();
         if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
         switch (tileRefresh.onResume(packagesChangedSinceRebuild())) {
             case REBUILD:

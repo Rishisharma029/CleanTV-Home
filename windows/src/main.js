@@ -946,7 +946,7 @@ const server = http.createServer((req, res) => {
         currency: 'INR',
         storeProductId: 'CleanTV.Pro.Lifetime',
         webStoreUrl: 'https://cleantv.app/pro',
-        providers: ['Microsoft Store', 'Razorpay', 'Stripe', 'Lemon Squeezy', 'Gumroad']
+        providers: ['Microsoft Store']
       });
     }
 

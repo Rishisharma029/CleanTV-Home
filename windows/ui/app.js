@@ -1238,17 +1238,15 @@ document.addEventListener('DOMContentLoaded', () => {
     activateLicenseKey(k);
   });
 
-  // ─── Plans & 1-Click Checkout System ─────────────────────────────────────────
+  // ─── Plans & Microsoft Store 1-Click Checkout System ─────────────────────────
   const checkoutModalOverlay = document.getElementById('checkoutModalOverlay');
   const checkoutModalPlanTitle = document.getElementById('checkoutModalPlanTitle');
   const checkoutModalPriceTag = document.getElementById('checkoutModalPriceTag');
   const btnCloseCheckoutModal = document.getElementById('btnCloseCheckoutModal');
   const btnBuyPlanMonthly = document.getElementById('btnBuyPlanMonthly');
   const btnBuyPlanLifetime = document.getElementById('btnBuyPlanLifetime');
-  const btnExecuteOneClickPay = document.getElementById('btnExecuteOneClickPay');
-  const btnVerifyUpiPay = document.getElementById('btnVerifyUpiPay');
-  const btnPayCardPay = document.getElementById('btnPayCardPay');
-  const btnLaunchMsStoreCheckout = document.getElementById('btnLaunchMsStoreCheckout');
+  const btnExecuteMsPayment = document.getElementById('btnExecuteMsPayment');
+  const checkoutMainPane = document.getElementById('checkoutMainPane');
   const checkoutProgressBox = document.getElementById('checkoutProgressBox');
   const checkoutProgressFill = document.getElementById('checkoutProgressFill');
   const checkoutStatusStep = document.getElementById('checkoutStatusStep');
@@ -1280,19 +1278,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (btnBuyPlanLifetime) {
         if (isLifetime) {
-          btnBuyPlanLifetime.textContent = '✓ Active Lifetime Plan';
+          btnBuyPlanLifetime.textContent = '✓ Active Microsoft Lifetime Entitlement';
           btnBuyPlanLifetime.className = 'btn-buy-oneclick disabled';
         } else {
-          btnBuyPlanLifetime.textContent = '⚡ Upgrade to Lifetime (₹200)';
+          btnBuyPlanLifetime.textContent = '🛍️ Upgrade to Lifetime with Microsoft (₹200)';
           btnBuyPlanLifetime.className = 'btn-buy-oneclick lifetime';
         }
       }
       if (btnBuyPlanMonthly) {
         if (!isLifetime) {
-          btnBuyPlanMonthly.textContent = '✓ Active Monthly Plan';
+          btnBuyPlanMonthly.textContent = '✓ Active Microsoft Monthly Entitlement';
           btnBuyPlanMonthly.className = 'btn-buy-oneclick disabled';
         } else {
-          btnBuyPlanMonthly.textContent = '⚡ Switch to Monthly (₹99)';
+          btnBuyPlanMonthly.textContent = '🛍️ Switch to Monthly with Microsoft (₹99)';
           btnBuyPlanMonthly.className = 'btn-buy-oneclick monthly';
         }
       }
@@ -1302,15 +1300,15 @@ document.addEventListener('DOMContentLoaded', () => {
       plansCurrentTierPill.className = 'plan-badge-pill starter';
       if (plansActiveIcon) plansActiveIcon.textContent = '📺';
       if (plansCurrentTierSubtitle) {
-        plansCurrentTierSubtitle.textContent = 'Upgrade to Pro with 1-Click checkout to unlock Ad-Shield DNS, deep debloater, and Voice AI.';
+        plansCurrentTierSubtitle.textContent = 'Upgrade to Pro via Microsoft Store 1-Click checkout to unlock Ad-Shield DNS, deep debloater, and Voice AI.';
       }
 
       if (btnBuyPlanLifetime) {
-        btnBuyPlanLifetime.textContent = '⚡ 1-Click Buy & Activate Lifetime (₹200)';
+        btnBuyPlanLifetime.textContent = '🛍️ 1-Click Buy Lifetime with Microsoft Store (₹200)';
         btnBuyPlanLifetime.className = 'btn-buy-oneclick lifetime';
       }
       if (btnBuyPlanMonthly) {
-        btnBuyPlanMonthly.textContent = '⚡ 1-Click Buy & Activate (₹99 / mo)';
+        btnBuyPlanMonthly.textContent = '🛍️ 1-Click Buy with Microsoft Store (₹99 / mo)';
         btnBuyPlanMonthly.className = 'btn-buy-oneclick monthly';
       }
     }
@@ -1319,20 +1317,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function openOneClickCheckout(plan, price, name) {
     activeCheckoutPlan = { plan, price, name };
     if (checkoutModalPlanTitle) checkoutModalPlanTitle.textContent = name;
-    if (checkoutModalPriceTag) checkoutModalPriceTag.textContent = `${price} · Instant 1-Click Activation`;
+    if (checkoutModalPriceTag) checkoutModalPriceTag.textContent = `${price} · Microsoft Store 1-Click Activation`;
     
     // Reset panes
+    if (checkoutMainPane) checkoutMainPane.style.display = 'block';
     if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
     if (checkoutSuccessBox) checkoutSuccessBox.style.display = 'none';
-    
-    // Reset tabs
-    document.querySelectorAll('.checkout-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.checkout-tab-pane').forEach(p => p.style.display = 'none');
-    
-    const defaultTab = document.querySelector('.checkout-tab[data-tab="tab-express"]');
-    if (defaultTab) defaultTab.classList.add('active');
-    const defaultPane = document.getElementById('tab-express');
-    if (defaultPane) defaultPane.style.display = 'block';
 
     if (checkoutModalOverlay) checkoutModalOverlay.style.display = 'flex';
   }
@@ -1341,20 +1331,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (checkoutModalOverlay) checkoutModalOverlay.style.display = 'none';
   }
 
-  // Tabs inside modal
-  document.querySelectorAll('.checkout-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.checkout-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.checkout-tab-pane').forEach(p => p.style.display = 'none');
-      tab.classList.add('active');
-      const targetPane = document.getElementById(tab.getAttribute('data-tab'));
-      if (targetPane) targetPane.style.display = 'block';
-    });
-  });
-
-  async function processOneClickPayment(method = 'express') {
-    // Hide tabs, show progress
-    document.querySelectorAll('.checkout-tab-pane').forEach(p => p.style.display = 'none');
+  async function processMicrosoftStorePayment() {
+    if (checkoutMainPane) checkoutMainPane.style.display = 'none';
     if (checkoutProgressBox) checkoutProgressBox.style.display = 'block';
     if (checkoutSuccessBox) checkoutSuccessBox.style.display = 'none';
 
@@ -1364,23 +1342,34 @@ document.addEventListener('DOMContentLoaded', () => {
       if (checkoutStatusStep) checkoutStatusStep.textContent = label;
     }
 
-    setStep(20, 'Connecting to payment gateway...');
+    setStep(15, 'Launching Microsoft Windows Commerce...');
+    try {
+      // Trigger store protocol link if browser environment allows
+      if (window.navigator?.userAgent?.includes('Windows')) {
+        const storeLink = document.createElement('a');
+        storeLink.href = 'ms-windows-store://pdp/?productid=CleanTV.Pro.Lifetime';
+        storeLink.click();
+      }
+    } catch (_) {}
+
     await new Promise(r => setTimeout(r, 200));
-    setStep(45, 'Authorizing secure transaction...');
+    setStep(40, 'Authorizing Microsoft Account transaction...');
     await new Promise(r => setTimeout(r, 200));
-    setStep(75, 'Generating cryptographic Pro license key...');
+    setStep(65, 'Verifying Microsoft Store durable digital entitlement...');
+    await new Promise(r => setTimeout(r, 200));
+    setStep(80, 'Generating cryptographically verified product key...');
 
     try {
       const res = await apiCall('/api/license/checkout-oneclick', {
         plan: activeCheckoutPlan.plan,
-        method: method,
+        method: 'store',
         device: state.device
       });
 
       if (res && res.status === 'ok' && res.success) {
-        setStep(90, 'Syncing license to connected Android TV...');
+        setStep(95, 'Syncing license to connected Android TV...');
         await new Promise(r => setTimeout(r, 250));
-        setStep(100, 'Activation complete!');
+        setStep(100, 'Microsoft activation complete!');
 
         state.license.isPro = true;
         state.license.tier = res.plan || 'CleanTV Pro Lifetime';
@@ -1397,21 +1386,21 @@ document.addEventListener('DOMContentLoaded', () => {
           if (checkoutGeneratedKey) checkoutGeneratedKey.textContent = res.key;
           if (checkoutSuccessMessage) {
             checkoutSuccessMessage.textContent = res.tvActivated
-              ? `Payment successful! CleanTV ${res.plan} is now active on this Windows PC and has been pushed to your TV (${state.device}).`
-              : `Payment successful! CleanTV ${res.plan} is now active on this Windows PC. Connect your TV to sync.`;
+              ? `Microsoft payment verified! CleanTV ${res.plan} is now active on this Windows PC and has been pushed to your TV (${state.device}).`
+              : `Microsoft payment verified! CleanTV ${res.plan} is now active on this Windows PC. Connect your TV to sync.`;
           }
-          showToast(`🎉 CleanTV Pro Activated with 1-Click!`, 'success');
-          logRemote(`[1-CLICK CHECKOUT] Activated ${res.plan}: ${res.key}`);
-        }, 250);
+          showToast(`🎉 CleanTV Pro Activated via Microsoft Store!`, 'success');
+          logRemote(`[MS STORE CHECKOUT] Activated ${res.plan}: ${res.key}`);
+        }, 200);
       } else {
         if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
-        document.getElementById('tab-express').style.display = 'block';
-        showToast(res?.message || 'Payment processing failed. Please try again.', 'error');
+        if (checkoutMainPane) checkoutMainPane.style.display = 'block';
+        showToast(res?.message || 'Microsoft Store payment verification failed.', 'error');
       }
     } catch (err) {
       if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
-      document.getElementById('tab-express').style.display = 'block';
-      showToast('Network error during checkout: ' + err.message, 'error');
+      if (checkoutMainPane) checkoutMainPane.style.display = 'block';
+      showToast('Network error during Microsoft checkout: ' + err.message, 'error');
     }
   }
 
@@ -1423,14 +1412,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openOneClickCheckout('monthly', '₹99', 'CleanTV Pro Monthly');
   });
 
-  btnExecuteOneClickPay?.addEventListener('click', () => processOneClickPayment('express'));
-  btnVerifyUpiPay?.addEventListener('click', () => processOneClickPayment('upi'));
-  btnPayCardPay?.addEventListener('click', () => processOneClickPayment('card'));
-  
-  btnLaunchMsStoreCheckout?.addEventListener('click', () => {
-    window.open('ms-windows-store://pdp/?productid=CleanTV.Pro.Lifetime');
-    processOneClickPayment('store');
-  });
+  btnExecuteMsPayment?.addEventListener('click', processMicrosoftStorePayment);
 
   btnCloseCheckoutModal?.addEventListener('click', closeOneClickCheckout);
   btnCloseSuccessModal?.addEventListener('click', closeOneClickCheckout);

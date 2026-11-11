@@ -1210,7 +1210,7 @@ namespace CleanTV.Desktop
             }
             else if (endpoint == "/api/license/config")
             {
-                jsonResponse = "{\"status\":\"ok\",\"monthlyPriceInr\":\"₹99\",\"monthlyPriceUsd\":\"$5\",\"lifetimePriceInr\":\"₹200\",\"lifetimePriceUsd\":\"$7\",\"introductoryPrice\":\"₹99\",\"regularPrice\":\"₹200\",\"currency\":\"INR\",\"storeProductId\":\"CleanTV.Pro.Lifetime\",\"webStoreUrl\":\"https://cleantv.app/pro\",\"providers\":[\"Microsoft Store\",\"Razorpay\",\"Stripe\",\"Lemon Squeezy\",\"Gumroad\"]}";
+                jsonResponse = "{\"status\":\"ok\",\"monthlyPriceInr\":\"₹99\",\"monthlyPriceUsd\":\"$5\",\"lifetimePriceInr\":\"₹200\",\"lifetimePriceUsd\":\"$7\",\"introductoryPrice\":\"₹99\",\"regularPrice\":\"₹200\",\"currency\":\"INR\",\"storeProductId\":\"CleanTV.Pro.Lifetime\",\"webStoreUrl\":\"https://cleantv.app/pro\",\"providers\":[\"Microsoft Store\"]}";
             }
             else if (endpoint == "/api/license/activate")
             {

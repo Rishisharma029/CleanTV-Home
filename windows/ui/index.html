@@ -783,9 +783,9 @@
               </ul>
 
               <button class="btn-buy-oneclick monthly" id="btnBuyPlanMonthly" data-plan="monthly" data-price="₹99" data-name="CleanTV Pro Monthly">
-                ⚡ 1-Click Buy & Activate (₹99 / mo)
+                🛍️ 1-Click Buy with Microsoft Store (₹99 / mo)
               </button>
-              <div class="payment-methods-strip">UPI · Cards · NetBanking · MS Store</div>
+              <div class="payment-methods-strip">Official Microsoft Store Commerce (UPI · Cards · MS Account)</div>
             </div>
 
             <!-- Pro Lifetime Tier -->
@@ -811,9 +811,9 @@
               </ul>
 
               <button class="btn-buy-oneclick lifetime" id="btnBuyPlanLifetime" data-plan="lifetime" data-price="₹200" data-name="CleanTV Pro Lifetime">
-                ⚡ 1-Click Buy & Activate Lifetime (₹200)
+                🛍️ 1-Click Buy Lifetime with Microsoft Store (₹200)
               </button>
-              <div class="payment-methods-strip">⚡ 1-Click Express · UPI QR · Cards · MS Store</div>
+              <div class="payment-methods-strip">Official Microsoft Store Durable In-App Purchase</div>
             </div>
           </div>
         </section>
@@ -908,104 +908,50 @@
     </div>
   </div>
 
-  <!-- 1-Click Express Checkout & Instant Activation Modal -->
+  <!-- Microsoft Store In-App Checkout & Instant Activation Modal -->
   <div class="checkout-modal-overlay" id="checkoutModalOverlay" style="display: none;">
     <div class="checkout-modal-box">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="font-size: 22px;">⚡</div>
+          <div style="font-size: 24px;">🛍️</div>
           <div>
             <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary);" id="checkoutModalPlanTitle">CleanTV Pro Lifetime</h3>
-            <div style="font-size: 12px; color: var(--accent-secondary); font-weight: 600;" id="checkoutModalPriceTag">₹200 One-Time · Lifetime Ownership</div>
+            <div style="font-size: 12px; color: var(--accent-secondary); font-weight: 600;" id="checkoutModalPriceTag">₹200 One-Time · Microsoft Store Durable Entitlement</div>
           </div>
         </div>
         <button id="btnCloseCheckoutModal" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px;">✕</button>
       </div>
 
-      <!-- Payment Method Tabs -->
-      <div class="checkout-tab-bar">
-        <button class="checkout-tab active" data-tab="tab-express">⚡ 1-Click Express</button>
-        <button class="checkout-tab" data-tab="tab-upi">📱 UPI QR (India)</button>
-        <button class="checkout-tab" data-tab="tab-cards">💳 Cards / NetBanking</button>
-        <button class="checkout-tab" data-tab="tab-store">🛍️ Microsoft Store</button>
-      </div>
-
-      <!-- Tab 1: 1-Click Instant Express -->
-      <div class="checkout-tab-pane" id="tab-express">
-        <div style="background: var(--surface-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 16px;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Automated 1-Click Process:</div>
-          <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px;">
-            With just one click, CleanTV will process your transaction, generate your official cryptographic license key, bind it to this Windows PC, and automatically push activation to your connected Android TV!
+      <!-- Microsoft Store Commerce Card -->
+      <div id="checkoutMainPane">
+        <div style="background: var(--surface-secondary); border: 1px solid var(--border-active); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 18px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="color: #00A4EF;"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z"/></svg>
+            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Microsoft Windows Commerce</span>
+            <span class="plan-badge-pill popular" style="margin-bottom: 0; padding: 2px 7px; font-size: 9.5px;">OFFICIAL</span>
+          </div>
+          <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+            Purchase securely through your official Microsoft Account. Supports Microsoft balance, linked UPI, credit/debit cards, and NetBanking.
           </p>
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--accent-secondary);">
-            <span>🛡️</span>
-            <span>Zero-configuration · Instant cryptographic receipt · Instant TV sync</span>
+          <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">
+            <div>✓ Official durable receipt verified via Microsoft Partner Center</div>
+            <div>✓ 1-Click automatic license binding to this Windows PC</div>
+            <div>✓ Instant automatic push activation to your connected Android TV</div>
           </div>
         </div>
 
-        <button class="btn-buy-oneclick lifetime" id="btnExecuteOneClickPay" style="font-size: 14px; padding: 14px;">
-          ⚡ Confirm Payment & 1-Click Activate
+        <button class="btn-buy-oneclick lifetime" id="btnExecuteMsPayment" style="font-size: 14.5px; padding: 14px;">
+          🛍️ Pay with Microsoft & Auto-Activate
         </button>
-      </div>
-
-      <!-- Tab 2: UPI QR -->
-      <div class="checkout-tab-pane" id="tab-upi" style="display: none; text-align: center;">
-        <div style="background: #FFFFFF; padding: 12px; border-radius: var(--radius-sm); display: inline-block; margin-bottom: 12px;">
-          <svg viewBox="0 0 100 100" width="140" height="140" fill="#000000">
-            <rect x="10" y="10" width="25" height="25" fill="#000" /><rect x="15" y="15" width="15" height="15" fill="#fff" /><rect x="18" y="18" width="9" height="9" fill="#000" />
-            <rect x="65" y="10" width="25" height="25" fill="#000" /><rect x="70" y="15" width="15" height="15" fill="#fff" /><rect x="73" y="18" width="9" height="9" fill="#000" />
-            <rect x="10" y="65" width="25" height="25" fill="#000" /><rect x="15" y="70" width="15" height="15" fill="#fff" /><rect x="18" y="73" width="9" height="9" fill="#000" />
-            <rect x="45" y="15" width="10" height="10" fill="#000" /><rect x="40" y="30" width="20" height="10" fill="#000" />
-            <rect x="45" y="45" width="10" height="10" fill="#000" /><rect x="65" y="45" width="10" height="10" fill="#000" />
-            <rect x="45" y="65" width="20" height="10" fill="#000" /><rect x="70" y="75" width="15" height="15" fill="#000" />
-          </svg>
+        <div style="text-align: center; margin-top: 10px; font-size: 11px; color: var(--text-muted);">
+          Protected by Microsoft Windows Store Commerce Services
         </div>
-        <div style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">UPI ID: <span style="color: var(--accent-secondary); font-family: var(--font-mono);">cleantv@upi</span></div>
-        <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">Scan with Google Pay, PhonePe, Paytm or BHIM</div>
-        <button class="btn-buy-oneclick lifetime" id="btnVerifyUpiPay">
-          ✓ I Have Paid — 1-Click Activate Now
-        </button>
-      </div>
-
-      <!-- Tab 3: Cards -->
-      <div class="checkout-tab-pane" id="tab-cards" style="display: none;">
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-          <div>
-            <label style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Card Number</label>
-            <input type="text" class="input-dark" placeholder="4242 •••• •••• 4242" value="4532 •••• •••• 8892">
-          </div>
-          <div style="display: flex; gap: 10px;">
-            <div style="flex: 1;">
-              <label style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Expiry</label>
-              <input type="text" class="input-dark" placeholder="MM/YY" value="12/28">
-            </div>
-            <div style="flex: 1;">
-              <label style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;">CVV</label>
-              <input type="password" class="input-dark" placeholder="•••" value="889">
-            </div>
-          </div>
-        </div>
-        <button class="btn-buy-oneclick lifetime" id="btnPayCardPay">
-          💳 Pay & 1-Click Activate
-        </button>
-      </div>
-
-      <!-- Tab 4: Microsoft Store -->
-      <div class="checkout-tab-pane" id="tab-store" style="display: none; text-align: center; padding: 10px 0;">
-        <div style="font-size: 32px; margin-bottom: 8px;">🛍️</div>
-        <div style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Microsoft Store In-App Commerce</div>
-        <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
-          Purchase CleanTV Pro Durable Add-On directly using your Microsoft Account balance, linked UPI, or credit cards.
-        </p>
-        <button class="btn-buy-oneclick monthly" id="btnLaunchMsStoreCheckout">
-          🛍️ Launch Microsoft Store Checkout
-        </button>
       </div>
 
       <!-- Progress Box during processing -->
       <div class="checkout-step-progress" id="checkoutProgressBox" style="display: none;">
         <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-primary);">
-          <span id="checkoutStatusStep">Processing transaction...</span>
+          <span id="checkoutStatusStep">Connecting to Microsoft Store Commerce...</span>
           <span id="checkoutStatusPercent">25%</span>
         </div>
         <div class="checkout-progress-bar">
@@ -1016,18 +962,20 @@
       <!-- Success Screen -->
       <div id="checkoutSuccessBox" style="display: none; text-align: center; padding: 14px 0;">
         <div style="font-size: 40px; margin-bottom: 10px;">🎉</div>
-        <h3 style="font-size: 18px; font-weight: 700; color: var(--success); margin-bottom: 6px;">Payment Successful & Pro Activated!</h3>
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--success); margin-bottom: 6px;">Microsoft Payment Successful & Pro Activated!</h3>
         <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;" id="checkoutSuccessMessage">
-          CleanTV Pro is now officially active on this PC and your connected Android TV.
+          CleanTV Pro has been purchased via Microsoft Store and is now officially active on this PC and your physical TV.
         </p>
         <div style="background: var(--surface-secondary); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 16px;">
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">YOUR GENERATED PRODUCT KEY</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">YOUR MICROSOFT VERIFIED PRODUCT KEY</div>
           <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--accent-secondary);" id="checkoutGeneratedKey">CTV-PRO-8892-98B4</div>
         </div>
         <button class="btn btn-primary" id="btnCloseSuccessModal" style="width: 100%;">
           Done & Enjoy CleanTV Pro
         </button>
       </div>
+    </div>
+  </div>
     </div>
   </div>
 

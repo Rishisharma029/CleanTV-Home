@@ -1022,10 +1022,13 @@ const server = http.createServer((req, res) => {
         } catch (_) {}
       }
 
+      const txId = 'MS-ORD-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
       return jsonOk(res, {
         success: true,
         tier: 'pro',
         isPro: true,
+        transactionId: txId,
         key: key,
         plan: plan,
         tvActivated: tvActivated,

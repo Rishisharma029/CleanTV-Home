@@ -966,10 +966,27 @@
         <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;" id="checkoutSuccessMessage">
           CleanTV Pro has been purchased via Microsoft Store and is now officially active on this PC and your physical TV.
         </p>
-        <div style="background: var(--surface-secondary); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 16px;">
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">YOUR MICROSOFT VERIFIED PRODUCT KEY</div>
-          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--accent-secondary);" id="checkoutGeneratedKey">CTV-PRO-8892-98B4</div>
+        
+        <!-- Official Microsoft Order & Email Delivery Receipt -->
+        <div style="background: var(--surface-secondary); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 16px; text-align: left;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Microsoft Order Receipt</span>
+            <span class="plan-badge-pill popular" style="margin-bottom: 0; padding: 2px 7px; font-size: 9.5px;">CONFIRMED</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+            <span style="color: var(--text-secondary);">Transaction ID:</span>
+            <span style="font-family: var(--font-mono); color: var(--text-primary); font-weight: 600;" id="checkoutTransactionId">MS-ORD-7719284</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px;">
+            <span style="color: var(--text-secondary);">License Delivery:</span>
+            <span style="color: var(--accent-secondary); font-weight: 600;">Dispatched via Email</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06); font-size: 11.5px; color: var(--text-secondary); line-height: 1.4;">
+            <span style="font-size: 15px;">✉️</span>
+            <span>Your official license key & invoice have been sent separately to your registered Microsoft Account email address.</span>
+          </div>
         </div>
+
         <button class="btn btn-primary" id="btnCloseSuccessModal" style="width: 100%;">
           Done & Enjoy CleanTV Pro
         </button>

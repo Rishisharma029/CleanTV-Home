@@ -1289,8 +1289,10 @@ namespace CleanTV.Desktop
                     catch { }
                 }
 
-                jsonResponse = string.Format("{{\"status\":\"ok\",\"success\":true,\"tier\":\"pro\",\"isPro\":true,\"key\":{0},\"plan\":{1},\"tvActivated\":{2},\"message\":{3}}}",
-                    ToJsonString(generatedKey), ToJsonString(validPlan), tvSynced ? "true" : "false",
+                string txId = "MS-ORD-" + DateTime.UtcNow.Ticks.ToString("X").Substring(6, 6) + "-" + new Random().Next(1000, 9999).ToString();
+
+                jsonResponse = string.Format("{{\"status\":\"ok\",\"success\":true,\"tier\":\"pro\",\"isPro\":true,\"transactionId\":{0},\"key\":{1},\"plan\":{2},\"tvActivated\":{3},\"message\":{4}}}",
+                    ToJsonString(txId), ToJsonString(generatedKey), ToJsonString(validPlan), tvSynced ? "true" : "false",
                     ToJsonString(validPlan + " activated successfully with 1-Click checkout!"));
             }
             else if (endpoint == "/api/adblock/status")

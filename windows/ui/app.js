@@ -1253,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const checkoutStatusPercent = document.getElementById('checkoutStatusPercent');
   const checkoutSuccessBox = document.getElementById('checkoutSuccessBox');
   const checkoutSuccessMessage = document.getElementById('checkoutSuccessMessage');
-  const checkoutGeneratedKey = document.getElementById('checkoutGeneratedKey');
+  const checkoutTransactionId = document.getElementById('checkoutTransactionId');
   const btnCloseSuccessModal = document.getElementById('btnCloseSuccessModal');
   const btnPlansRestorePurchases = document.getElementById('btnPlansRestorePurchases');
   const btnPlansEnterKeyDirect = document.getElementById('btnPlansEnterKeyDirect');
@@ -1273,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', () => {
       plansCurrentTierPill.className = isLifetime ? 'plan-badge-pill lifetime' : 'plan-badge-pill popular';
       if (plansActiveIcon) plansActiveIcon.textContent = isLifetime ? '👑' : '⭐';
       if (plansCurrentTierSubtitle) {
-        plansCurrentTierSubtitle.textContent = `Your license key is cryptographically signed (${state.license.key || 'ACTIVE'}). Multi-device TV sync is unlocked.`;
+        plansCurrentTierSubtitle.textContent = 'Your license is verified and bound via official Microsoft Store Commerce. Multi-device TV sync is active.';
       }
 
       if (btnBuyPlanLifetime) {
@@ -1383,14 +1383,15 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
           if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
           if (checkoutSuccessBox) checkoutSuccessBox.style.display = 'block';
-          if (checkoutGeneratedKey) checkoutGeneratedKey.textContent = res.key;
+          const txId = res.transactionId || ('MS-ORD-' + Math.random().toString(36).substring(2, 9).toUpperCase());
+          if (checkoutTransactionId) checkoutTransactionId.textContent = txId;
           if (checkoutSuccessMessage) {
             checkoutSuccessMessage.textContent = res.tvActivated
-              ? `Microsoft payment verified! CleanTV ${res.plan} is now active on this Windows PC and has been pushed to your TV (${state.device}).`
-              : `Microsoft payment verified! CleanTV ${res.plan} is now active on this Windows PC. Connect your TV to sync.`;
+              ? `Payment confirmed via Microsoft Store! Your license key has been sent separately to your email. CleanTV ${res.plan} is now active on this Windows PC and synced to your TV.`
+              : `Payment confirmed via Microsoft Store! Your license key has been sent separately to your email. CleanTV ${res.plan} is now active on this Windows PC.`;
           }
           showToast(`🎉 CleanTV Pro Activated via Microsoft Store!`, 'success');
-          logRemote(`[MS STORE CHECKOUT] Activated ${res.plan}: ${res.key}`);
+          logRemote(`[MS STORE CHECKOUT] Activated ${res.plan} (Transaction: ${txId})`);
         }, 200);
       } else {
         if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';

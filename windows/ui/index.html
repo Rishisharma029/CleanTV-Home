@@ -110,6 +110,11 @@
             <span>CleanTV Pro</span>
             <span class="rail-badge-mini">PRO</span>
           </button>
+          <button class="rail-item" data-page="page-plans" data-section="Account" data-label="Plans & Pricing" id="railItemPlans">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+            <span>Plans & Pricing</span>
+            <span class="rail-badge-mini" style="background: rgba(67, 217, 163, 0.2); color: #43d9a3; border: 1px solid rgba(67, 217, 163, 0.4);">1-CLICK</span>
+          </button>
           <button class="rail-item" data-page="page-settings" data-section="Account" data-label="Settings">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             <span>Settings</span>
@@ -694,6 +699,126 @@
         </section>
 
         <!-- ========================================== -->
+        <!-- J2. PLANS & 1-CLICK CHECKOUT               -->
+        <!-- ========================================== -->
+        <section class="page-view" id="page-plans">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div class="page-pre-header">MEMBERSHIP & STORE</div>
+              <h1 class="page-main-header">CleanTV Plans & 1-Click Purchase</h1>
+              <p class="page-header-desc">Compare all available plans, enjoy instant 1-Click checkout, and auto-activate across both your Windows PC and Android TV.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnPlansRestorePurchases" style="margin-top: 6px;">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 5px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              Restore Purchases
+            </button>
+          </div>
+
+          <!-- Current Active Status Banner -->
+          <div class="pro-aurora-card" style="margin-top: 16px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="font-size: 32px;" id="plansActiveIcon">👑</div>
+              <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 16px; font-weight: 700; color: var(--text-primary);" id="plansCurrentTierTitle">CleanTV Pro Lifetime</span>
+                  <span class="plan-badge-pill lifetime" id="plansCurrentTierPill" style="margin-bottom: 0;">ACTIVE</span>
+                </div>
+                <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 3px;" id="plansCurrentTierSubtitle">
+                  Your license key is cryptographically signed and bound to this device. Multi-device sync is enabled.
+                </p>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button class="btn btn-secondary btn-sm" id="btnPlansEnterKeyDirect">Enter Key</button>
+            </div>
+          </div>
+
+          <!-- Three Tier Comparison Cards -->
+          <div class="plans-grid-three">
+            <!-- Free Tier -->
+            <div class="pricing-card" id="cardPlanFree">
+              <span class="plan-badge-pill starter">STARTER TIER</span>
+              <div class="plan-title">CleanTV Free</div>
+              <div class="plan-desc">Essential bloat disabler, basic ad blocker, and remote control for daily TV viewing.</div>
+              
+              <div class="plan-price-wrap">
+                <span class="plan-price-currency">₹</span>
+                <span class="plan-price-val">0</span>
+                <span class="plan-price-cadence">/ forever</span>
+              </div>
+
+              <ul class="plan-feature-list">
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> CleanTV Home Launcher</li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> Basic Ad-Blocker DNS</li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> Safe OEM Bloatware Disabler (Top 5)</li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> Virtual ADB D-Pad Remote</li>
+                <li class="plan-feature-item dimmed"><span class="plan-feature-icon">✕</span> System-Wide AdGuard Encrypted DNS</li>
+                <li class="plan-feature-item dimmed"><span class="plan-feature-icon">✕</span> Complete 150+ OEM Bloatware Removal</li>
+                <li class="plan-feature-item dimmed"><span class="plan-feature-icon">✕</span> CleanTV Voice & AI Neural Assistant</li>
+              </ul>
+
+              <button class="btn-buy-oneclick disabled" id="btnSelectPlanFree">Current Plan</button>
+              <div class="payment-methods-strip">No credit card required</div>
+            </div>
+
+            <!-- Pro Monthly Tier -->
+            <div class="pricing-card" id="cardPlanMonthly">
+              <span class="plan-badge-pill popular">POPULAR · FLEXIBLE</span>
+              <div class="plan-title">Pro Monthly</div>
+              <div class="plan-desc">Full access to private encrypted Ad-Shield, deep debloater, and Voice AI on a flexible cycle.</div>
+              
+              <div class="plan-price-wrap">
+                <span class="plan-price-currency">₹</span>
+                <span class="plan-price-val">99</span>
+                <span class="plan-price-cadence">/ month ($5 USD)</span>
+              </div>
+
+              <ul class="plan-feature-list">
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Everything in Free</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>System-Wide Ad-Shield DNS</strong> (YouTube & TV apps)</li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Complete 150+ OEM Debloater</strong> (Realme, Xiaomi, Sony, TCL)</li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Voice & AI Neural Assistant</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Batch App Manager & Deep Cache Wiper</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> 30-Day Auto-Renewal (Cancel anytime)</li>
+              </ul>
+
+              <button class="btn-buy-oneclick monthly" id="btnBuyPlanMonthly" data-plan="monthly" data-price="₹99" data-name="CleanTV Pro Monthly">
+                ⚡ 1-Click Buy & Activate (₹99 / mo)
+              </button>
+              <div class="payment-methods-strip">UPI · Cards · NetBanking · MS Store</div>
+            </div>
+
+            <!-- Pro Lifetime Tier -->
+            <div class="pricing-card featured" id="cardPlanLifetime">
+              <span class="plan-badge-pill lifetime">👑 BEST VALUE · SAVE 85%</span>
+              <div class="plan-title">Pro Lifetime</div>
+              <div class="plan-desc">Permanent lifetime ownership with zero recurring fees forever. Instant activation on TV and PC.</div>
+              
+              <div class="plan-price-wrap">
+                <span class="plan-price-currency">₹</span>
+                <span class="plan-price-val">200</span>
+                <span class="plan-price-cadence">/ one-time ($7 USD)</span>
+              </div>
+
+              <ul class="plan-feature-list">
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>EVERY SINGLE PRO FEATURE FOREVER</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Zero Monthly / Yearly Fees Forever</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Lifetime System-Wide Ad-Shield (TV & PC)</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Full 150+ OEM Debloat with 1-Click Presets</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Unrestricted Voice & AI Neural Assistant</strong></li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Multi-Device Entitlement</strong> (TV + Windows PC)</li>
+                <li class="plan-feature-item included"><span class="plan-feature-icon">✓</span> <strong>Microsoft Store Durable Entitlement & VIP Updates</strong></li>
+              </ul>
+
+              <button class="btn-buy-oneclick lifetime" id="btnBuyPlanLifetime" data-plan="lifetime" data-price="₹200" data-name="CleanTV Pro Lifetime">
+                ⚡ 1-Click Buy & Activate Lifetime (₹200)
+              </button>
+              <div class="payment-methods-strip">⚡ 1-Click Express · UPI QR · Cards · MS Store</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
         <!-- K. SETTINGS                                -->
         <!-- ========================================== -->
         <section class="page-view" id="page-settings">
@@ -779,6 +904,129 @@
       <!-- Wizard Dynamic Body Content -->
       <div id="wizardBodyContent">
         <!-- Rendered by JavaScript based on state -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 1-Click Express Checkout & Instant Activation Modal -->
+  <div class="checkout-modal-overlay" id="checkoutModalOverlay" style="display: none;">
+    <div class="checkout-modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 22px;">⚡</div>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-primary);" id="checkoutModalPlanTitle">CleanTV Pro Lifetime</h3>
+            <div style="font-size: 12px; color: var(--accent-secondary); font-weight: 600;" id="checkoutModalPriceTag">₹200 One-Time · Lifetime Ownership</div>
+          </div>
+        </div>
+        <button id="btnCloseCheckoutModal" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px;">✕</button>
+      </div>
+
+      <!-- Payment Method Tabs -->
+      <div class="checkout-tab-bar">
+        <button class="checkout-tab active" data-tab="tab-express">⚡ 1-Click Express</button>
+        <button class="checkout-tab" data-tab="tab-upi">📱 UPI QR (India)</button>
+        <button class="checkout-tab" data-tab="tab-cards">💳 Cards / NetBanking</button>
+        <button class="checkout-tab" data-tab="tab-store">🛍️ Microsoft Store</button>
+      </div>
+
+      <!-- Tab 1: 1-Click Instant Express -->
+      <div class="checkout-tab-pane" id="tab-express">
+        <div style="background: var(--surface-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 16px;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Automated 1-Click Process:</div>
+          <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px;">
+            With just one click, CleanTV will process your transaction, generate your official cryptographic license key, bind it to this Windows PC, and automatically push activation to your connected Android TV!
+          </p>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--accent-secondary);">
+            <span>🛡️</span>
+            <span>Zero-configuration · Instant cryptographic receipt · Instant TV sync</span>
+          </div>
+        </div>
+
+        <button class="btn-buy-oneclick lifetime" id="btnExecuteOneClickPay" style="font-size: 14px; padding: 14px;">
+          ⚡ Confirm Payment & 1-Click Activate
+        </button>
+      </div>
+
+      <!-- Tab 2: UPI QR -->
+      <div class="checkout-tab-pane" id="tab-upi" style="display: none; text-align: center;">
+        <div style="background: #FFFFFF; padding: 12px; border-radius: var(--radius-sm); display: inline-block; margin-bottom: 12px;">
+          <svg viewBox="0 0 100 100" width="140" height="140" fill="#000000">
+            <rect x="10" y="10" width="25" height="25" fill="#000" /><rect x="15" y="15" width="15" height="15" fill="#fff" /><rect x="18" y="18" width="9" height="9" fill="#000" />
+            <rect x="65" y="10" width="25" height="25" fill="#000" /><rect x="70" y="15" width="15" height="15" fill="#fff" /><rect x="73" y="18" width="9" height="9" fill="#000" />
+            <rect x="10" y="65" width="25" height="25" fill="#000" /><rect x="15" y="70" width="15" height="15" fill="#fff" /><rect x="18" y="73" width="9" height="9" fill="#000" />
+            <rect x="45" y="15" width="10" height="10" fill="#000" /><rect x="40" y="30" width="20" height="10" fill="#000" />
+            <rect x="45" y="45" width="10" height="10" fill="#000" /><rect x="65" y="45" width="10" height="10" fill="#000" />
+            <rect x="45" y="65" width="20" height="10" fill="#000" /><rect x="70" y="75" width="15" height="15" fill="#000" />
+          </svg>
+        </div>
+        <div style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">UPI ID: <span style="color: var(--accent-secondary); font-family: var(--font-mono);">cleantv@upi</span></div>
+        <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 14px;">Scan with Google Pay, PhonePe, Paytm or BHIM</div>
+        <button class="btn-buy-oneclick lifetime" id="btnVerifyUpiPay">
+          ✓ I Have Paid — 1-Click Activate Now
+        </button>
+      </div>
+
+      <!-- Tab 3: Cards -->
+      <div class="checkout-tab-pane" id="tab-cards" style="display: none;">
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+          <div>
+            <label style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Card Number</label>
+            <input type="text" class="input-dark" placeholder="4242 •••• •••• 4242" value="4532 •••• •••• 8892">
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+              <label style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Expiry</label>
+              <input type="text" class="input-dark" placeholder="MM/YY" value="12/28">
+            </div>
+            <div style="flex: 1;">
+              <label style="font-size: 11.5px; color: var(--text-secondary); display: block; margin-bottom: 4px;">CVV</label>
+              <input type="password" class="input-dark" placeholder="•••" value="889">
+            </div>
+          </div>
+        </div>
+        <button class="btn-buy-oneclick lifetime" id="btnPayCardPay">
+          💳 Pay & 1-Click Activate
+        </button>
+      </div>
+
+      <!-- Tab 4: Microsoft Store -->
+      <div class="checkout-tab-pane" id="tab-store" style="display: none; text-align: center; padding: 10px 0;">
+        <div style="font-size: 32px; margin-bottom: 8px;">🛍️</div>
+        <div style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Microsoft Store In-App Commerce</div>
+        <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
+          Purchase CleanTV Pro Durable Add-On directly using your Microsoft Account balance, linked UPI, or credit cards.
+        </p>
+        <button class="btn-buy-oneclick monthly" id="btnLaunchMsStoreCheckout">
+          🛍️ Launch Microsoft Store Checkout
+        </button>
+      </div>
+
+      <!-- Progress Box during processing -->
+      <div class="checkout-step-progress" id="checkoutProgressBox" style="display: none;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-primary);">
+          <span id="checkoutStatusStep">Processing transaction...</span>
+          <span id="checkoutStatusPercent">25%</span>
+        </div>
+        <div class="checkout-progress-bar">
+          <div class="checkout-progress-fill" id="checkoutProgressFill"></div>
+        </div>
+      </div>
+
+      <!-- Success Screen -->
+      <div id="checkoutSuccessBox" style="display: none; text-align: center; padding: 14px 0;">
+        <div style="font-size: 40px; margin-bottom: 10px;">🎉</div>
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--success); margin-bottom: 6px;">Payment Successful & Pro Activated!</h3>
+        <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;" id="checkoutSuccessMessage">
+          CleanTV Pro is now officially active on this PC and your connected Android TV.
+        </p>
+        <div style="background: var(--surface-secondary); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 16px;">
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">YOUR GENERATED PRODUCT KEY</div>
+          <div style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--accent-secondary);" id="checkoutGeneratedKey">CTV-PRO-8892-98B4</div>
+        </div>
+        <button class="btn btn-primary" id="btnCloseSuccessModal" style="width: 100%;">
+          Done & Enjoy CleanTV Pro
+        </button>
       </div>
     </div>
   </div>

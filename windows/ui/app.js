@@ -1169,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (railProStatus) railProStatus.textContent = 'Upgrade to Pro';
         if (titlebarProLabel) titlebarProLabel.textContent = 'Free Tier';
       }
+      updatePlansUI();
     } catch (err) {
       console.warn('License verification error:', err);
     }
@@ -1192,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (railProStatus) railProStatus.textContent = 'Pro Active';
       if (titlebarProLabel) titlebarProLabel.textContent = 'Pro Active';
+      updatePlansUI();
 
       showToast(`CleanTV Pro Activated: ${state.license.tier}!`, 'success');
       logRemote(`[LICENSE] Activated Pro key: ${cleanKey}`);
@@ -1234,6 +1236,235 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     activateLicenseKey(k);
+  });
+
+  // ─── Plans & 1-Click Checkout System ─────────────────────────────────────────
+  const checkoutModalOverlay = document.getElementById('checkoutModalOverlay');
+  const checkoutModalPlanTitle = document.getElementById('checkoutModalPlanTitle');
+  const checkoutModalPriceTag = document.getElementById('checkoutModalPriceTag');
+  const btnCloseCheckoutModal = document.getElementById('btnCloseCheckoutModal');
+  const btnBuyPlanMonthly = document.getElementById('btnBuyPlanMonthly');
+  const btnBuyPlanLifetime = document.getElementById('btnBuyPlanLifetime');
+  const btnExecuteOneClickPay = document.getElementById('btnExecuteOneClickPay');
+  const btnVerifyUpiPay = document.getElementById('btnVerifyUpiPay');
+  const btnPayCardPay = document.getElementById('btnPayCardPay');
+  const btnLaunchMsStoreCheckout = document.getElementById('btnLaunchMsStoreCheckout');
+  const checkoutProgressBox = document.getElementById('checkoutProgressBox');
+  const checkoutProgressFill = document.getElementById('checkoutProgressFill');
+  const checkoutStatusStep = document.getElementById('checkoutStatusStep');
+  const checkoutStatusPercent = document.getElementById('checkoutStatusPercent');
+  const checkoutSuccessBox = document.getElementById('checkoutSuccessBox');
+  const checkoutSuccessMessage = document.getElementById('checkoutSuccessMessage');
+  const checkoutGeneratedKey = document.getElementById('checkoutGeneratedKey');
+  const btnCloseSuccessModal = document.getElementById('btnCloseSuccessModal');
+  const btnPlansRestorePurchases = document.getElementById('btnPlansRestorePurchases');
+  const btnPlansEnterKeyDirect = document.getElementById('btnPlansEnterKeyDirect');
+  const plansCurrentTierTitle = document.getElementById('plansCurrentTierTitle');
+  const plansCurrentTierPill = document.getElementById('plansCurrentTierPill');
+  const plansCurrentTierSubtitle = document.getElementById('plansCurrentTierSubtitle');
+  const plansActiveIcon = document.getElementById('plansActiveIcon');
+
+  let activeCheckoutPlan = { plan: 'lifetime', price: '₹200', name: 'CleanTV Pro Lifetime' };
+
+  function updatePlansUI() {
+    if (!plansCurrentTierTitle) return;
+    if (state.license.isPro) {
+      const isLifetime = (state.license.tier || '').toLowerCase().includes('lifetime');
+      plansCurrentTierTitle.textContent = state.license.tier || 'CleanTV Pro Lifetime';
+      plansCurrentTierPill.textContent = 'ACTIVE';
+      plansCurrentTierPill.className = isLifetime ? 'plan-badge-pill lifetime' : 'plan-badge-pill popular';
+      if (plansActiveIcon) plansActiveIcon.textContent = isLifetime ? '👑' : '⭐';
+      if (plansCurrentTierSubtitle) {
+        plansCurrentTierSubtitle.textContent = `Your license key is cryptographically signed (${state.license.key || 'ACTIVE'}). Multi-device TV sync is unlocked.`;
+      }
+
+      if (btnBuyPlanLifetime) {
+        if (isLifetime) {
+          btnBuyPlanLifetime.textContent = '✓ Active Lifetime Plan';
+          btnBuyPlanLifetime.className = 'btn-buy-oneclick disabled';
+        } else {
+          btnBuyPlanLifetime.textContent = '⚡ Upgrade to Lifetime (₹200)';
+          btnBuyPlanLifetime.className = 'btn-buy-oneclick lifetime';
+        }
+      }
+      if (btnBuyPlanMonthly) {
+        if (!isLifetime) {
+          btnBuyPlanMonthly.textContent = '✓ Active Monthly Plan';
+          btnBuyPlanMonthly.className = 'btn-buy-oneclick disabled';
+        } else {
+          btnBuyPlanMonthly.textContent = '⚡ Switch to Monthly (₹99)';
+          btnBuyPlanMonthly.className = 'btn-buy-oneclick monthly';
+        }
+      }
+    } else {
+      plansCurrentTierTitle.textContent = 'CleanTV Free Tier';
+      plansCurrentTierPill.textContent = 'STARTER';
+      plansCurrentTierPill.className = 'plan-badge-pill starter';
+      if (plansActiveIcon) plansActiveIcon.textContent = '📺';
+      if (plansCurrentTierSubtitle) {
+        plansCurrentTierSubtitle.textContent = 'Upgrade to Pro with 1-Click checkout to unlock Ad-Shield DNS, deep debloater, and Voice AI.';
+      }
+
+      if (btnBuyPlanLifetime) {
+        btnBuyPlanLifetime.textContent = '⚡ 1-Click Buy & Activate Lifetime (₹200)';
+        btnBuyPlanLifetime.className = 'btn-buy-oneclick lifetime';
+      }
+      if (btnBuyPlanMonthly) {
+        btnBuyPlanMonthly.textContent = '⚡ 1-Click Buy & Activate (₹99 / mo)';
+        btnBuyPlanMonthly.className = 'btn-buy-oneclick monthly';
+      }
+    }
+  }
+
+  function openOneClickCheckout(plan, price, name) {
+    activeCheckoutPlan = { plan, price, name };
+    if (checkoutModalPlanTitle) checkoutModalPlanTitle.textContent = name;
+    if (checkoutModalPriceTag) checkoutModalPriceTag.textContent = `${price} · Instant 1-Click Activation`;
+    
+    // Reset panes
+    if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
+    if (checkoutSuccessBox) checkoutSuccessBox.style.display = 'none';
+    
+    // Reset tabs
+    document.querySelectorAll('.checkout-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.checkout-tab-pane').forEach(p => p.style.display = 'none');
+    
+    const defaultTab = document.querySelector('.checkout-tab[data-tab="tab-express"]');
+    if (defaultTab) defaultTab.classList.add('active');
+    const defaultPane = document.getElementById('tab-express');
+    if (defaultPane) defaultPane.style.display = 'block';
+
+    if (checkoutModalOverlay) checkoutModalOverlay.style.display = 'flex';
+  }
+
+  function closeOneClickCheckout() {
+    if (checkoutModalOverlay) checkoutModalOverlay.style.display = 'none';
+  }
+
+  // Tabs inside modal
+  document.querySelectorAll('.checkout-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.checkout-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.checkout-tab-pane').forEach(p => p.style.display = 'none');
+      tab.classList.add('active');
+      const targetPane = document.getElementById(tab.getAttribute('data-tab'));
+      if (targetPane) targetPane.style.display = 'block';
+    });
+  });
+
+  async function processOneClickPayment(method = 'express') {
+    // Hide tabs, show progress
+    document.querySelectorAll('.checkout-tab-pane').forEach(p => p.style.display = 'none');
+    if (checkoutProgressBox) checkoutProgressBox.style.display = 'block';
+    if (checkoutSuccessBox) checkoutSuccessBox.style.display = 'none';
+
+    function setStep(pct, label) {
+      if (checkoutProgressFill) checkoutProgressFill.style.width = `${pct}%`;
+      if (checkoutStatusPercent) checkoutStatusPercent.textContent = `${pct}%`;
+      if (checkoutStatusStep) checkoutStatusStep.textContent = label;
+    }
+
+    setStep(20, 'Connecting to payment gateway...');
+    await new Promise(r => setTimeout(r, 200));
+    setStep(45, 'Authorizing secure transaction...');
+    await new Promise(r => setTimeout(r, 200));
+    setStep(75, 'Generating cryptographic Pro license key...');
+
+    try {
+      const res = await apiCall('/api/license/checkout-oneclick', {
+        plan: activeCheckoutPlan.plan,
+        method: method,
+        device: state.device
+      });
+
+      if (res && res.status === 'ok' && res.success) {
+        setStep(90, 'Syncing license to connected Android TV...');
+        await new Promise(r => setTimeout(r, 250));
+        setStep(100, 'Activation complete!');
+
+        state.license.isPro = true;
+        state.license.tier = res.plan || 'CleanTV Pro Lifetime';
+        state.license.key = res.key || '';
+        localStorage.setItem('cleantv_key', res.key || '');
+
+        if (railProStatus) railProStatus.textContent = 'Pro Active';
+        if (titlebarProLabel) titlebarProLabel.textContent = 'Pro Active';
+        updatePlansUI();
+
+        setTimeout(() => {
+          if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
+          if (checkoutSuccessBox) checkoutSuccessBox.style.display = 'block';
+          if (checkoutGeneratedKey) checkoutGeneratedKey.textContent = res.key;
+          if (checkoutSuccessMessage) {
+            checkoutSuccessMessage.textContent = res.tvActivated
+              ? `Payment successful! CleanTV ${res.plan} is now active on this Windows PC and has been pushed to your TV (${state.device}).`
+              : `Payment successful! CleanTV ${res.plan} is now active on this Windows PC. Connect your TV to sync.`;
+          }
+          showToast(`🎉 CleanTV Pro Activated with 1-Click!`, 'success');
+          logRemote(`[1-CLICK CHECKOUT] Activated ${res.plan}: ${res.key}`);
+        }, 250);
+      } else {
+        if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
+        document.getElementById('tab-express').style.display = 'block';
+        showToast(res?.message || 'Payment processing failed. Please try again.', 'error');
+      }
+    } catch (err) {
+      if (checkoutProgressBox) checkoutProgressBox.style.display = 'none';
+      document.getElementById('tab-express').style.display = 'block';
+      showToast('Network error during checkout: ' + err.message, 'error');
+    }
+  }
+
+  btnBuyPlanLifetime?.addEventListener('click', () => {
+    openOneClickCheckout('lifetime', '₹200', 'CleanTV Pro Lifetime');
+  });
+
+  btnBuyPlanMonthly?.addEventListener('click', () => {
+    openOneClickCheckout('monthly', '₹99', 'CleanTV Pro Monthly');
+  });
+
+  btnExecuteOneClickPay?.addEventListener('click', () => processOneClickPayment('express'));
+  btnVerifyUpiPay?.addEventListener('click', () => processOneClickPayment('upi'));
+  btnPayCardPay?.addEventListener('click', () => processOneClickPayment('card'));
+  
+  btnLaunchMsStoreCheckout?.addEventListener('click', () => {
+    window.open('ms-windows-store://pdp/?productid=CleanTV.Pro.Lifetime');
+    processOneClickPayment('store');
+  });
+
+  btnCloseCheckoutModal?.addEventListener('click', closeOneClickCheckout);
+  btnCloseSuccessModal?.addEventListener('click', closeOneClickCheckout);
+
+  btnPlansRestorePurchases?.addEventListener('click', async () => {
+    showToast('Checking Microsoft Store and local entitlements...', 'info');
+    try {
+      const res = await apiCall('/api/license/restore');
+      if (res && res.status === 'ok' && res.restored) {
+        state.license.isPro = true;
+        state.license.tier = res.plan || 'CleanTV Pro Lifetime';
+        state.license.key = res.key || '';
+        updatePlansUI();
+        if (railProStatus) railProStatus.textContent = 'Pro Active';
+        if (titlebarProLabel) titlebarProLabel.textContent = 'Pro Active';
+        showToast(`Purchases restored! Active: ${state.license.tier}`, 'success');
+      } else {
+        showToast('No active purchases found to restore.', 'warning');
+      }
+    } catch (e) {
+      showToast('Restore failed: ' + e.message, 'error');
+    }
+  });
+
+  btnPlansEnterKeyDirect?.addEventListener('click', openLicenseModal);
+
+  // Quick navigation to Plans
+  const titlebarProPill = document.getElementById('titlebarProPill');
+  titlebarProPill?.addEventListener('click', () => switchPage('page-plans', 'Account', 'Plans & Pricing'));
+  const btnUpgradeProBottom = document.querySelector('.rail-footer-profile');
+  btnUpgradeProBottom?.addEventListener('click', (e) => {
+    if (e.target.id !== 'btnRailEnterKey') {
+      switchPage('page-plans', 'Account', 'Plans & Pricing');
+    }
   });
 
   // ─── Initial Startup ──────────────────────────────────────────────────────────

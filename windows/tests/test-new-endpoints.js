@@ -114,6 +114,18 @@ async function run() {
     const actRes = await post('/api/license/activate', { licenseKey: getTestEphemeralKey() }, token);
     assert(actRes.status === 200 && actRes.data.tier === 'pro', 'POST /api/license/activate successfully upgraded to Pro');
 
+    // 7. Test /api/license/checkout-oneclick (Lifetime)
+    const checkoutRes = await post('/api/license/checkout-oneclick', { plan: 'lifetime', method: 'express', device: 'mock-tv-device' }, token);
+    assert(checkoutRes.status === 200 && checkoutRes.data.success === true, 'POST /api/license/checkout-oneclick activates Lifetime');
+    assert(checkoutRes.data.key && checkoutRes.data.key.startsWith('CTV-PRO-'), 'Generated valid CTV-PRO license key');
+    assert(checkoutRes.data.plan === 'CleanTV Pro Lifetime', 'Plan name is CleanTV Pro Lifetime');
+
+    // 8. Test /api/license/checkout-oneclick (Monthly)
+    const monCheckoutRes = await post('/api/license/checkout-oneclick', { plan: 'monthly', method: 'express', device: 'mock-tv-device' }, token);
+    assert(monCheckoutRes.status === 200 && monCheckoutRes.data.success === true, 'POST /api/license/checkout-oneclick activates Monthly');
+    assert(monCheckoutRes.data.key && monCheckoutRes.data.key.startsWith('CTV-MON-'), 'Generated valid CTV-MON license key');
+    assert(monCheckoutRes.data.plan === 'CleanTV Pro Monthly', 'Plan name is CleanTV Pro Monthly');
+
     console.log('\n=======================================');
     console.log(failed ? '[FAILED] Some extended tests failed.' : '[SUCCESS] All extended endpoint tests PASSED.');
   } finally {
